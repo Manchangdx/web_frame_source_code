@@ -141,34 +141,24 @@ def login_fresh():
 
 def login_user(user, remember=False, duration=None, force=False, fresh=True):
     '''
-    Logs a user in. You should pass the actual user object to this. If the
-    user's `is_active` property is ``False``, they will not be logged in
-    unless `force` is ``True``.
-
-    This will return ``True`` if the log in attempt succeeds, and ``False`` if
-    it fails (i.e. because the user is inactive).
-
-    :param user: The user object to log in.
-    :type user: object
-    :param remember: Whether to remember the user after their session expires.
-        Defaults to ``False``.
-    :type remember: bool
-    :param duration: The amount of time before the remember cookie expires. If
-        ``None`` the value set in the settings is used. Defaults to ``None``.
-    :type duration: :class:`datetime.timedelta`
-    :param force: If the user is inactive, setting this to ``True`` will log
-        them in regardless. Defaults to ``False``.
-    :type force: bool
-    :param fresh: setting this to ``False`` will log in the user with a session
-        marked as not "fresh". Defaults to ``True``.
-    :type fresh: bool
     '''
     if not force and not user.is_active:
         return False
 
+    # current_app 是 werkzeug.local 模块中的 LocalProxy 类的实例，它指向当前应用
+    # current_app.login_manager 是 flask_login.login_manager 模块中的 
+    # LoginManager 类的实例，它的 id_attribute 属性的默认值是 'get_id'
+    # 这个默认值在 flask_login.config 模块中定义在 ID_ATTRIBUTE 配置项上
+    # user 是自定义映射类 User 的实例
+    # User 继承了 flask_login.mixins 模块中的 UserMixin 类，该类提供了一个 get_id 方法
+    # 所以等号前面的变量 user_id 的值就是 user 对象的 get_id 方法的调用
+    # 该方法返回的是 user 的 id 属性值的字符串
     user_id = getattr(user, current_app.login_manager.id_attribute)()
     session['_user_id'] = user_id
     session['_fresh'] = fresh
+    # 这个 _session_identifier_generator 方法
+    # 是在当前模块中定义的 _create_identifier 函数
+    # 它根据请求对象所提供的 IP 地址和用户代理生成 128 位 16 进制字符串
     session['_id'] = current_app.login_manager._session_identifier_generator()
 
     if remember:
@@ -184,7 +174,24 @@ def login_user(user, remember=False, duration=None, force=False, fresh=True):
                 raise Exception('duration must be a datetime.timedelta, '
                                 'instead got: {0}'.format(duration))
 
+    # current_app 是 flask.globals 模块中定义的一个应用代理对象
+    # 这个对象的 login_manager 属性就是 flask_login.login_manager 模块中
+    # 定义的 LoginManager 类的实例
+    # 该实例的 _update_request_context_with_user 方法把 user 赋值给
+    # 定义在 flask.ctx 模块中的请求上下文类 RequestContext 的实例的 user 属性
     current_app.login_manager._update_request_context_with_user(user)
+
+    # user_logged_in 是来自 flask_login.signals 模块的变量
+    # 变量值为 Namespace 类的实例调用自身的 signal 方法，调用参数为 'logged-in'
+    # 这个 Namespace 类在 blinker.base 模块中定义
+    # 其 signal 方法的返回值是同模块下的 NameSignal 类的实例
+    # 也就是说 user_logged_in 的值是 blinker.base 模块中的 NameSignal 类的实例
+    # 这个类继承自同模块下的 Signal 类，该类有一个 send 方法
+    #
+    # current_app 是 flask.globals 模块中定义的一个应用代理对象
+    # 其 _get_current_object 方法的返回值是 Flask(__name__) 应用本身
+    # _get_user 函数的返回值是在上一行代码中定义的 RquestContext 的实例的 user 属性值
+    # 在我们的项目中这行代码没什么用
     user_logged_in.send(current_app._get_current_object(), user=_get_user())
     return True
 
@@ -263,11 +270,19 @@ def login_required(func):
     '''
     @wraps(func)
     def decorated_view(*args, **kwargs):
+        # 如果请求方法是 OPTIONS 或者设置了免登录，继续执行视图函数
         if request.method in EXEMPT_METHODS:
             return func(*args, **kwargs)
         elif current_app.config.get('LOGIN_DISABLED'):
             return func(*args, **kwargs)
+        # 因为 User 映射类继承了 flask_login.mixins 模块中的 UserMixin 类
+        # 所以该类的实例都有一个 is_authenticated 属性，属性值为 True
+        # 如果当前用户不是使用 User 类注册的用户，那就是匿名用户，就不能继续执行视图函数了
         elif not current_user.is_authenticated:
+            # current_app.login_manager 是定义在 
+            # flask_login.login_manager 模块中的 LoginManager 类的实例
+            # 此实例的 unauthorized 方法
+            # 会执行 flash 消息并重定向到 login_view 属性指向的视图函数
             return current_app.login_manager.unauthorized()
         return func(*args, **kwargs)
     return decorated_view
@@ -367,11 +382,16 @@ def _create_identifier():
     user_agent = request.headers.get('User-Agent')
     if user_agent is not None:
         user_agent = user_agent.encode('utf-8')
+    # 参数是 IP 地址字符串和用户代理字符串
+    # 前者可以确定用户的网络（电脑），后者可以确定浏览器
     base = '{0}|{1}'.format(_get_remote_addr(), user_agent)
+    # 如果解释器是 Python2 ，bytes 就是 str 
     if str is bytes:
         base = text_type(base, 'utf-8', errors='replace')  # pragma: no cover
     h = sha512()
     h.update(base.encode('utf8'))
+    # 返回根据 IP 地址和用户代理生成的散列值，也就是 16 进制字符串
+    # base 值与散列值一一对应
     return h.hexdigest()
 
 

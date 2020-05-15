@@ -52,18 +52,20 @@ def release_local(local):
 
 class Local(object):
     '''
-    应用启动时，该类被实例化两次，实例化操作在 LocalStack 类中执行
-    服务器每收到一次请求，就会向 self.__storage__ 字典中添加一组键值对
-    其中键是 greenlet 的协程对象 ，值是字典对象，可以称之为「值字典」
-    也就是每个请求在 self.__storage__ 中有唯一的一组键值对相对应
-    值字典内部其中一组键值对，键是字符串 'stack' ，值是列表
-    列表中可能被存入 AppContext 或 RequestContext 的实例，这俩类定义在 flask.ctx 模块中
+    应用启动后，该类会被实例化两次，实例化发生在 LocalStack 类的实例化过程之中
     '''
     __slots__ = ("__storage__", "__ident_func__")
 
     def __init__(self):
-        object.__setattr__(self, "__storage__", {})             
-        object.__setattr__(self, "__ident_func__", get_ident)   
+        # __storage__ 属性是空字典
+        # 服务器收到请求后，LocalStack 实例执行 push 方法
+        # 将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
+        # 存入 __storage__ 中，其中列表里的 obj 就是 push 方法的参数
+        # 它的值只有两种情况：AppContext 或 RequestContext 类的实例
+        # 处理完请求后，LocalStack 实例执行 pop 方法将 __storage__ 中的键值对清空
+        object.__setattr__(self, "__storage__", {})
+        # __ident_func__ 属性值是一个函数，这个函数的调用就是当前协程
+        object.__setattr__(self, "__ident_func__", get_ident)
 
     def __iter__(self):
         return iter(self.__storage__.items())
@@ -73,6 +75,7 @@ class Local(object):
         return LocalProxy(self, proxy)
 
     def __release_local__(self):
+        print('【werkzeug.local.Local】self.__ident_func__():', self.__ident_func__())
         self.__storage__.pop(self.__ident_func__(), None)
 
     def __getattr__(self, name):
@@ -98,13 +101,12 @@ class Local(object):
 
 class LocalStack(object):
     """
-    在应用启动时，会创建两个该类的实例，分别是应用上下文栈和请求上下文栈
-    它们在 flask.globals 模块中被创建
-    创建实例时，首先初始化一个 Local 类的实例
+    应用启动时创建两个该类的实例：
+    请求上下文栈 _request_ctx_stack 和应用上下文栈 _app_ctx_stack
+    每个栈都有一个 _local 属性，属性值是当前模块中的 Local 类的实例
     """
 
     def __init__(self):
-        print('【 LocalStack 】 初始化')
         self._local = Local()
 
     def __release_local__(self):
@@ -128,14 +130,23 @@ class LocalStack(object):
         return LocalProxy(_lookup)
 
     def push(self, obj):
-        """Pushes a new item to the stack"""
+        import threading
+        print('【werkzeug.local.Localstack().push】线程：', threading.current_thread().getName())
+        # 服务器收到请求后，LocalStack 实例执行 push 方法
+        # 将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
+        # 存入 __storage__ 属性中，其中列表里的 obj 就是 push 方法的参数
+        # 该参数的值只有两种情况：AppContext 或 RequestContext 类的实例
+        # 处理完请求后，LocalStack 实例执行 pop 方法将 __storage__ 中的键值对清空
         rv = getattr(self._local, "stack", None)
         if rv is None:
             self._local.stack = rv = []
         rv.append(obj)
+        print('【werkzeug.local.Localstack().push】rv：', rv)
         return rv
 
     def pop(self):
+        import threading
+        print('【werkzeug.local.Localstack().pop 】线程：', threading.current_thread().getName())
         """Removes the topmost item from the stack, will return the
         old value or `None` if the stack was already empty.
         """
@@ -151,8 +162,7 @@ class LocalStack(object):
     @property
     def top(self):
         """
-        返回 Local.__storate__['stack'] 列表的最后一项
-        它应该是 AppContext 或 RequestContext 的实例
+        返回的值通常是当前用户请求过程中创建的 AppContext 或 RequestContext 类的实例
         """
         try:
             return self._local.stack[-1]
@@ -178,9 +188,6 @@ class LocalManager(object):
     """
 
     def __init__(self, locals=None, ident_func=None):
-        '''
-
-        '''
         if locals is None:
             self.locals = []
         elif isinstance(locals, Local):
@@ -246,19 +253,15 @@ class LocalManager(object):
 @implements_bool
 class LocalProxy(object):
     """
-    该类被实例化四次，分别创建 current_app request session g 这四个上下文对象
-    它们在 flask.globals 模块中被创建
-    此外还有一次实例化创建打印日志相关的上下文对象
-    如果使用了 Flask-Login 插件，就会有一次实例化创建 current_user 对象
     """
 
     __slots__ = ("__local", "__dict__", "__name__", "__wrapped__")
 
     def __init__(self, local, name=None):
-        '''
-        初始化时，传入的参数 local 是一个函数
-        '''
-        print("【 LocalProxy 】初始化，local：", local)
+        # 如果使用 object 的 __setattr__ 定义属性，需要提供仨参数
+        # 其中第二个参数为属性名的字符串，如果是私有属性，就得加上类名
+        # 设置 __local 属性值为一个函数
+        # 此函数可以直接调用，返回值是 AppContext 或 RequestContext 的实例
         object.__setattr__(self, "_LocalProxy__local", local)
         object.__setattr__(self, "__name__", name)
         if callable(local) and not hasattr(local, "__release_local__"):
@@ -267,8 +270,9 @@ class LocalProxy(object):
             object.__setattr__(self, "__wrapped__", local)
 
     def _get_current_object(self):
-        """
-        """
+        '''
+        该方法的返回值是 RequestContext 的实例的 session 属性值
+        '''
         if not hasattr(self.__local, "__release_local__"):
             return self.__local()
         try:
@@ -278,6 +282,8 @@ class LocalProxy(object):
 
     @property
     def __dict__(self):
+        '''
+        '''
         try:
             return self._get_current_object().__dict__
         except RuntimeError:

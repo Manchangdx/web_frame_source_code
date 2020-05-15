@@ -298,6 +298,8 @@ class SecureCookieSessionInterface(SessionInterface):
     session_class = SecureCookieSession
 
     def get_signing_serializer(self, app):
+        # 此方法返回令牌生成器，即 URLSafeTimedSerializer 的实例
+        # 生成该实例必须提供 secret_key 字符串，参数 salt 可以不提供
         if not app.secret_key:
             return None
         signer_kwargs = dict(
@@ -311,18 +313,34 @@ class SecureCookieSessionInterface(SessionInterface):
         )
 
     def open_session(self, app, request):
+        '''
+        每次服务器收到请求，这个方法都会被请求上下文对象的 push 方法调用
+        并将调用结果赋值给请求上下文对象的 session 属性
+        '''
+        # 变量 s 是令牌生成器
         s = self.get_signing_serializer(app)
         if s is None:
             return None
-        print('xxxxxxxxxxxxxxxxx request.cookies', request.cookies)
-        print('xxxxxxxxxxxxxxxxx app.session_cookie_name',app.session_cookie_name)
+        # 当前方法的参数 request 是 werkzeug.wrappers.request.Request 的实例
+        # request.cookies 的值来自浏览器请求
+        # 如果浏览器首次访问该网站，自然是没有 cookies 的
+        # 非首次访问的话，请求信息中会包含 HTTP_COOKIE 字段
+        # request.cookies 的值就是从这个字段解析获得的数据生成的字典
+        # app.session_cookie_name 的值是字符串 'session'
+        # 具体参见 flask.app.Flask 类中的注释
+        # val 的值就是 HTTP_COOKIE 字段的值中的 'session' 部分
+        # 这个值其实就是令牌，也叫做加密签名
         val = request.cookies.get(app.session_cookie_name)
+        #print('【 SecureCookieSessionInterface.open_session 】val:', val)
         if not val:
             return self.session_class()
+        # 这个变量是 31 天换算成秒得到的数值
         max_age = total_seconds(app.permanent_session_lifetime)
         try:
+            # 令牌生成器 s 的 loads 方法返回一个字典对象
+            # 调用 loads 方法需要提供令牌和有效时间参数
             data = s.loads(val, max_age=max_age)
-            print('data:', data)
+            #print('data:', data)
             return self.session_class(data)
         except BadSignature:
             return self.session_class()

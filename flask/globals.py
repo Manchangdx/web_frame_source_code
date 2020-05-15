@@ -69,8 +69,20 @@ _app_ctx_stack = LocalStack()
 这六个上下文对象都是在启动应用时创建的，它们只会被创建一次
 '''
 
+# 应用启动后，服务器收到请求时调用 app 的 __call__ 方法
+# 调用此方法的结果就是调用 app 的 wsgi_app 方法
+# 后者会创建一个 RequestContext 类的实例，叫做「请求上下文对象」
+# 然后 wsgi_app 会调用「请求上下文对象」的 push 方法
+# 而 push 方法会调用 app 的 app_context 方法生成 AppContext 类的实例
+# 所以每次服务器收到请求，都会生成一个 AppContext 类的实例，叫做「应用上下文对象」
+# 生成实例需要传入一个 app 参数，该参数就是应用本身，也就是 Flask 类的实例
+# 这个参数会赋值给 AppContext 实例的 app 属性
+# 每次请求都会生成新的 AppContext 实例，但其 app 属性值都是同一个，就是应用本身
+# _find_app 的方法的返回值就是应用本身，每次都是同一个
 current_app = LocalProxy(_find_app)
+
 g = LocalProxy(partial(_lookup_app_object, "g"))
+
 # 应用启动后，服务器收到请求时调用 app 的 __call__ 方法
 # 调用此方法的结果就是调用 app 的 wsgi_app 方法
 # 后者会创建一个 RequestContext 类的实例，叫做「请求上下文对象」
@@ -78,14 +90,20 @@ g = LocalProxy(partial(_lookup_app_object, "g"))
 # 该实例有一个 cookies 属性，包含请求数据中的 Cookie 数据，这是个字典对象
 # 所以我们才可以使用 request.cookies
 # 该 Request 实例会被赋值给请求上下文对象的 request 属性
-# 下面这个 request 是一个请求代理
-# 其参数是个偏函数，其调用结果就是 RequestContext 实例的 request 属性值
-# 请求代理的 _get_current_object 方法的返回值就是这个 request 属性值
-# 请求代理的所有属性都来自「请求上下文对象」
-# 请求代理是一成不变的，每次收到请求后，调用一次偏函数，请求代理的属性就替换一次
+# 下面这个 request 是一个代理，其参数是个偏函数
+# 此偏函数的调用结果就是「请求上下文对象」的 request 属性值，即 Request 实例
+# 代理的 _get_current_object 方法的返回值就是这个偏函数的调用
+# 代理的所有属性都来自「请求上下文对象」的 request 属性值
+# 代理是一成不变的，每次收到请求后，调用一次偏函数，代理的属性就替换一次
 request = LocalProxy(partial(_lookup_req_object, "request"))
+
 # 参数为偏函数，偏函数的调用结果为 RequestContext 实例的 session 属性
 # 这个属性的值为 flask.sessions 模块中定义的 SecureCookieSession 类的实例
 # 该类继承了 CallbackDict 类，后者又继承了 dict 类
 # 这个属性的值才是真正的 session ，下面的 session 是一个代理对象
+# 代理在应用启动后创建一次
+# 每次服务器收到请求后，调用一次代理的 _get_current_object 方法
+# 也就是执行偏函数，获取本次请求生成的「请求上下文对象」的 session 属性值
+# 然后赋值给自身的一系列属性
+# 所以代理一成不变，每次请求都会刷新代理的属性
 session = LocalProxy(partial(_lookup_req_object, "session"))

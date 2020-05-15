@@ -212,6 +212,7 @@ class AppContext(object):
     """
 
     def __init__(self, app):
+        #print('【 AppContext 】初始化')
         self.app = app
         self.url_adapter = app.create_url_adapter(None)
         self.g = app.app_ctx_globals_class()
@@ -255,16 +256,29 @@ class AppContext(object):
 class RequestContext(object):
     """
     每次服务器收到请求，都会创建一个该类的实例
+    调用此类的是 flask.app.Flask().request_context 方法
     """
 
     def __init__(self, app, environ, request=None, session=None):
+        browser = 'Chrome'
+        if 'OPR' in environ['HTTP_USER_AGENT']:
+            browser = 'Opera'
+        if 'Firefox' in environ['HTTP_USER_AGENT']:
+            browser = 'Firefox'
+        print('【flask.ctx.RequestContext】初始化', environ['RAW_URI'], '==={}==='.format(browser))
+        import threading
+        print('【flask.ctx.RequestContext】初始化，线程：', threading.current_thread().getName())
         self.app = app
+        # 初始化时，通常不提供 request 和 session 这两个参数
         if request is None:
+            # 调用 app.request_class 方法生成的是 
+            # werkzeug.wrappers.request 模块中的 Request 类的实例
+            # 这个实例有很多属性，例如 cookies 包含请求中的 Cookies 信息
             request = app.request_class(environ)
-        print('【请求发起时，RequestContext.request】', request)
         self.request = request
         self.url_adapter = None
         try:
+            # 路由适配器，等号后面的方法的返回值是 werkzeug.routing.MapAdapter 的实例
             self.url_adapter = app.create_url_adapter(self.request)
         except HTTPException as e:
             self.request.routing_exception = e
@@ -324,29 +338,35 @@ class RequestContext(object):
         """
         try:
             result = self.url_adapter.match(return_rule=True)
+            # result 是元组，第一个元素是路由对象， Rule 实例
+            # 第二个元素是字典，字典中包含路由中的参数
             self.request.url_rule, self.request.view_args = result
         except HTTPException as e:
             self.request.routing_exception = e
 
     def push(self):
-        """Binds the request context to the current context."""
-        # If an exception occurs in debug mode or if context preservation is
-        # activated under exception situations exactly one context stays
-        # on the stack.  The rationale is that you want to access that
-        # information under debug situations.  However if someone forgets to
-        # pop that context again we want to make sure that on the next push
-        # it's invalidated, otherwise we run at risk that something leaks
-        # memory.  This is usually only a problem in test suite since this
-        # functionality is not active in production environments.
+        '''
+        每次服务器收到请求，都会创建 RequestContext 实例并调用此方法
+        此方法顺序完成如下操作：
+        1、创建「应用上下文对象」并将其压入「应用上下文栈」的栈顶
+        2、将「请求上下文对象」也就是 self 压入「请求上下文栈」的栈顶
+        3、根据 self.request.cookies 生成 self.session 
+        4、调用 self.match_request 方法给 self.request 定义两个路由相关的属性
+        '''
+        # 请求上下文栈顶，这会儿肯定是 None
+        # 因为现在刚刚创建完「请求上下文对象」，还没把自身压入栈中
         top = _request_ctx_stack.top
         if top is not None and top.preserved:
             top.pop(top._preserved_exc)
 
-        # Before we push the request context we have to ensure that there
-        # is an application context.
+        # 应用上下文栈的栈顶，这会儿肯定也是 None，应用上下文对象还没创建呢
         app_ctx = _app_ctx_stack.top
         if app_ctx is None or app_ctx.app != self.app:
+            # 创建 AppContext 类的实例，即「应用上下文对象」
             app_ctx = self.app.app_context()
+            # 调用「应用上下文对象」的 push 方法
+            # 此方法内部会调用「应用上下文栈」的 push 方法
+            # 将「应用上下文对象」自身压入「应用上下文栈」的栈顶
             app_ctx.push()
             self._implicit_app_ctx_stack.append(app_ctx)
         else:
@@ -355,22 +375,32 @@ class RequestContext(object):
         if hasattr(sys, "exc_clear"):
             sys.exc_clear()
 
+        import threading
+        print('【flask.ctx.RequestContext().push】线程：', threading.current_thread().getName())
+        # 调用「请求上下文栈」的 push 方法将「请求上下文对象」压入栈顶
         _request_ctx_stack.push(self)
 
-        # Open the session at the moment that the request context is available.
-        # This allows a custom open_session method to use the request context.
-        # Only open a new session if this is the first time the request was
-        # pushed, otherwise stream_with_context loses the session.
+        # 多数情况下，当前类实例化时 self.session 都是 None
         if self.session is None:
-            # 
+            # 这个 session_interface 就是 
+            # flask.sessions 模块中的 SecureCookieSessionInterface 类的实例
             session_interface = self.app.session_interface
+            # 调用 SecureCookieSessionInterface 实例的 open_session 方法
+            # 返回 flask.sessions.SecureCookieSession 类的实例
+            # 这个实例其实是个类字典对象，它有一些来自请求 Cookies 中的键值对
+            # 包括 _fresh _id _user_id csrf_token 等字段
             self.session = session_interface.open_session(self.app, self.request)
 
             if self.session is None:
                 self.session = session_interface.make_null_session(self.app)
 
+        # self.url_adapter 是在当前类初始化的时候定义的属性
+        # 属性值为路由适配器，werkzeug.routing.MapAdapter 的实例
         if self.url_adapter is not None:
+            # 调用 self.match_request 方法给 self.request 定义两个路由相关的属性
             self.match_request()
+        print('【flask.ctx.RequestContext().push】LocalStack().push 完成后')
+        print('【flask.ctx.RequestContext().push】线程：', threading.current_thread().getName())
 
     def pop(self, exc=_sentinel):
         """Pops the request context and unbinds it by doing that.  This will

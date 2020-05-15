@@ -114,7 +114,11 @@ class DispatchingJinjaLoader(BaseLoader):
 
 
 def _render(template, context, app):
-    """Renders the template and fires the signal"""
+    '''
+    参数 template 是 jinja2.environment.Template 的实例 
+    参数 context 是 render_template 的关键字参数以及 g request session 的字典
+    参数 app 是应用本身
+    '''
 
     before_render_template.send(app, template=template, context=context)
     rv = template.render(context)
@@ -132,8 +136,10 @@ def render_template(template_name_or_list, **context):
     :param context: the variables that should be available in the
                     context of the template.
     """
-    ctx = _app_ctx_stack.top
-    ctx.app.update_template_context(context)
+    ctx = _app_ctx_stack.top                    
+    # 更新 context 字典，把当前请求中的 g 、request 和 session 放到字典里
+    ctx.app.update_template_context(context)    
+    # 第一个参数是 jinja2.environment.Template 的实例
     return _render(
         ctx.app.jinja_env.get_or_select_template(template_name_or_list),
         context,

@@ -22,16 +22,20 @@ class UserMixin(object):
 
     @property
     def is_active(self):
+        '''是否为活跃用户'''
         return True
 
     @property
     def is_authenticated(self):
+        '''是否为已注册用户'''
         return True
 
     @property
     def is_anonymous(self):
+        '''是否为匿名用户'''
         return False
 
+    # 获取用户的 id 属性值的字符串，text_type 就是 str 
     def get_id(self):
         try:
             return text_type(self.id)

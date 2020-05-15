@@ -263,6 +263,15 @@ class Flask(_PackageBoundObject):
     #:
     #: This attribute can also be configured from the config with the
     #: ``SESSION_COOKIE_NAME`` configuration key.  Defaults to ``'session'``
+    '''
+    ConfigAttribute 是描述符类，描述符类的特点是有个 __get__ 方法
+    这里 Flask 类的 session_cookie_name 属性被赋值了描述符类的实例
+    当 Flask 类的实例（也就是「应用」）调用 session_cookie_name 属性时
+    就是调用描述符类的 __get__ 方法，这个方法会返回 app.config[xxx]
+    其中 xxx 就是 ConfigAttribute 实例化时的参数 'SESSION_COOKIE_NAME'
+    这个配置项定义在当前 Flask 类的 default_config 属性中，值为 'session'
+    所以这个 session_cookie_name 的属性值就是 'session'
+    '''
     session_cookie_name = ConfigAttribute("SESSION_COOKIE_NAME")
 
     #: A :class:`~datetime.timedelta` which is used to set the expiration
@@ -526,12 +535,10 @@ class Flask(_PackageBoundObject):
         #: .. versionadded:: 0.7
         self.url_default_functions = {}
 
-        #: A dictionary with list of functions that are called without argument
-        #: to populate the template context.  The key of the dictionary is the
-        #: name of the blueprint this function is active for, ``None`` for all
-        #: requests.  Each returns a dictionary that the template context is
-        #: updated with.  To register a function here, use the
-        #: :meth:`context_processor` decorator.
+        # 函数 _default_template_ctx_processor 定义在 flask.templating 模块中
+        # 该函数的调用会将
+        # 请求上下文对象的 g 和应用上下文对象的 request 、session 
+        # 构成一个字典返回
         self.template_context_processors = {None: [_default_template_ctx_processor]}
 
         #: A list of shell context processor functions that should be run
@@ -680,11 +687,8 @@ class Flask(_PackageBoundObject):
 
     @locked_cached_property
     def jinja_env(self):
-        """The Jinja environment used to load templates.
-
-        The environment is created the first time this property is
-        accessed. Changing :attr:`jinja_options` after that will have no
-        effect.
+        """
+        该函数的返回值是 flask.templating.Environment 的实例
         """
         return self.create_jinja_environment()
 
@@ -778,6 +782,7 @@ class Flask(_PackageBoundObject):
         if "auto_reload" not in options:
             options["auto_reload"] = self.templates_auto_reload
 
+        # 变量 rv 的值是 flask.templating.Environment 的实例
         rv = self.jinja_environment(self, **options)
         rv.globals.update(
             url_for=url_for,
@@ -817,17 +822,15 @@ class Flask(_PackageBoundObject):
         return filename.endswith((".html", ".htm", ".xml", ".xhtml"))
 
     def update_template_context(self, context):
-        """Update the template context with some commonly used variables.
-        This injects request, session, config and g into the template
-        context as well as everything template context processors want
-        to inject.  Note that the as of Flask 0.6, the original values
-        in the context will not be overridden if a context processor
-        decides to return a value with the same key.
-
-        :param context: the context as a dictionary that is updated in place
-                        to add extra variables.
         """
+        参数 context 是 render_template 中的关键字参数，是个存储模板上下文的字典
+        可变数据类型作为参数自然是全局对象
+        将当前请求的处理过程中生成的 g 、request 和 session 添加到 context 字典中
+        """
+        # 这个变量 func 的值是一个列表，列表中通常有一个函数，这个函数的返回值是字典
+        # 像这样：{'g': g, 'request': request, 'session', session}
         funcs = self.template_context_processors[None]
+        # 请求上下文对象，flask.ctx.RequestContext 的实例
         reqctx = _request_ctx_stack.top
         if reqctx is not None:
             bp = reqctx.request.blueprint
@@ -836,9 +839,7 @@ class Flask(_PackageBoundObject):
         orig_ctx = context.copy()
         for func in funcs:
             context.update(func())
-        # make sure the original values win.  This makes it possible to
-        # easier add new variables in context processors without breaking
-        # existing views.
+        # 如果 context 中原本就定义了 func() 中的字段，以原值为准
         context.update(orig_ctx)
 
     def make_shell_context(self):
@@ -887,62 +888,8 @@ class Flask(_PackageBoundObject):
         self.jinja_env.auto_reload = self.templates_auto_reload
 
     def run(self, host=None, port=None, debug=None, load_dotenv=True, **options):
-        """Runs the application on a local development server.
-
-        Do not use ``run()`` in a production setting. It is not intended to
-        meet security and performance requirements for a production server.
-        Instead, see :ref:`deployment` for WSGI server recommendations.
-
-        If the :attr:`debug` flag is set the server will automatically reload
-        for code changes and show a debugger in case an exception happened.
-
-        If you want to run the application in debug mode, but disable the
-        code execution on the interactive debugger, you can pass
-        ``use_evalex=False`` as parameter.  This will keep the debugger's
-        traceback screen active, but disable code execution.
-
-        It is not recommended to use this function for development with
-        automatic reloading as this is badly supported.  Instead you should
-        be using the :command:`flask` command line script's ``run`` support.
-
-        .. admonition:: Keep in Mind
-
-           Flask will suppress any server error with a generic error page
-           unless it is in debug mode.  As such to enable just the
-           interactive debugger without the code reloading, you have to
-           invoke :meth:`run` with ``debug=True`` and ``use_reloader=False``.
-           Setting ``use_debugger`` to ``True`` without being in debug mode
-           won't catch any exceptions because there won't be any to
-           catch.
-
-        :param host: the hostname to listen on. Set this to ``'0.0.0.0'`` to
-            have the server available externally as well. Defaults to
-            ``'127.0.0.1'`` or the host in the ``SERVER_NAME`` config variable
-            if present.
-        :param port: the port of the webserver. Defaults to ``5000`` or the
-            port defined in the ``SERVER_NAME`` config variable if present.
-        :param debug: if given, enable or disable debug mode. See
-            :attr:`debug`.
-        :param load_dotenv: Load the nearest :file:`.env` and :file:`.flaskenv`
-            files to set environment variables. Will also change the working
-            directory to the directory containing the first file found.
-        :param options: the options to be forwarded to the underlying Werkzeug
-            server. See :func:`werkzeug.serving.run_simple` for more
-            information.
-
-        .. versionchanged:: 1.0
-            If installed, python-dotenv will be used to load environment
-            variables from :file:`.env` and :file:`.flaskenv` files.
-
-            If set, the :envvar:`FLASK_ENV` and :envvar:`FLASK_DEBUG`
-            environment variables will override :attr:`env` and
-            :attr:`debug`.
-
-            Threaded mode is enabled by default.
-
-        .. versionchanged:: 0.10
-            The default port is now picked from the ``SERVER_NAME``
-            variable.
+        """
+        调用 werkzeug.serving 模块中的 run_simple 函数，创建套接字并持续监听
         """
         # Change this into a no-op if the server is invoked from the
         # command line. Have a look at cli.py for more information.
@@ -1912,18 +1859,17 @@ class Flask(_PackageBoundObject):
         raise FormDataRoutingRedirect(request)
 
     def dispatch_request(self):
-        """Does the request dispatching.  Matches the URL and returns the
-        return value of the view or error handler.  This does not have to
-        be a response object.  In order to convert the return value to a
-        proper response object, call :func:`make_response`.
-
-        .. versionchanged:: 0.7
-           This no longer does the exception handling, this code was
-           moved to the new :meth:`full_dispatch_request`.
         """
+        请求上下文对象的 request 属性是请求对象，flask.wrappers.Request 的实例
+        通过请求对象的 url_rule 和 view_args 属性调用视图函数，并返回调用结果
+        """
+        # req 是请求上下文对象的 request 属性值
+        # 它是 flask.wrappers 模块中的 Request 类的实例
         req = _request_ctx_stack.top.request
         if req.routing_exception is not None:
             self.raise_routing_exception(req)
+        # 从请求对象中获取路由对象，rule 是 werkzeug.routing.Rule 类的实例
+        # 请求上下文对象在执行 push 方法时，会定义该属性
         rule = req.url_rule
         # if we provide automatic options for this URL and the
         # request came with the OPTIONS method, reply automatically
@@ -1932,21 +1878,35 @@ class Flask(_PackageBoundObject):
             and req.method == "OPTIONS"
         ):
             return self.make_default_options_response()
-        # otherwise dispatch to the handler for that endpoint
+        # self.view_functions 是字典，里面包含全部视图函数键值对
+        # key 是视图函数的字符串，value 是视图函数
+        # rule.endpoint 是视图函数的字符串
+        # 例如 'user.index' 表示 user 蓝图下的 index 视图函数
+        # req.view_args 是和 req.rul_rule 一同被定义的，前者是路由的参数字典
+        # 所以这个返回值就是请求对应的视图函数的调用
         return self.view_functions[rule.endpoint](**req.view_args)
 
     def full_dispatch_request(self):
-        """Dispatches the request and on top of that performs request
-        pre and postprocessing as well as HTTP exception catching and
-        error handling.
-
-        .. versionadded:: 0.7
         """
+        1、调用各种预处理函数
+        2、调用 self.dispatch_request 方法获取视图函数的返回值
+        3、调用 self.finalize_request 方法处理视图函数的返回值
+           生成响应对象即 flask.wrappers.Response 的实例
+           并执行由 @after_request 装饰器装饰的函数
+        4、最后返回响应对象
+        """
+        # 此方法将调用 self.before_first_request_funcs 列表中的函数
+        # 这些函数就是 @before_first_request 或 @before_request 装饰器装饰的函数
+        # 执行完这些预处理函数后，将 self._got_first_request 属性值变为 True
         self.try_trigger_before_first_request_functions()
         try:
+            # request_started 是在 flask.signals 模块中定义的变量
+            # 变量值是 blinker.base.NamedSignal 类的实例
+            # TODO 这个 send 方法待研究
             request_started.send(self)
             rv = self.preprocess_request()
             if rv is None:
+                # rv 就是视图函数的返回值
                 rv = self.dispatch_request()
         except Exception as e:
             rv = self.handle_user_exception(e)
@@ -1965,8 +1925,10 @@ class Flask(_PackageBoundObject):
 
         :internal:
         """
+        # 处理视图函数的返回值获取响应对象
         response = self.make_response(rv)
         try:
+            # 执行由 @after_request 装饰器装饰的函数
             response = self.process_response(response)
             request_finished.send(self, response=response)
         except Exception:
@@ -1975,6 +1937,7 @@ class Flask(_PackageBoundObject):
             self.logger.exception(
                 "Request finalizing failed with an error while handling an error"
             )
+        # 返回响应对象
         return response
 
     def try_trigger_before_first_request_functions(self):
@@ -2027,64 +1990,25 @@ class Flask(_PackageBoundObject):
         return False
 
     def make_response(self, rv):
-        """Convert the return value from a view function to an instance of
-        :attr:`response_class`.
-
-        :param rv: the return value from the view function. The view function
-            must return a response. Returning ``None``, or the view ending
-            without returning, is not allowed. The following types are allowed
-            for ``view_rv``:
-
-            ``str`` (``unicode`` in Python 2)
-                A response object is created with the string encoded to UTF-8
-                as the body.
-
-            ``bytes`` (``str`` in Python 2)
-                A response object is created with the bytes as the body.
-
-            ``dict``
-                A dictionary that will be jsonify'd before being returned.
-
-            ``tuple``
-                Either ``(body, status, headers)``, ``(body, status)``, or
-                ``(body, headers)``, where ``body`` is any of the other types
-                allowed here, ``status`` is a string or an integer, and
-                ``headers`` is a dictionary or a list of ``(key, value)``
-                tuples. If ``body`` is a :attr:`response_class` instance,
-                ``status`` overwrites the exiting value and ``headers`` are
-                extended.
-
-            :attr:`response_class`
-                The object is returned unchanged.
-
-            other :class:`~werkzeug.wrappers.Response` class
-                The object is coerced to :attr:`response_class`.
-
-            :func:`callable`
-                The function is called as a WSGI application. The result is
-                used to create a response object.
-
-        .. versionchanged:: 0.9
-           Previously a tuple was interpreted as the arguments for the
-           response object.
+        """
+        该函数接受视图函数的返回值作为参数
+        对参数进行处理，并返回 flask.wrappers.Response 的实例，也就是响应对象
         """
 
         status = headers = None
 
-        # unpack tuple returns
+        # rv 是视图函数的返回值
+        # 这个返回值可能是 body 对象，也可能是个带响应码或 headers 的元组
+        # 下面这个 if 语句块保证 rv 的值是 body 
         if isinstance(rv, tuple):
             len_rv = len(rv)
-
-            # a 3-tuple is unpacked directly
             if len_rv == 3:
                 rv, status, headers = rv
-            # decide if a 2-tuple has status or headers
             elif len_rv == 2:
                 if isinstance(rv[1], (Headers, dict, tuple, list)):
                     rv, headers = rv
                 else:
                     rv, status = rv
-            # other sized tuples are not allowed
             else:
                 raise TypeError(
                     "The view function did not return a valid response tuple."
@@ -2092,7 +2016,6 @@ class Flask(_PackageBoundObject):
                     " (body, status), or (body, headers)."
                 )
 
-        # the body must not be None
         if rv is None:
             raise TypeError(
                 "The view function did not return a valid response. The"
@@ -2101,13 +2024,21 @@ class Flask(_PackageBoundObject):
             )
 
         # make sure the body is an instance of the response class
+        # self.response_class 是 flask.wrappers 模块中的 Response 类
+        # 视图函数的返回值 rv 最常见的两种数据类型是 str 和 flask.wrappers.Response
         if not isinstance(rv, self.response_class):
+            # 变量 text_type 的值是 str 
+            # 如果视图函数的返回值 rv 是字符串或者二进制数据
+            # 调用 self.response_class 属性生成 flask.wrappers.Response 的实例
+            # 该实例继承了 werkzeug.wrappers.base_reponse.BaseResponse 类
+            # 所以实例化的时候会调用此父类的初始化方法
+            # 将 rv 转换成二进制后存到一个空列表里并赋值给自身的 response 属性
+            # 最后将生成的 flask.wrappers.Response 的实例赋值给变量 rv
             if isinstance(rv, (text_type, bytes, bytearray)):
-                # let the response class set the status and headers instead of
-                # waiting to do it manually, so that the class can handle any
-                # special logic
                 rv = self.response_class(rv, status=status, headers=headers)
                 status = headers = None
+            # 如果视图函数的返回值 rv 是字典，调用 flask.join.__init__.jsonify 方法
+            # 这个方法的返回值也是 flask.wrappers.Response 的实例
             elif isinstance(rv, dict):
                 rv = jsonify(rv)
             elif isinstance(rv, BaseResponse) or callable(rv):
@@ -2227,6 +2158,7 @@ class Flask(_PackageBoundObject):
         further request handling is stopped.
         """
 
+        # 获取处理请求的视图函数所属蓝图的字符串
         bp = _request_ctx_stack.top.request.blueprint
 
         funcs = self.url_value_preprocessors.get(None, ())
@@ -2415,42 +2347,43 @@ class Flask(_PackageBoundObject):
             builder.close()
 
     def wsgi_app(self, environ, start_response):
-        """The actual WSGI application. This is not implemented in
-        :meth:`__call__` so that middlewares can be applied without
-        losing a reference to the app object. Instead of doing this::
-
-            app = MyMiddleware(app)
-
-        It's a better idea to do this instead::
-
-            app.wsgi_app = MyMiddleware(app.wsgi_app)
-
-        Then you still have the original application object around and
-        can continue to call methods on it.
-
-        .. versionchanged:: 0.7
-            Teardown events for the request and app contexts are called
-            even if an unhandled error occurs. Other events may not be
-            called depending on when an error occurs during dispatch.
-            See :ref:`callbacks-and-errors`.
-
-        :param environ: A WSGI environment.
-        :param start_response: A callable accepting a status code,
-            a list of headers, and an optional exception context to
-            start the response.
+        import threading, time
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        from .globals import _request_ctx_stack
+        print('***********************', getattr(_request_ctx_stack._local, "stack", None))
+        print('【flask.app.Flask().wsgi_app】打印全部线程：')
+        for i in threading.enumerate():
+            print(i)
+        print('【flask.app.Flask().wsgi_app】线程：', threading.current_thread().getName())
         """
+        这是核心方法，每次服务器收到请求都会运行这个方法
+        其它代码都是由这个方法内部被调用
+        """
+
+        # 此方法返回 flask.ctx.RequestContext 的实例，称为「请求上下文对象」
         ctx = self.request_context(environ)
         error = None
         try:
             try:
+                # 调用请求上下文对象的 push 方法
                 ctx.push()
+                print('***********************', getattr(_request_ctx_stack._local, "stack", None))
+                print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+                time.sleep(2)
+                print('***********************', getattr(_request_ctx_stack._local, "stack", None))
+                # 获取响应对象并赋值给 response 变量
                 response = self.full_dispatch_request()
+                print('【flask.app.Flask().wsgi_app】得到响应对象，线程：', 
+                        threading.current_thread().getName())
             except Exception as e:
                 error = e
                 response = self.handle_exception(e)
             except:  # noqa: B001
                 error = sys.exc_info()[1]
                 raise
+            # 调用响应对象的 __call__ 方法并返回
+            # 此方法定义在 werkzeug.wrappers.base_response.BaseResponse 类中
+            # 其作用是将响应对象返回给 Werkzeug 这个中间桥梁并由后者转发给服务器
             return response(environ, start_response)
         finally:
             if self.should_ignore_error(error):

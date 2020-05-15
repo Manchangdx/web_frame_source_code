@@ -890,74 +890,9 @@ def run_simple(
     passthrough_errors=False,
     ssl_context=None,
 ):
-    """Start a WSGI application. Optional features include a reloader,
-    multithreading and fork support.
-
-    This function has a command-line interface too::
-
-        python -m werkzeug.serving --help
-
-    .. versionadded:: 0.5
-       `static_files` was added to simplify serving of static files as well
-       as `passthrough_errors`.
-
-    .. versionadded:: 0.6
-       support for SSL was added.
-
-    .. versionadded:: 0.8
-       Added support for automatically loading a SSL context from certificate
-       file and private key.
-
-    .. versionadded:: 0.9
-       Added command-line interface.
-
-    .. versionadded:: 0.10
-       Improved the reloader and added support for changing the backend
-       through the `reloader_type` parameter.  See :ref:`reloader`
-       for more information.
-
-    .. versionchanged:: 0.15
-        Bind to a Unix socket by passing a path that starts with
-        ``unix://`` as the ``hostname``.
-
-    :param hostname: The host to bind to, for example ``'localhost'``.
-        If the value is a path that starts with ``unix://`` it will bind
-        to a Unix socket instead of a TCP socket..
-    :param port: The port for the server.  eg: ``8080``
-    :param application: the WSGI application to execute
-    :param use_reloader: should the server automatically restart the python
-                         process if modules were changed?
-    :param use_debugger: should the werkzeug debugging system be used?
-    :param use_evalex: should the exception evaluation feature be enabled?
-    :param extra_files: a list of files the reloader should watch
-                        additionally to the modules.  For example configuration
-                        files.
-    :param reloader_interval: the interval for the reloader in seconds.
-    :param reloader_type: the type of reloader to use.  The default is
-                          auto detection.  Valid values are ``'stat'`` and
-                          ``'watchdog'``. See :ref:`reloader` for more
-                          information.
-    :param threaded: should the process handle each request in a separate
-                     thread?
-    :param processes: if greater than 1 then handle each request in a new process
-                      up to this maximum number of concurrent processes.
-    :param request_handler: optional parameter that can be used to replace
-                            the default one.  You can use this to replace it
-                            with a different
-                            :class:`~BaseHTTPServer.BaseHTTPRequestHandler`
-                            subclass.
-    :param static_files: a list or dict of paths for static files.  This works
-                         exactly like :class:`SharedDataMiddleware`, it's actually
-                         just wrapping the application in that middleware before
-                         serving.
-    :param passthrough_errors: set this to `True` to disable the error catching.
-                               This means that the server will die on errors but
-                               it can be useful to hook debuggers in (pdb etc.)
-    :param ssl_context: an SSL context for the connection. Either an
-                        :class:`ssl.SSLContext`, a tuple in the form
-                        ``(cert_file, pkey_file)``, the string ``'adhoc'`` if
-                        the server should automatically create one, or ``None``
-                        to disable SSL (which is the default).
+    """
+    调用内部定义的嵌套函数 inner 
+    inner 内部调用当前模块中的 make_server 函数生成套接字服务器并启动持续监听
     """
     if not isinstance(port, int):
         raise TypeError("port must be an integer")

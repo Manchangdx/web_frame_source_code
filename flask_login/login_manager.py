@@ -292,7 +292,11 @@ class LoginManager(object):
     def _update_request_context_with_user(self, user=None):
         '''Store the given user as ctx.user.'''
 
+        # _request_ctx_stack 是 werkzeug.local 模块下的 LocalStack 类的实例
+        # 它是堆栈对象，按照先进先出规则设计，其 top 属性值是 flask.ctx 模块中的 RequestContext 类的实例
+        # 所以 ctx 就是请求上下文对象
         ctx = _request_ctx_stack.top
+        # ctx 本无 user 属性，现将【要登录的用户】赋值给这个属性
         ctx.user = self.anonymous_user() if user is None else user
 
     def _load_user(self):
