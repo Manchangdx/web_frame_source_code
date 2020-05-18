@@ -267,7 +267,7 @@ class RequestContext(object):
             browser = 'Firefox'
         print('【flask.ctx.RequestContext】初始化', environ['RAW_URI'], '==={}==='.format(browser))
         import threading
-        print('【flask.ctx.RequestContext】初始化，线程：', threading.current_thread().getName())
+        #print('【flask.ctx.RequestContext】初始化，线程：', threading.current_thread().getName())
         self.app = app
         # 初始化时，通常不提供 request 和 session 这两个参数
         if request is None:
@@ -375,8 +375,8 @@ class RequestContext(object):
         if hasattr(sys, "exc_clear"):
             sys.exc_clear()
 
-        import threading
-        print('【flask.ctx.RequestContext().push】线程：', threading.current_thread().getName())
+        #import threading
+        #print('【flask.ctx.RequestContext().push】线程：', threading.current_thread().getName())
         # 调用「请求上下文栈」的 push 方法将「请求上下文对象」压入栈顶
         _request_ctx_stack.push(self)
 
@@ -390,6 +390,7 @@ class RequestContext(object):
             # 这个实例其实是个类字典对象，它有一些来自请求 Cookies 中的键值对
             # 包括 _fresh _id _user_id csrf_token 等字段
             self.session = session_interface.open_session(self.app, self.request)
+            print('【flask.ctx.RequestContext().push】dict(self.session):', dict(self.session))
 
             if self.session is None:
                 self.session = session_interface.make_null_session(self.app)
@@ -399,8 +400,8 @@ class RequestContext(object):
         if self.url_adapter is not None:
             # 调用 self.match_request 方法给 self.request 定义两个路由相关的属性
             self.match_request()
-        print('【flask.ctx.RequestContext().push】LocalStack().push 完成后')
-        print('【flask.ctx.RequestContext().push】线程：', threading.current_thread().getName())
+        #print('【flask.ctx.RequestContext().push】LocalStack().push 完成后')
+        print('【flask.ctx.RequestContext().push】完成')
 
     def pop(self, exc=_sentinel):
         """Pops the request context and unbinds it by doing that.  This will

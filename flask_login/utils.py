@@ -21,8 +21,13 @@ from .config import COOKIE_NAME, EXEMPT_METHODS
 from .signals import user_logged_in, user_logged_out, user_login_confirmed
 
 
-#: A proxy for the current user. If no user is logged in, this will be an
-#: anonymous user
+# 在应用启动时创建该代理对象，这就是当前用户代理对象
+# 收到请求后，请求所在线程创建一个请求上下文对象
+# 在线程内调用 current_user 时，会运行 _get_user 方法，此方法在当前模块中创建
+# 其作用是根据请求信息查询数据库获取用户对象并将其赋值给请求上下文对象的 user 属性
+# 最后返回请求上下文对象的 user 属性值，也就是那个用户对象啦
+# LocalProxy 类在实例化时会将这个用户对象的全部属性赋值给自身的实例
+# 所以 current_user 就是这个用户对象
 current_user = LocalProxy(lambda: _get_user())
 
 
@@ -191,7 +196,6 @@ def login_user(user, remember=False, duration=None, force=False, fresh=True):
     # current_app 是 flask.globals 模块中定义的一个应用代理对象
     # 其 _get_current_object 方法的返回值是 Flask(__name__) 应用本身
     # _get_user 函数的返回值是在上一行代码中定义的 RquestContext 的实例的 user 属性值
-    # 在我们的项目中这行代码没什么用
     user_logged_in.send(current_app._get_current_object(), user=_get_user())
     return True
 
@@ -237,36 +241,7 @@ def confirm_login():
 
 def login_required(func):
     '''
-    If you decorate a view with this, it will ensure that the current user is
-    logged in and authenticated before calling the actual view. (If they are
-    not, it calls the :attr:`LoginManager.unauthorized` callback.) For
-    example::
-
-        @app.route('/post')
-        @login_required
-        def post():
-            pass
-
-    If there are only certain times you need to require that your user is
-    logged in, you can do so with::
-
-        if not current_user.is_authenticated:
-            return current_app.login_manager.unauthorized()
-
-    ...which is essentially the code that this function adds to your views.
-
-    It can be convenient to globally turn off authentication when unit testing.
-    To enable this, if the application configuration variable `LOGIN_DISABLED`
-    is set to `True`, this decorator will be ignored.
-
-    .. Note ::
-
-        Per `W3 guidelines for CORS preflight requests
-        <http://www.w3.org/TR/cors/#cross-origin-request-with-preflight-0>`_,
-        HTTP ``OPTIONS`` requests are exempt from login checks.
-
-    :param func: The view function to decorate.
-    :type func: function
+    登录保护，请求对应的视图函数如果使用这个装饰器，就要先通过如下验证才会运行视图函数
     '''
     @wraps(func)
     def decorated_view(*args, **kwargs):
@@ -357,9 +332,19 @@ def set_login_view(login_view, blueprint=None):
 
 
 def _get_user():
+    '''
+    根据请求信息获取用户对象并将其赋值给请求上下文对象的 user 属性
+    '''
+    # current_app.login_manager 为 flask_login.login_manager.LoginManager 的实例
+    # 称作「登录管理对象」
+    # 登录管理对象的 _load_user 方法用于更新当前请求上下文对象的 user 属性值
+    # 其过程是首先从请求数据中获取用户 ID ，然后查询数据库获取用户对象
+    # 最后调用登录管理对象的 _update_request_context_with_user 方法
+    # 将用户对象赋值给请求上下文对象的 user 属性
     if has_request_context() and not hasattr(_request_ctx_stack.top, 'user'):
         current_app.login_manager._load_user()
 
+    # 请求上下文栈的 top 属性值为请求上下文对象，获取其 user 属性值并返回
     return getattr(_request_ctx_stack.top, 'user', None)
 
 

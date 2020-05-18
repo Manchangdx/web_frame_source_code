@@ -1928,7 +1928,9 @@ class Flask(_PackageBoundObject):
         # 处理视图函数的返回值获取响应对象
         response = self.make_response(rv)
         try:
-            # 执行由 @after_request 装饰器装饰的函数
+            # self.process_response 方法主要做两件事：
+            # 1、执行由 @after_request 装饰器装饰的函数
+            # 2、设置 Cookie
             response = self.process_response(response)
             request_finished.send(self, response=response)
         except Exception:
@@ -2176,17 +2178,14 @@ class Flask(_PackageBoundObject):
                 return rv
 
     def process_response(self, response):
-        """Can be overridden in order to modify the response object
-        before it's sent to the WSGI server.  By default this will
-        call all the :meth:`after_request` decorated functions.
-
-        .. versionchanged:: 0.5
-           As of Flask 0.5 the functions registered for after request
-           execution are called in reverse order of registration.
-
-        :param response: a :attr:`response_class` object.
-        :return: a new response object or the same, has to be an
-                 instance of :attr:`response_class`.
+        """
+        1、执行由 @after_request 装饰器装饰的函数
+        2、self.session_interface 是 
+           flask.sessions.SecureCookieSessionInterface 类的实例
+           将请求上下文对象 session 和响应对象作为参数
+           调用 self.session_interface 的 save_session 方法
+           在此方法内部，将请求上下文对象 session 作为参数调用令牌生成器生成加密签名
+           将加密签名作为参数调用响应对象的 set_cookie 方法生成 Cookie
         """
         ctx = _request_ctx_stack.top
         bp = ctx.request.blueprint
@@ -2347,18 +2346,19 @@ class Flask(_PackageBoundObject):
             builder.close()
 
     def wsgi_app(self, environ, start_response):
-        import threading, time
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        from .globals import _request_ctx_stack
-        print('***********************', getattr(_request_ctx_stack._local, "stack", None))
-        print('【flask.app.Flask().wsgi_app】打印全部线程：')
-        for i in threading.enumerate():
-            print(i)
-        print('【flask.app.Flask().wsgi_app】线程：', threading.current_thread().getName())
         """
         这是核心方法，每次服务器收到请求都会运行这个方法
         其它代码都是由这个方法内部被调用
         """
+        import threading, time
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        from .globals import _request_ctx_stack
+        #print('********************************', getattr(_request_ctx_stack._local, "__storage__", None))
+        #print('【flask.app.Flask().wsgi_app】打印全部线程：')
+        #for i in threading.enumerate():
+        #    print(i)
+        print('【flask.app.Flask().wsgi_app】线程：', threading.current_thread().getName())
+        print('【 HTTP_COOKIE 】', environ.get('HTTP_COOKIE'))
 
         # 此方法返回 flask.ctx.RequestContext 的实例，称为「请求上下文对象」
         ctx = self.request_context(environ)
@@ -2367,10 +2367,13 @@ class Flask(_PackageBoundObject):
             try:
                 # 调用请求上下文对象的 push 方法
                 ctx.push()
-                print('***********************', getattr(_request_ctx_stack._local, "stack", None))
-                print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-                time.sleep(2)
-                print('***********************', getattr(_request_ctx_stack._local, "stack", None))
+                #print('********************************', 
+                #        getattr(_request_ctx_stack._local, "__storage__", None))
+                #print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
+                #time.sleep(2)
+                print('------------------------------')
+                #print('********************************', 
+                #        getattr(_request_ctx_stack._local, "__storage__", None))
                 # 获取响应对象并赋值给 response 变量
                 response = self.full_dispatch_request()
                 print('【flask.app.Flask().wsgi_app】得到响应对象，线程：', 

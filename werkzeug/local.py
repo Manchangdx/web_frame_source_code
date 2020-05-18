@@ -75,7 +75,7 @@ class Local(object):
         return LocalProxy(self, proxy)
 
     def __release_local__(self):
-        print('【werkzeug.local.Local】self.__ident_func__():', self.__ident_func__())
+        #print('【werkzeug.local.Local】self.__ident_func__():', self.__ident_func__())
         self.__storage__.pop(self.__ident_func__(), None)
 
     def __getattr__(self, name):
@@ -131,22 +131,24 @@ class LocalStack(object):
 
     def push(self, obj):
         import threading
-        print('【werkzeug.local.Localstack().push】线程：', threading.current_thread().getName())
-        # 服务器收到请求后，LocalStack 实例执行 push 方法
-        # 将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
-        # 存入 __storage__ 属性中，其中列表里的 obj 就是 push 方法的参数
-        # 该参数的值只有两种情况：AppContext 或 RequestContext 类的实例
-        # 处理完请求后，LocalStack 实例执行 pop 方法将 __storage__ 中的键值对清空
+        #print('【werkzeug.local.Localstack().push】线程：', threading.current_thread().getName())
+        '''
+        服务器收到请求后，LocalStack 实例执行 push 方法
+        将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
+        存入 __storage__ 属性中，其中列表里的 obj 就是 push 方法的参数
+        该参数的值只有两种情况：AppContext 或 RequestContext 类的实例
+        处理完请求后，LocalStack 实例执行 pop 方法将 __storage__ 中的键值对清空
+        '''
         rv = getattr(self._local, "stack", None)
         if rv is None:
             self._local.stack = rv = []
         rv.append(obj)
-        print('【werkzeug.local.Localstack().push】rv：', rv)
+        #print('【werkzeug.local.Localstack().push】rv：', rv)
         return rv
 
     def pop(self):
         import threading
-        print('【werkzeug.local.Localstack().pop 】线程：', threading.current_thread().getName())
+        #print('【werkzeug.local.Localstack().pop 】线程：', threading.current_thread().getName())
         """Removes the topmost item from the stack, will return the
         old value or `None` if the stack was already empty.
         """

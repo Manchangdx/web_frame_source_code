@@ -443,6 +443,7 @@ class LoginManager(object):
                                 duration))
 
         # actually set it
+        print('登录时设置 Cookie', cookie_name, data)
         response.set_cookie(cookie_name,
                             value=data,
                             expires=expires,
