@@ -133,8 +133,12 @@ class MethodViewType(type):
             # new methods.
             if methods:
                 cls.methods = methods
+        print('cls:', cls)
+        print('cls.methods:', cls.methods)
 
 
+# 此类的参数是一个函数，函数的返回值是临时基类
+# 此类并非继承临时基类，而是继承 View 类
 class MethodView(with_metaclass(MethodViewType, View)):
     """A class-based view that dispatches request methods to the corresponding
     class methods. For example, if you implement a ``get`` method, it will be

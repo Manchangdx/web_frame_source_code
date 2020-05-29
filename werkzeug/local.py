@@ -59,7 +59,7 @@ class Local(object):
     def __init__(self):
         # __storage__ 属性是空字典
         # 服务器收到请求后，LocalStack 实例执行 push 方法
-        # 将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
+        # 将当前线程的主协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
         # 存入 __storage__ 中，其中列表里的 obj 就是 push 方法的参数
         # 它的值只有两种情况：AppContext 或 RequestContext 类的实例
         # 处理完请求后，LocalStack 实例执行 pop 方法将 __storage__ 中的键值对清空
@@ -75,7 +75,8 @@ class Local(object):
         return LocalProxy(self, proxy)
 
     def __release_local__(self):
-        #print('【werkzeug.local.Local】self.__ident_func__():', self.__ident_func__())
+        print('【werkzeug.local.Local.__release_local__】self.__ident_func__():', 
+                self.__ident_func__())
         self.__storage__.pop(self.__ident_func__(), None)
 
     def __getattr__(self, name):
@@ -130,28 +131,25 @@ class LocalStack(object):
         return LocalProxy(_lookup)
 
     def push(self, obj):
+        '''将当前线程中的上下文对象压入栈中'''
         import threading
-        #print('【werkzeug.local.Localstack().push】线程：', threading.current_thread().getName())
-        '''
-        服务器收到请求后，LocalStack 实例执行 push 方法
-        将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
-        存入 __storage__ 属性中，其中列表里的 obj 就是 push 方法的参数
-        该参数的值只有两种情况：AppContext 或 RequestContext 类的实例
-        处理完请求后，LocalStack 实例执行 pop 方法将 __storage__ 中的键值对清空
-        '''
+        print('【werkzeug.local.Localstack.push】将上下文对象压入栈中：', obj)
+        # 服务器收到请求后，LocalStack 实例执行 push 方法
+        # 将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
+        # 存入 __storage__ 属性中，其中列表里的 obj 就是 push 方法的参数
+        # 该参数的值只有两种情况：AppContext 或 RequestContext 类的实例
+        # 处理完请求后，LocalStack 实例执行 pop 方法将 __storage__ 中的键值对清空
         rv = getattr(self._local, "stack", None)
         if rv is None:
             self._local.stack = rv = []
         rv.append(obj)
-        #print('【werkzeug.local.Localstack().push】rv：', rv)
+        print("【werkzeug.local.Localstack.push】上下文栈.__storage__[当前协程]['stack']：", rv)
         return rv
 
     def pop(self):
+        '''将当前线程的主协程对应的键值对从栈中移除'''
         import threading
-        #print('【werkzeug.local.Localstack().pop 】线程：', threading.current_thread().getName())
-        """Removes the topmost item from the stack, will return the
-        old value or `None` if the stack was already empty.
-        """
+        print('【werkzeug.local.Localstack.pop 】当前线程：', threading.current_thread().getName())
         stack = getattr(self._local, "stack", None)
         if stack is None:
             return None
@@ -167,6 +165,8 @@ class LocalStack(object):
         返回的值通常是当前用户请求过程中创建的 AppContext 或 RequestContext 类的实例
         """
         try:
+            # self._local 是 Local 类的实例
+            # 其 stack[-1] 的值是该实例的 __storage__ 属性的当前线程的协程对应的值
             return self._local.stack[-1]
         except (AttributeError, IndexError):
             return None
@@ -260,10 +260,14 @@ class LocalProxy(object):
     __slots__ = ("__local", "__dict__", "__name__", "__wrapped__")
 
     def __init__(self, local, name=None):
+        '''
+        参数 local 的值通常是一个函数
+        其返回值是 AppContext 或 RequestContext 的实例的某个属性
+        '''
         # 如果使用 object 的 __setattr__ 定义属性，需要提供仨参数
         # 其中第二个参数为属性名的字符串，如果是私有属性，就得加上类名
         # 设置 __local 属性值为一个函数
-        # 此函数可以直接调用，返回值是 AppContext 或 RequestContext 的实例
+        # 此函数可以直接调用，返回值是 AppContext 或 RequestContext 的实例的某个属性
         object.__setattr__(self, "_LocalProxy__local", local)
         object.__setattr__(self, "__name__", name)
         if callable(local) and not hasattr(local, "__release_local__"):

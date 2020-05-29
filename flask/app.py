@@ -2348,17 +2348,19 @@ class Flask(_PackageBoundObject):
     def wsgi_app(self, environ, start_response):
         """
         这是核心方法，每次服务器收到请求都会运行这个方法
-        其它代码都是由这个方法内部被调用
+        其它代码都是由这个方法内部调用
         """
         import threading, time
         print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        from .globals import _request_ctx_stack
-        #print('********************************', getattr(_request_ctx_stack._local, "__storage__", None))
-        #print('【flask.app.Flask().wsgi_app】打印全部线程：')
-        #for i in threading.enumerate():
+        # 以下代码打印当前请求上下文栈中数据和全部线程
+        # from .globals import _request_ctx_stack
+        # print('********************************', 
+        #        getattr(_request_ctx_stack._local, "__storage__", None))
+        # print('【flask.app.Flask().wsgi_app】打印全部线程：')
+        # for i in threading.enumerate():
         #    print(i)
-        print('【flask.app.Flask().wsgi_app】线程：', threading.current_thread().getName())
-        print('【 HTTP_COOKIE 】', environ.get('HTTP_COOKIE'))
+        print('【flask.app.Flask.wsgi_app】当前线程：', threading.current_thread().getName())
+        print('【flask.app.Flask.wsgi_app】HTTP_COOKIE：', environ.get('HTTP_COOKIE'))
 
         # 此方法返回 flask.ctx.RequestContext 的实例，称为「请求上下文对象」
         ctx = self.request_context(environ)
@@ -2367,16 +2369,11 @@ class Flask(_PackageBoundObject):
             try:
                 # 调用请求上下文对象的 push 方法
                 ctx.push()
-                #print('********************************', 
-                #        getattr(_request_ctx_stack._local, "__storage__", None))
-                #print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
-                #time.sleep(2)
-                print('------------------------------')
-                #print('********************************', 
-                #        getattr(_request_ctx_stack._local, "__storage__", None))
+                # 下面这条线是请求与响应的分割线
+                print('-------------------------------------------')
                 # 获取响应对象并赋值给 response 变量
                 response = self.full_dispatch_request()
-                print('【flask.app.Flask().wsgi_app】得到响应对象，线程：', 
+                print('【flask.app.Flask.wsgi_app】得到响应对象，线程：', 
                         threading.current_thread().getName())
             except Exception as e:
                 error = e

@@ -331,7 +331,7 @@ class SecureCookieSessionInterface(SessionInterface):
         # val 的值就是 HTTP_COOKIE 字段的值中的 'session' 部分
         # 这个值其实就是令牌，也叫做加密签名
         val = request.cookies.get(app.session_cookie_name)
-        print('【flask.sessions.SecureCookieSessionInterface().open_session】HTTP_COOKIE 中 session 字段的值:')
+        print('【flask.sessions.SecureCookieSessionInterface.open_session】HTTP_COOKIE 中 session 字段的值:')
         print(val)
         if not val:
             return self.session_class()
@@ -341,7 +341,7 @@ class SecureCookieSessionInterface(SessionInterface):
             # 令牌生成器 s 的 loads 方法返回一个字典对象
             # 调用 loads 方法需要提供令牌和有效时间参数
             data = s.loads(val, max_age=max_age)
-            print('【flask.sessions.SecureCookieSessionInterface().open_session】令牌生成器根据请求的 HTTP_COOKIE 字段解析得到的字典:')
+            print('【flask.sessions.SecureCookieSessionInterface.open_session】令牌生成器根据请求的 HTTP_COOKIE 字段解析得到的字典:')
             print(data)
             return self.session_class(data)
         except BadSignature:

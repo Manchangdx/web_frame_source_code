@@ -463,7 +463,6 @@ class BaseResponse(object):
                          be attached to requests if those requests are
                          "same-site".
         """
-        print('【 werkzeug.wrappers.base_response.BaseResponse().set_cookie 】创建', key, value, expires, max_age)
         self.headers.add(
             "Set-Cookie",
             dump_cookie(
@@ -482,7 +481,6 @@ class BaseResponse(object):
         )
 
     def delete_cookie(self, key, path="/", domain=None):
-        print('【 werkzeug.wrappers.base_response.BaseResponse().set_cookie 】删除', key, value)
         """Delete a cookie.  Fails silently if key doesn't exist.
 
         :param key: the key (name) of the cookie to be deleted.

@@ -212,7 +212,7 @@ class AppContext(object):
     """
 
     def __init__(self, app):
-        #print('【 AppContext 】初始化')
+        #print('【flask.ctx.AppContext.__init__】初始化')
         self.app = app
         self.url_adapter = app.create_url_adapter(None)
         self.g = app.app_ctx_globals_class()
@@ -255,7 +255,7 @@ class AppContext(object):
 
 class RequestContext(object):
     """
-    每次服务器收到请求，都会创建一个该类的实例
+    每次服务器收到请求，都会创建一个该类的实例，称为「请求上下文对象」
     调用此类的是 flask.app.Flask().request_context 方法
     """
 
@@ -265,9 +265,8 @@ class RequestContext(object):
             browser = 'Opera'
         if 'Firefox' in environ['HTTP_USER_AGENT']:
             browser = 'Firefox'
-        print('【flask.ctx.RequestContext】初始化', environ['RAW_URI'], '==={}==='.format(browser))
-        import threading
-        #print('【flask.ctx.RequestContext】初始化，线程：', threading.current_thread().getName())
+        print('【flask.ctx.RequestContext.__init__】初始化', environ['RAW_URI'], 
+                '==={}==='.format(browser))
         self.app = app
         # 初始化时，通常不提供 request 和 session 这两个参数
         if request is None:
@@ -375,22 +374,21 @@ class RequestContext(object):
         if hasattr(sys, "exc_clear"):
             sys.exc_clear()
 
-        #import threading
-        #print('【flask.ctx.RequestContext().push】线程：', threading.current_thread().getName())
         # 调用「请求上下文栈」的 push 方法将「请求上下文对象」压入栈顶
         _request_ctx_stack.push(self)
 
         # 多数情况下，当前类实例化时 self.session 都是 None
         if self.session is None:
             # 这个 session_interface 就是 
-            # flask.sessions 模块中的 SecureCookieSessionInterface 类的实例
+            # flask.sessions.SecureCookieSessionInterface 类的实例
             session_interface = self.app.session_interface
             # 调用 SecureCookieSessionInterface 实例的 open_session 方法
             # 返回 flask.sessions.SecureCookieSession 类的实例
             # 这个实例其实是个类字典对象，它有一些来自请求 Cookies 中的键值对
-            # 包括 _fresh _id _user_id csrf_token 等字段
+            # 可能包括 _fresh _id _user_id csrf_token 等字段
+            # 需要注意的一点：在 open_session 方法中需要用到 app.secret_key 属性值
             self.session = session_interface.open_session(self.app, self.request)
-            print('【flask.ctx.RequestContext().push】dict(self.session):', dict(self.session))
+            print('【flask.ctx.RequestContext.push】self.session:', self.session)
 
             if self.session is None:
                 self.session = session_interface.make_null_session(self.app)
@@ -400,8 +398,8 @@ class RequestContext(object):
         if self.url_adapter is not None:
             # 调用 self.match_request 方法给 self.request 定义两个路由相关的属性
             self.match_request()
-        #print('【flask.ctx.RequestContext().push】LocalStack().push 完成后')
-        print('【flask.ctx.RequestContext().push】完成')
+        #print('【flask.ctx.RequestContext.push】LocalStack().push 完成后')
+        print('【flask.ctx.RequestContext.push】完成')
 
     def pop(self, exc=_sentinel):
         """Pops the request context and unbinds it by doing that.  This will
