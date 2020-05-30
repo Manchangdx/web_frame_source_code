@@ -133,13 +133,14 @@ class MethodViewType(type):
             # new methods.
             if methods:
                 cls.methods = methods
-        print('cls:', cls)
-        print('cls.methods:', cls.methods)
 
 
 # 此类的参数是一个函数，函数的返回值是临时基类
-# 此类并非继承临时基类，而是继承 View 类
+# 临时基类在派生子类时调用临时基类自身的临时元类的 __new__ 方法
+# 这个 __new__ 方法会调用 MethodViewType 这个元类创建子类，并且子类的父类是 View 类
+# 也就是说 MethodView 的父类是 View ，元类是 MethodViewType
 class MethodView(with_metaclass(MethodViewType, View)):
+# 上一行代码等同于 class MethodView(View, metaclass=MethodViewType):
     """A class-based view that dispatches request methods to the corresponding
     class methods. For example, if you implement a ``get`` method, it will be
     used to handle ``GET`` requests. ::

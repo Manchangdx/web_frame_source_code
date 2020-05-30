@@ -62,10 +62,13 @@ class BlueprintSetupState(object):
         self.url_defaults = dict(self.blueprint.url_values_defaults)
         self.url_defaults.update(self.options.get("url_defaults", ()))
 
+    # 参数都是蓝图调用自身的 add_url_rule 方法时提供的
+    # 它们由编程人员写在 Web 应用的代码中
     def add_url_rule(self, rule, endpoint=None, view_func=None, **options):
-        """A helper method to register a rule (and optionally a view function)
-        to the application.  The endpoint is automatically prefixed with the
-        blueprint's name.
+        """
+        原注释：将规则以及可选的视图函数注册到应用程序的辅助方法，端点会自动以蓝图名称作为前缀
+        我的注释：生成该类的实例时，将当前应用赋值给了实例的 app 属性
+                此处调用当前应用的 add_url_rule 方法
         """
         if self.url_prefix is not None:
             if rule:
@@ -73,6 +76,7 @@ class BlueprintSetupState(object):
             else:
                 rule = self.url_prefix
         options.setdefault("subdomain", self.subdomain)
+        # endpoint 变量的值就是视图类的 as_view 方法的 name 参数
         if endpoint is None:
             endpoint = _endpoint_from_view_func(view_func)
         defaults = self.url_defaults
@@ -252,7 +256,12 @@ class Blueprint(_PackageBoundObject):
                 endpoint="static",
             )
 
+        # self.deferred_functions 是列表，列表里面的元素是匿名函数
+        # 这些匿名函数是由蓝图的 add_url_rule 方法添加到列表里面的
+        # 以上操作在注册蓝图之前就已经完成
         for deferred in self.deferred_functions:
+            # 参数 state 是当前模块中的 BlueprintSetupState 类的实例
+            # 将该实例作为参数调用匿名函数，匿名函数内部调用实例的 add_url_rule 方法
             deferred(state)
 
         cli_resolved_group = options.get("cli_group", self.cli_group)
@@ -281,16 +290,24 @@ class Blueprint(_PackageBoundObject):
 
         return decorator
 
+    # 调用此方法，通常需要提供俩参数：
+    # 1. rule 路由规则字符串  2. view_func 视图函数/视图类的实例
     def add_url_rule(self, rule, endpoint=None, view_func=None, **options):
-        """Like :meth:`Flask.add_url_rule` but for a blueprint.  The endpoint for
-        the :func:`url_for` function is prefixed with the name of the blueprint.
+        """
+        由蓝图调用，增加路由规则
         """
         if endpoint:
             assert "." not in endpoint, "Blueprint endpoints should not contain dots"
+        # 如果视图函数有 __name__ 属性（通常如此），要确保属性值字符串中不能有点号
         if view_func and hasattr(view_func, "__name__"):
             assert (
                 "." not in view_func.__name__
             ), "Blueprint view function name should not contain dots"
+        # 蓝图有一个 deferred_functions 属性，属性值是空列表
+        # 最后创建一个匿名函数，并将其作为参数调用蓝图的 record 方法
+        # 将匿名函数添加到 deferred_functions 列表里
+        # 调用匿名函数的操作在蓝图的 register 方法里
+        # 调用时将当前模块中的 BlueprintSetupState 类的实例作为参数 s 的值
         self.record(lambda s: s.add_url_rule(rule, endpoint, view_func, **options))
 
     def endpoint(self, endpoint):

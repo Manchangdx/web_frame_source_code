@@ -58,29 +58,26 @@ else:
 
 
 def with_metaclass(meta, *bases):
-    """Create a base class with a metaclass."""
-    # 该函数的返回值是类，我们称之为「临时基类」
-    # 在创建视图类的时候，将该函数的调用作为参数，也就是将该函数的返回值作为临时基类
-
-    # 该函数被调用时，返回一个临时基类
-    # 利用这个临时基类创建子类时，调用临时基类的元类 metaclass 的 __new__ 方法
-    # 这个 __new__ 方法的返回值就是子类啦
-    
-    # 该函数的玄妙之处不在于上述，而在子类的父类并非临时基类，而是参数 bases 里的类
-    # 创建子类会调用 metaclass.__new__ 方法
-    # 而利用子类派生孙类时，调用的是子类的父类的元类的 __new__ 方法
-    # 父类元组里可没有临时基类，所以 metaclass.__new__ 方法只在创建子类时运行一次
+    """
+    该函数的返回值是类，我们称之为「临时基类」
+    在创建视图类的时候，将该函数的调用作为参数，也就是将该函数的返回值「临时基类」作为父类
+    """
 
     class metaclass(type):
-        '''这是一个元类'''
+        '''这是一个临时元类'''
         def __new__(metacls, name, this_bases, d):
-            print('dddddddddddddddd', d)
             # meta 也是元类，调用此元类得到的 s 就是类
+            # 此处需要额外注意的是，临时基类派生子类时调用的是 meta.__new__ 方法
+            # 而且提供的父类元组是 bases ，所以子类的父类不是临时基类，而是 bases[0]
             s = meta(name, bases, d)
             return s
 
     # 这个返回值就是根据元类 metaclass 创建的类，也就是临时基类，类名是 temporary_class
-    # 它本身不重要，重要的是利用它创建子类时会调用 metaclass.__new__ 方法
+    # metaclass.__new__ 方法的第一个参数规定元类，所以临时基类的元类是 metaclass 
+    # 临时基类本身不重要，重要的是利用它派生子类时会调用 metaclass.__new__ 方法
+    # 而子类的元类就不是 metaclass 了，而是该函数的参数 meta 
+    # 临时基类的元类与子类的元类不同，这是通过 metaclass.__new__ 的返回值实现的
+    # 子类再派生出孙类时，调用的就是子类的元类 meta 的 __new__ 方法了
     return type.__new__(metaclass, "temporary_class", (), {})
 
 

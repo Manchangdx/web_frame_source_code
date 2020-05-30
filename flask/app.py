@@ -1080,7 +1080,8 @@ class Flask(_PackageBoundObject):
 
     @setupmethod
     def register_blueprint(self, blueprint, **options):
-        """Register a :class:`~flask.Blueprint` on the application. Keyword
+        """
+        注册蓝图
         arguments passed to this method will override the defaults set on the
         blueprint.
 
@@ -1100,6 +1101,8 @@ class Flask(_PackageBoundObject):
         """
         first_registration = False
 
+        # 把蓝图的 name 属性作为 key 蓝图本身作为 value 添加到 self.blueprints 字典中
+        # 把蓝图添加到 self._blueprint_order 列表中
         if blueprint.name in self.blueprints:
             assert self.blueprints[blueprint.name] is blueprint, (
                 "A name collision occurred between blueprints %r and %r. Both"
@@ -1112,6 +1115,7 @@ class Flask(_PackageBoundObject):
             self._blueprint_order.append(blueprint)
             first_registration = True
 
+        # 将应用本身作为参数调用蓝图自身的 register 方法
         blueprint.register(self, options, first_registration)
 
     def iter_blueprints(self):
@@ -1216,12 +1220,17 @@ class Flask(_PackageBoundObject):
             else:
                 provide_automatic_options = False
 
-        # Add the required methods now.
+        # |= 是集合专用运算符，它相当于 a = a | b ，结果 a 是 a 和 b 的补集
+        # required_methods 集合里只有一个 ‘OPTIONS'
         methods |= required_methods
 
+        # rule 是 werkzeug.routing.Rule 类的实例
         rule = self.url_rule_class(rule, methods=methods, **options)
         rule.provide_automatic_options = provide_automatic_options
 
+        # self.url_map 是 werkzeug.routing.Map 类的实例
+        # 该实例有一个 _rules 属性，属性值是列表
+        # 此处调用该实例的 add 方法将参数 rule 添加到自身的 _rules 列表中
         self.url_map.add(rule)
         if view_func is not None:
             old_func = self.view_functions.get(endpoint)
@@ -1230,6 +1239,11 @@ class Flask(_PackageBoundObject):
                     "View function mapping is overwriting an "
                     "existing endpoint function: %s" % endpoint
                 )
+            # self.view_functions 是字典
+            # endpoint 是字符串
+            # 例如 front 蓝图下的 index 视图函数，endpoint 的值就是 'front.index'
+            # 当然 view_func 也可能是视图类的实例
+            # 如果实例的 __name__ 属性值是 'index' ，endpoint 的值同上
             self.view_functions[endpoint] = view_func
 
     def route(self, rule, **options):
