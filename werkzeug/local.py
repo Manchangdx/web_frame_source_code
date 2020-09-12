@@ -267,7 +267,7 @@ class LocalProxy(object):
         # 如果使用 object 的 __setattr__ 定义属性，需要提供仨参数
         # 其中第二个参数为属性名的字符串，如果是私有属性，就得加上类名
         # 设置 __local 属性值为一个函数
-        # 此函数可以直接调用，返回值是 AppContext 或 RequestContext 的实例的某个属性
+        # 此函数可以直接调用，返回值是 AppContext 或 RequestContext 的实例的某个属性值
         object.__setattr__(self, "_LocalProxy__local", local)
         object.__setattr__(self, "__name__", name)
         if callable(local) and not hasattr(local, "__release_local__"):
@@ -277,7 +277,7 @@ class LocalProxy(object):
 
     def _get_current_object(self):
         '''
-        该方法的返回值是 RequestContext 的实例的 session 属性值
+        该方法的返回值是 AppContext 或 RequestContext 的实例的某个属性值
         '''
         if not hasattr(self.__local, "__release_local__"):
             return self.__local()

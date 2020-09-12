@@ -1078,6 +1078,7 @@ class Flask(_PackageBoundObject):
         )
         return self.session_interface.make_null_session(self)
 
+    # 这个装饰器用于 DEBUG 模式下执行检查
     @setupmethod
     def register_blueprint(self, blueprint, **options):
         """
@@ -1116,6 +1117,9 @@ class Flask(_PackageBoundObject):
             first_registration = True
 
         # 将应用本身作为参数调用蓝图自身的 register 方法
+        # register 方法会经过复杂流程再调用应用本身的 add_url_rule 方法
+        # 将视图函数或视图类作为 value 添加到应用的 view_functions 属性中
+        # 这个属性就是一个字典对象，收到请求时就从这个字典中找到对应的视图函数或视图类
         blueprint.register(self, options, first_registration)
 
     def iter_blueprints(self):
@@ -1134,66 +1138,14 @@ class Flask(_PackageBoundObject):
         provide_automatic_options=None,
         **options
     ):
-        """Connects a URL rule.  Works exactly like the :meth:`route`
-        decorator.  If a view_func is provided it will be registered with the
-        endpoint.
-
-        Basically this example::
-
-            @app.route('/')
-            def index():
-                pass
-
-        Is equivalent to the following::
-
-            def index():
-                pass
-            app.add_url_rule('/', 'index', index)
-
-        If the view_func is not provided you will need to connect the endpoint
-        to a view function like so::
-
-            app.view_functions['index'] = index
-
-        Internally :meth:`route` invokes :meth:`add_url_rule` so if you want
-        to customize the behavior via subclassing you only need to change
-        this method.
-
-        For more information refer to :ref:`url-route-registrations`.
-
-        .. versionchanged:: 0.2
-           `view_func` parameter added.
-
-        .. versionchanged:: 0.6
-           ``OPTIONS`` is added automatically as method.
-
-        :param rule: the URL rule as string
-        :param endpoint: the endpoint for the registered URL rule.  Flask
-                         itself assumes the name of the view function as
-                         endpoint
-        :param view_func: the function to call when serving a request to the
-                          provided endpoint
-        :param provide_automatic_options: controls whether the ``OPTIONS``
-            method should be added automatically. This can also be controlled
-            by setting the ``view_func.provide_automatic_options = False``
-            before adding the rule.
-        :param options: the options to be forwarded to the underlying
-                        :class:`~werkzeug.routing.Rule` object.  A change
-                        to Werkzeug is handling of method options.  methods
-                        is a list of methods this rule should be limited
-                        to (``GET``, ``POST`` etc.).  By default a rule
-                        just listens for ``GET`` (and implicitly ``HEAD``).
-                        Starting with Flask 0.6, ``OPTIONS`` is implicitly
-                        added and handled by the standard request handling.
-        """
+        # endpoint 就是视图函数的字符串
+        # 例如 a 蓝图的 b 函数，endpoint 就是 'a.b'
         if endpoint is None:
             endpoint = _endpoint_from_view_func(view_func)
         options["endpoint"] = endpoint
         methods = options.pop("methods", None)
 
-        # if the methods are not given and the view_func object knows its
-        # methods we can use that instead.  If neither exists, we go with
-        # a tuple of only ``GET`` as default.
+        # 处理请求方法
         if methods is None:
             methods = getattr(view_func, "methods", None) or ("GET",)
         if isinstance(methods, string_types):
@@ -1221,7 +1173,7 @@ class Flask(_PackageBoundObject):
                 provide_automatic_options = False
 
         # |= 是集合专用运算符，它相当于 a = a | b ，结果 a 是 a 和 b 的补集
-        # required_methods 集合里只有一个 ‘OPTIONS'
+        # required_methods 集合里只有一个 'OPTIONS'
         methods |= required_methods
 
         # rule 是 werkzeug.routing.Rule 类的实例
@@ -1240,7 +1192,7 @@ class Flask(_PackageBoundObject):
                     "existing endpoint function: %s" % endpoint
                 )
             # self.view_functions 是字典
-            # endpoint 是字符串
+            # endpoint 是蓝图加视图函数字符串
             # 例如 front 蓝图下的 index 视图函数，endpoint 的值就是 'front.index'
             # 当然 view_func 也可能是视图类的实例
             # 如果实例的 __name__ 属性值是 'index' ，endpoint 的值同上

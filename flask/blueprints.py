@@ -235,7 +235,10 @@ class Blueprint(_PackageBoundObject):
         return BlueprintSetupState(self, app, options, first_registration)
 
     def register(self, app, options, first_registration=False):
-        """Called by :meth:`Flask.register_blueprint` to register all views
+        """
+        应用调用自身的 register_blueprint 方法注册蓝图时，会调用此方法
+
+        Called by :meth:`Flask.register_blueprint` to register all views
         and callbacks registered on the blueprint with the application. Creates
         a :class:`.BlueprintSetupState` and calls each :meth:`record` callback
         with it.
@@ -247,6 +250,7 @@ class Blueprint(_PackageBoundObject):
             blueprint has been registered on the application.
         """
         self._got_registered_once = True
+        # state 就是当前模块中的 BlueprintSetupState 类的实例
         state = self.make_setup_state(app, options, first_registration)
 
         if self.has_static_folder:
@@ -259,9 +263,10 @@ class Blueprint(_PackageBoundObject):
         # self.deferred_functions 是列表，列表里面的元素是匿名函数
         # 这些匿名函数是由蓝图的 add_url_rule 方法添加到列表里面的
         # 以上操作在注册蓝图之前就已经完成
+        # 因为蓝图实例会先调用 add_url_rule 方法，然后再被 app 注册
         for deferred in self.deferred_functions:
             # 参数 state 是当前模块中的 BlueprintSetupState 类的实例
-            # 将该实例作为参数调用匿名函数，匿名函数内部调用实例的 add_url_rule 方法
+            # 将该实例作为参数调用匿名函数，匿名函数内部调用 state 的 add_url_rule 方法
             deferred(state)
 
         cli_resolved_group = options.get("cli_group", self.cli_group)
@@ -304,9 +309,9 @@ class Blueprint(_PackageBoundObject):
                 "." not in view_func.__name__
             ), "Blueprint view function name should not contain dots"
         # 蓝图有一个 deferred_functions 属性，属性值是空列表
-        # 最后创建一个匿名函数，并将其作为参数调用蓝图的 record 方法
-        # 将匿名函数添加到 deferred_functions 列表里
-        # 调用匿名函数的操作在蓝图的 register 方法里
+        # 下面这行代码创建一个匿名函数，并将其作为参数调用蓝图的 record 方法
+        # 此方法将匿名函数添加到 self.deferred_functions 列表里
+        # 调用匿名函数的操作在蓝图的 register 方法里，app 注册蓝图时调用此 register 方法
         # 调用时将当前模块中的 BlueprintSetupState 类的实例作为参数 s 的值
         self.record(lambda s: s.add_url_rule(rule, endpoint, view_func, **options))
 
