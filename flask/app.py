@@ -2349,7 +2349,7 @@ class Flask(_PackageBoundObject):
                 raise
             # 调用响应对象的 __call__ 方法并返回
             # 此方法定义在 werkzeug.wrappers.base_response.BaseResponse 类中
-            # 其作用是将响应对象返回给 Werkzeug 这个中间桥梁并由后者转发给服务器
+            # 其作用是将响应对象返回给 Werkzeug 这个中间桥梁并由后者转发给客户端
             return response(environ, start_response)
         finally:
             if self.should_ignore_error(error):
