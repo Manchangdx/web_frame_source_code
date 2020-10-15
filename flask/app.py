@@ -827,7 +827,7 @@ class Flask(_PackageBoundObject):
         可变数据类型作为参数自然是全局对象
         将当前请求的处理过程中生成的 g 、request 和 session 添加到 context 字典中
         """
-        # 这个变量 func 的值是一个列表，列表中通常有一个函数，这个函数的返回值是字典
+        # 这个变量 funcs 的值是一个列表，列表中通常有一个函数，这个函数的返回值是字典
         # 像这样：{'g': g, 'request': request, 'session', session}
         funcs = self.template_context_processors[None]
         # 请求上下文对象，flask.ctx.RequestContext 的实例
