@@ -265,8 +265,8 @@ class RequestContext(object):
             browser = 'Opera'
         if 'Firefox' in environ['HTTP_USER_AGENT']:
             browser = 'Firefox'
-        print('【flask.ctx.RequestContext.__init__】初始化', environ['RAW_URI'], 
-                '==={}==='.format(browser))
+        #print('【flask.ctx.RequestContext.__init__】初始化', environ['RAW_URI'], 
+        #        '==={}==='.format(browser))
         self.app = app
         # 初始化时，通常不提供 request 和 session 这两个参数
         if request is None:
@@ -388,7 +388,7 @@ class RequestContext(object):
             # 可能包括 _fresh _id _user_id csrf_token 等字段
             # 需要注意的一点：在 open_session 方法中需要用到 app.secret_key 属性值
             self.session = session_interface.open_session(self.app, self.request)
-            print('【flask.ctx.RequestContext.push】self.session:', self.session)
+            #print('【flask.ctx.RequestContext.push】self.session:', self.session)
 
             if self.session is None:
                 self.session = session_interface.make_null_session(self.app)
@@ -399,7 +399,7 @@ class RequestContext(object):
             # 调用 self.match_request 方法给 self.request 定义两个路由相关的属性
             self.match_request()
         #print('【flask.ctx.RequestContext.push】LocalStack().push 完成后')
-        print('【flask.ctx.RequestContext.push】完成')
+        #print('【flask.ctx.RequestContext.push】完成')
 
     def pop(self, exc=_sentinel):
         """Pops the request context and unbinds it by doing that.  This will

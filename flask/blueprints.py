@@ -68,7 +68,7 @@ class BlueprintSetupState(object):
         """
         原注释：将规则以及可选的视图函数注册到应用程序的辅助方法，端点会自动以蓝图名称作为前缀
         我的注释：生成该类的实例时，将当前应用赋值给了实例的 app 属性
-                此处调用当前应用的 add_url_rule 方法
+                此方法最后会调用当前应用的 add_url_rule 方法
         """
         if self.url_prefix is not None:
             if rule:
@@ -82,6 +82,8 @@ class BlueprintSetupState(object):
         defaults = self.url_defaults
         if "defaults" in options:
             defaults = dict(defaults, **options.pop("defaults"))
+        #print('[flask.blueprints.BlueprintSetupState.add_url_rule] rule:', rule)
+        #print('[flask.blueprints.BlueprintSetupState.add_url_rule] self.app:', self.app)
         self.app.add_url_rule(
             rule,
             "%s.%s" % (self.blueprint.name, endpoint),
@@ -236,7 +238,7 @@ class Blueprint(_PackageBoundObject):
 
     def register(self, app, options, first_registration=False):
         """
-        应用调用自身的 register_blueprint 方法注册蓝图时，会调用此方法
+        应用对象调用自身的 register_blueprint 方法注册蓝图时，会调用此方法
 
         Called by :meth:`Flask.register_blueprint` to register all views
         and callbacks registered on the blueprint with the application. Creates
@@ -296,7 +298,8 @@ class Blueprint(_PackageBoundObject):
         return decorator
 
     # 调用此方法，通常需要提供俩参数：
-    # 1. rule 路由规则字符串  2. view_func 视图函数/视图类的实例
+    # 1. rule 路由规则字符串  2. endpoint 视图函数名字的字符串
+    # 3. view_func 视图函数或视图类的实例
     def add_url_rule(self, rule, endpoint=None, view_func=None, **options):
         """
         由蓝图调用，增加路由规则

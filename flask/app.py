@@ -1138,6 +1138,7 @@ class Flask(_PackageBoundObject):
         provide_automatic_options=None,
         **options
     ):
+        #print('[flask.app.Flask.add_url_rule] rule:', rule)
         # endpoint 就是视图函数的字符串
         # 例如 a 蓝图的 b 函数，endpoint 就是 'a.b'
         if endpoint is None:
@@ -2326,7 +2327,7 @@ class Flask(_PackageBoundObject):
         # for i in threading.enumerate():
         #    print(i)
         print('【flask.app.Flask.wsgi_app】当前线程：', threading.current_thread().getName())
-        print('【flask.app.Flask.wsgi_app】HTTP_COOKIE：', environ.get('HTTP_COOKIE'))
+        #print('【flask.app.Flask.wsgi_app】HTTP_COOKIE：', environ.get('HTTP_COOKIE'))
 
         # 此方法返回 flask.ctx.RequestContext 的实例，称为「请求上下文对象」
         ctx = self.request_context(environ)
@@ -2336,7 +2337,7 @@ class Flask(_PackageBoundObject):
                 # 调用请求上下文对象的 push 方法
                 ctx.push()
                 # 下面这条线是请求与响应的分割线
-                print('-------------------------------------------')
+                # print('-------------------------------------------')
                 # 获取响应对象并赋值给 response 变量
                 response = self.full_dispatch_request()
                 print('【flask.app.Flask.wsgi_app】得到响应对象，线程：', 
