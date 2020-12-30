@@ -328,7 +328,8 @@ class ManagementUtility:
         给定命令行参数后，找出正在运行的子命令，创建适合该命令的解析器，并运行它。
         """
         try:
-            subcommand = self.argv[1]   # 子命令 
+            # 子命令，例如 runserver 、migrate 
+            subcommand = self.argv[1]   
         except IndexError:
             subcommand = 'help'  # Display help if no arguments were given.
 
@@ -410,5 +411,8 @@ class ManagementUtility:
 def execute_from_command_line(argv=None):
     """Run a ManagementUtility."""
     #print('【django.core.management.__init__.execute_from_command_line】argv:', argv)
+    
+    # 初始化主要做了两件事：
+    # self.argv = argv ，self.prog_name = 第一个参数的字符串 'manage.py'
     utility = ManagementUtility(argv)
     utility.execute()

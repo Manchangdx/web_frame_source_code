@@ -65,6 +65,8 @@ class Command(BaseCommand):
         return get_internal_wsgi_application()
 
     def handle(self, *args, **options):
+        #print('【django.core.management.commands.runserver.Command.handle】args:', args)
+        #print('【django.core.management.commands.runserver.Command.handle】options:', options)
         if not settings.DEBUG and not settings.ALLOWED_HOSTS:
             raise CommandError('You must set settings.ALLOWED_HOSTS if DEBUG is False.')
 
@@ -93,6 +95,7 @@ class Command(BaseCommand):
         if not self.addr:
             self.addr = self.default_addr_ipv6 if self.use_ipv6 else self.default_addr
             self._raw_ipv6 = self.use_ipv6
+        #print('【django.core.management.commands.runserver.Command.handle】options:', options)
         self.run(**options)
 
     def run(self, **options):
@@ -100,13 +103,19 @@ class Command(BaseCommand):
         use_reloader = options['use_reloader']
 
         if use_reloader:
+            # 此函数定义在 django.utils.autoreload 模块中
             autoreload.run_with_reloader(self.inner_run, **options)
         else:
             self.inner_run(None, **options)
 
+    # 该方法在子线程中启动
     def inner_run(self, *args, **options):
         # If an exception was silenced in ManagementUtility.execute in order
         # to be raised in the child process, raise it now.
+        import threading
+        ct = threading.current_thread()
+        print('【django.core.management.commands.runserver.Command.inner_run】当前线程：', ct.name, ct.ident)
+
         autoreload.raise_last_exception()
 
         threading = options['use_threading']
@@ -139,6 +148,7 @@ class Command(BaseCommand):
             # 此实例就相当于 Flask 中的 app 应用对象
             handler = self.get_handler(*args, **options)
             # 这个方法是核心，参数 handler 是应用对象，方法内部会创建服务器对象并启动监听
+            # 此方法定义在 django.core.servers.basehttp 模块中
             run(self.addr, int(self.port), handler,
                 ipv6=self.use_ipv6, threading=threading, server_cls=self.server_cls)
         except OSError as e:

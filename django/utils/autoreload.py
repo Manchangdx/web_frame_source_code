@@ -590,7 +590,12 @@ def get_reloader():
     return WatchmanReloader()
 
 
+# 创建并启动子线程，这个子线程是 Django 项目的主线程，所以它的名字是 django-main-thread
 def start_django(reloader, main_func, *args, **kwargs):
+    import threading
+    ct = threading.current_thread()
+    print('【django.utils.autoreload.start_django】当前线程：', ct.name, ct.ident)
+
     ensure_echo_on()
 
     main_func = check_errors(main_func)

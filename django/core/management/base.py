@@ -70,6 +70,8 @@ def handle_default_options(options):
     so that ManagementUtility can handle them before searching for
     user commands.
     """
+    #print('【django.core.management.base.handle_default_options】options.settings:', options.settings)
+    #print('【django.core.management.base.handle_default_options】options.pythonpath:', options.pythonpath)
     if options.settings:
         os.environ['DJANGO_SETTINGS_MODULE'] = options.settings
     if options.pythonpath:
@@ -325,6 +327,7 @@ class BaseCommand:
         options = parser.parse_args(argv[2:])
         # 内置函数 vars 返回对象的 __dict__ 属性值
         cmd_options = vars(options)
+        #print('【django.core.management.base.BaseCommand.run_from_argv】cmd_options:', cmd_options)
         # Move positional args out of options to mimic legacy optparse
         args = cmd_options.pop('args', ())
         handle_default_options(options)
@@ -373,6 +376,7 @@ class BaseCommand:
         if self.requires_migrations_checks:
             self.check_migrations()
         # 下面这个 handle 方法是核心，它会阻塞运行
+        # 它定义在 django.core.management.commands.runserver.Command 类中
         output = self.handle(*args, **options)
         if output:
             if self.output_transaction:

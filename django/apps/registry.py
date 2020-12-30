@@ -31,6 +31,13 @@ class Apps:
         # and whether the registry has been populated. Since it isn't possible
         # to reimport a module safely (it could reexecute initialization code)
         # all_models is never overridden or reset.
+        #
+        # 调用字典对象的 key 获取对应的 value 时，如果 key 不存在，会报错
+        # 这个 defaultdict 的返回值就是一个字典对象，调用不存在的 key 时不会报错
+        # 对应的 value 就是参数的调用
+        # 例如参数是 dict ，value 就是空字典
+        # 参数是 list ，value 就是空列表
+        # 参数是 int ，value 就是 0
         self.all_models = defaultdict(dict)
 
         # Mapping of labels to AppConfig instances for installed apps.
@@ -83,12 +90,17 @@ class Apps:
                 raise RuntimeError("populate() isn't reentrant")
             self.loading = True
 
+            import threading
+            ct = threading.current_thread()
+            print('【django.apps.registry.Apps.populate】当前线程：', ct.name, ct.ident)
+
             # Phase 1: initialize app configs and import app modules.
             #print('【django.apps.registry.Apps.populate】')
             for entry in installed_apps:
                 if isinstance(entry, AppConfig):
                     app_config = entry
                 else:
+                    # app_config 就是 django.apps.config.AppConfig 类的实例
                     app_config = AppConfig.create(entry)
                 if app_config.label in self.app_configs:
                     raise ImproperlyConfigured(

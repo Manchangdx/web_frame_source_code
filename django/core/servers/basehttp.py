@@ -233,6 +233,9 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
 # 启动项目时，这个方法是核心
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
+    import threading
+    ct = threading.current_thread()
+    print('【django.core.servers.basehttp.run】当前线程：', ct.name, ct.ident)
     # 参数 server_cls 的值是 Python 内置模块 wsgiref.simple_server 中的同名类的子类
     # 该同名类是 Python 内置模块 socketserver 中的 TCPServer 的子类
     # 所以函数中的 httpd_cls 就是 socketserver.TCPServer 类的子类

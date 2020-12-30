@@ -11,6 +11,10 @@ def setup(set_prefix=True):
     first setting), configure logging and populate the app registry.
     Set the thread-local urlresolvers script prefix if `set_prefix` is True.
     """
+    import threading
+    ct = threading.current_thread()
+    print('【django.__init__.setup】当前线程：', ct.name, ct.ident)
+
     from django.apps import apps
     from django.conf import settings
     from django.urls import set_script_prefix
@@ -21,5 +25,8 @@ def setup(set_prefix=True):
         set_script_prefix(
             '/' if settings.FORCE_SCRIPT_NAME is None else settings.FORCE_SCRIPT_NAME
         )
+    # 这个 apps 是 django.apps.registry.Apps 类的实例
+    # 这里调用 populate 方法将项目的配置文件中的 INSTALLED_APPS 中的
+    # 应用程序都放到实例自身的 app_configs 属性字典中
     apps.populate(settings.INSTALLED_APPS)
     #print('【django.__init__.setup】')

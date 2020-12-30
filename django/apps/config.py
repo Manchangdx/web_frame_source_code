@@ -7,6 +7,7 @@ from django.utils.module_loading import module_has_submodule
 MODELS_MODULE_NAME = 'models'
 
 
+# 此类的实例就是应用对象，此类就相当于 flask.app 模块中的 Flask 类
 class AppConfig:
     """Class representing a Django application and its configuration."""
 
@@ -27,15 +28,17 @@ class AppConfig:
 
         # Last component of the Python path to the application e.g. 'admin'.
         # This value must be unique across a Django project.
+        # 标签就是以点号分隔的字符串的最后一项
+        # 以 'django.contrib.admin' 为例，此属性值就是 'admin'
         if not hasattr(self, 'label'):
             self.label = app_name.rpartition(".")[2]
 
-        # Human-readable name for the application e.g. "Admin".
+        # 以 'django.contrib.admin' 为例，此属性值就是首字母大写的 'Admin'
         if not hasattr(self, 'verbose_name'):
             self.verbose_name = self.label.title()
 
         # Filesystem path to the application directory e.g.
-        # '/path/to/django/contrib/admin'.
+        # 绝对路径 '/path/to/django/contrib/admin'.
         if not hasattr(self, 'path'):
             self.path = self._path_from_module(app_module)
 
@@ -108,6 +111,7 @@ class AppConfig:
                 entry = module.default_app_config
             except AttributeError:
                 # Otherwise, it simply uses the default app config class.
+                # 这行是大概率要执行的，创建一个当前类的实例并返回
                 return cls(entry, module)
             else:
                 mod_path, _, cls_name = entry.rpartition('.')
