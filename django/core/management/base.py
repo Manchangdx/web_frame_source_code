@@ -375,8 +375,10 @@ class BaseCommand:
             self.check()
         if self.requires_migrations_checks:
             self.check_migrations()
-        # 下面这个 handle 方法是核心，它会阻塞运行
+        # 下面这个 handle 方法是重要的
         # 它定义在 django.core.management.commands.runserver.Command 类中
+        # 它会调用 self 的 run 方法，也在那个类中
+        # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建线程并启动
         output = self.handle(*args, **options)
         if output:
             if self.output_transaction:
@@ -456,7 +458,7 @@ class BaseCommand:
             if visible_issue_count:
                 self.stderr.write(msg, lambda x: x)
             else:
-                self.stdout.write(msg)
+                self.stdout.write('【django.core.management.base.BaseCommand.check】' + msg)
 
     def check_migrations(self):
         """
@@ -471,6 +473,7 @@ class BaseCommand:
             return
 
         plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+        """
         if plan:
             apps_waiting_migration = sorted({migration.app_label for migration, backwards in plan})
             self.stdout.write(
@@ -484,6 +487,7 @@ class BaseCommand:
                 )
             )
             self.stdout.write(self.style.NOTICE("Run 'python manage.py migrate' to apply them."))
+        """
 
     def handle(self, *args, **options):
         """

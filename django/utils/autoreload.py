@@ -599,7 +599,11 @@ def start_django(reloader, main_func, *args, **kwargs):
     ensure_echo_on()
 
     main_func = check_errors(main_func)
-    django_main_thread = threading.Thread(target=main_func, args=args, kwargs=kwargs, name='django-main-thread')
+    # 这是项目的主线程，它是当前进程的子线程
+    # 核心函数 main_func 是定义在 
+    # django.core.management.commands.runserver.Command 类中的 inner_run 方法
+    django_main_thread = threading.Thread(target=main_func, args=args, 
+            kwargs=kwargs, name='django-main-thread')
     django_main_thread.setDaemon(True)
     django_main_thread.start()
 
@@ -614,6 +618,7 @@ def start_django(reloader, main_func, *args, **kwargs):
             logger.info('Watching for file changes with %s', reloader.__class__.__name__)
 
 
+# 此函数会调用当前模块中的 start_django 函数创建关键线程并启动
 def run_with_reloader(main_func, *args, **kwargs):
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
     try:

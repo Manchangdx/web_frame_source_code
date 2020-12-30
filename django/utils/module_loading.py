@@ -11,6 +11,8 @@ def import_string(dotted_path):
     """
     try:
         module_path, class_name = dotted_path.rsplit('.', 1)
+        #print('【django.utils.module_loading】module_path:', module_path)
+        #print('【django.utils.module_loading】class_name:', class_name)
     except ValueError as err:
         raise ImportError("%s doesn't look like a module path" % dotted_path) from err
 

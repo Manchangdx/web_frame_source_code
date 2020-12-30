@@ -123,12 +123,14 @@ class Command(BaseCommand):
         shutdown_message = options.get('shutdown_message', '')
         quit_command = 'CTRL-BREAK' if sys.platform == 'win32' else 'CONTROL-C'
 
-        self.stdout.write("Performing system checks...\n\n")
+        #self.stdout.write("Performing system checks...\n\n")
         self.check(display_num_errors=True)
         # Need to check migrations here, so can't use the
         # requires_migrations_check attribute.
+        # 检查数据库版本迁移，需要在终端执行 python manage.py migrate 之类的命令
         self.check_migrations()
         now = datetime.now().strftime('%B %d, %Y - %X')
+        """
         self.stdout.write(now)
         self.stdout.write((
             "Django version %(version)s, using settings %(settings)r\n"
@@ -142,6 +144,7 @@ class Command(BaseCommand):
             "port": self.port,
             "quit_command": quit_command,
         })
+        """
 
         try:
             # django.core.handlers.wsgi.WSGIHandler 类的实例
