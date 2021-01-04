@@ -348,6 +348,8 @@ class ManagementUtility:
             pass  # Ignore any option errors at this point.
 
         try:
+            # 此对象是 django.conf.__init__.LazySettings 类的实例
+            # 此对象的全部属性都来自应用对象的 settings.py 配置文件
             settings.INSTALLED_APPS
         except ImproperlyConfigured as exc:
             self.settings_exception = exc
@@ -362,6 +364,11 @@ class ManagementUtility:
             #print('【django.core.management.__init__.ManagementUtility.execute】self.argv:', self.argv)
             if subcommand == 'runserver' and '--noreload' not in self.argv:
                 try:
+                    # 参数 django.setup 是定义在 django.__init__ 模块中的函数
+                    # 而 check_errors 是作检测异常之用
+                    # 这里会调用 django.setup 函数
+                    # 将 settings.INSTALLED_APPS 列表中的应用程序放到 apps.app_configs 字典中
+                    # apps 对象可以看做一个应用对象收集器
                     autoreload.check_errors(django.setup)()
                 except Exception:
                     # The exception will be raised later in the child process
@@ -401,10 +408,11 @@ class ManagementUtility:
             sys.stdout.write(self.main_help_text() + '\n')
         else:
             # 这是 django.contrib.staticfiles.management.commands.runserver.Command 类的实例
-            x = self.fetch_command(subcommand)
+            # 我们称之为「命令处理对象」
+            cmd = self.fetch_command(subcommand)
             # 此方法定义在 django.core.management.base.BaseCommand 类中
             # 参数 self.argv 是终端命令参数列表，等同于 sys.argv
-            x.run_from_argv(self.argv)
+            cmd.run_from_argv(self.argv)
             #self.fetch_command(subcommand).run_from_argv(self.argv)
 
 

@@ -17,6 +17,7 @@ from .exception import convert_exception_to_response
 logger = logging.getLogger('django.request')
 
 
+# 它的子类 WSGIHandler 是应用对象类，定义在 django.core.handlers.wsgi 模块中
 class BaseHandler:
     _view_middleware = None
     _template_response_middleware = None
@@ -24,19 +25,22 @@ class BaseHandler:
     _middleware_chain = None
 
     def load_middleware(self, is_async=False):
-        """
-        Populate middleware lists from settings.MIDDLEWARE.
-
-        Must be called after the environment is fixed (see __call__ in subclasses).
-        """
+        # self 是应用对象，初始化时会调用当前方法
         self._view_middleware = []
         self._template_response_middleware = []
         self._exception_middleware = []
 
+        # 默认情况下此变量的值是 self._get_response 方法，它定义在当前类中
         get_response = self._get_response_async if is_async else self._get_response
+        
+        # 下面这个函数来自 django.core.handlers.exception 模块
+        # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
+        # 调用 handler 实际上是调用 self._get_response 方法
         handler = convert_exception_to_response(get_response)
         handler_is_async = is_async
+        # reversed 是 Python 内置函数，参数是有序可迭代对象，返回值是倒序的迭代器
         for middleware_path in reversed(settings.MIDDLEWARE):
+            # 此方法用于获取中间件对象
             middleware = import_string(middleware_path)
             middleware_can_sync = getattr(middleware, 'sync_capable', True)
             middleware_can_async = getattr(middleware, 'async_capable', False)
@@ -50,11 +54,17 @@ class BaseHandler:
             else:
                 middleware_is_async = middleware_can_async
             try:
-                # Adapt handler, if needed.
+                # 这里处理一下，实际上调用 handler 还是调用 self._get_response 方法
                 handler = self.adapt_method_mode(
-                    middleware_is_async, handler, handler_is_async,
-                    debug=settings.DEBUG, name='middleware %s' % middleware_path,
+                    middleware_is_async, 
+                    handler, 
+                    handler_is_async,
+                    debug=settings.DEBUG, 
+                    name='middleware %s' % middleware_path,
                 )
+                #print('【django.core.handlers.base.BaseHandler.adapt_method_mode】middleware:', middleware)
+                #print('【django.core.handlers.base.BaseHandler.adapt_method_mode】handler:', handler)
+                # middleware 是中间件，它通常是一个类，这里把 handler 函数作为参数获取其实例
                 mw_instance = middleware(handler)
             except MiddlewareNotUsed as exc:
                 if settings.DEBUG:
@@ -119,11 +129,12 @@ class BaseHandler:
             if debug:
                 logger.debug('Asynchronous %s adapted.' % name)
             return async_to_sync(method)
+        #print('【django.core.handlers.base.BaseHandler.adapt_method_mode】method:', method)
         return method
 
     def get_response(self, request):
-        """Return an HttpResponse object for the given HttpRequest."""
-        # Setup default url resolver for this thread
+        # self 是应用对象，此方法利用「请求对象」创建「响应对象」并返回
+        print('【django.core.handlers.base.BaseHandler.get_response】')
         set_urlconf(settings.ROOT_URLCONF)
         response = self._middleware_chain(request)
         response._resource_closers.append(request.close)

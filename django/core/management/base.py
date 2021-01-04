@@ -314,13 +314,6 @@ class BaseCommand:
         parser.print_help()
 
     def run_from_argv(self, argv):
-        """
-        Set up any environment changes requested (e.g., Python path
-        and Django settings), then run this command. If the
-        command raises a ``CommandError``, intercept it and print it sensibly
-        to stderr. If the ``--traceback`` option is present or the raised
-        ``Exception`` is not ``CommandError``, raise it.
-        """
         self._called_from_command_line = True
         parser = self.create_parser(argv[0], argv[1])
 
@@ -328,10 +321,10 @@ class BaseCommand:
         # 内置函数 vars 返回对象的 __dict__ 属性值
         cmd_options = vars(options)
         #print('【django.core.management.base.BaseCommand.run_from_argv】cmd_options:', cmd_options)
-        # Move positional args out of options to mimic legacy optparse
         args = cmd_options.pop('args', ())
         handle_default_options(options)
         try:
+            # 关键代码
             self.execute(*args, **cmd_options)
         except CommandError as e:
             if options.traceback:
@@ -377,7 +370,7 @@ class BaseCommand:
             self.check_migrations()
         # 下面这个 handle 方法是重要的
         # 它定义在 django.core.management.commands.runserver.Command 类中
-        # 它会调用 self 的 run 方法，也在那个类中
+        # 它会调用 self 的 run 方法，此方法也在那个类中，self 就是「命令处理对象」
         # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建线程并启动
         output = self.handle(*args, **options)
         if output:

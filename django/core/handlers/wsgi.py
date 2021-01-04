@@ -62,12 +62,13 @@ class LimitedStream:
 
 
 class WSGIRequest(HttpRequest):
+    # 该类的实例是「请求对象」
+
     def __init__(self, environ):
         script_name = get_script_name(environ)
-        # If PATH_INFO is empty (e.g. accessing the SCRIPT_NAME URL without a
-        # trailing slash), operate as if '/' was requested.
-        path_info = get_path_info(environ) or '/'
         self.environ = environ
+        path_info = get_path_info(environ) or '/'
+        # 请求的相对路径
         self.path_info = path_info
         # be careful to only replace the first slash in the path because of
         # http://test/something and http://test//something being different as
@@ -125,14 +126,25 @@ class WSGIHandler(base.BaseHandler):
     request_class = WSGIRequest
 
     def __init__(self, *args, **kwargs):
+        # 初始化应用对象
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】args:', args)
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】kwargs:', kwargs)
         super().__init__(*args, **kwargs)
+        # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()
 
     def __call__(self, environ, start_response):
+        # self 是应用对象
+        # 服务器对象收到客户端发来的请求后，调用此方法
+        import threading
+        ct = threading.current_thread()
+        print('【django.core.management.commands.runserver.Command.inner_run】当前线程：', ct.name, ct.ident)
+
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
+
+        # self.request_class 是当前模块中定义的 WSGIRequest 类
+        # 此处对其进行实例化并赋值给 request 变量，我们称之为「请求对象」
         request = self.request_class(environ)
         response = self.get_response(request)
 

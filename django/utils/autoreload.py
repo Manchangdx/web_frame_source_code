@@ -623,6 +623,7 @@ def run_with_reloader(main_func, *args, **kwargs):
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
     try:
         if os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true':
+            # 该对象是当前模块中定义的 StatReloader 类的实例
             reloader = get_reloader()
             logger.info('Watching for file changes with %s', reloader.__class__.__name__)
             start_django(reloader, main_func, *args, **kwargs)

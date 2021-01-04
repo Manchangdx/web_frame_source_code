@@ -32,6 +32,7 @@ class Command(BaseCommand):
     default_addr_ipv6 = '::1'
     default_port = '8000'
     protocol = 'http'
+    # 此类定义在 django.core.servers.basehttp 模块中，是服务器类
     server_cls = WSGIServer
 
     def add_arguments(self, parser):
@@ -96,6 +97,7 @@ class Command(BaseCommand):
             self.addr = self.default_addr_ipv6 if self.use_ipv6 else self.default_addr
             self._raw_ipv6 = self.use_ipv6
         #print('【django.core.management.commands.runserver.Command.handle】options:', options)
+        # 下面一行是关键代码，self 就是「命令处理对象」
         self.run(**options)
 
     def run(self, **options):
@@ -108,7 +110,7 @@ class Command(BaseCommand):
         else:
             self.inner_run(None, **options)
 
-    # 该方法在子线程中启动
+    # 该方法在子线程中启动，这个子线程是项目的主线程 django-main-thread
     def inner_run(self, *args, **options):
         # If an exception was silenced in ManagementUtility.execute in order
         # to be raised in the child process, raise it now.
@@ -129,8 +131,10 @@ class Command(BaseCommand):
         # requires_migrations_check attribute.
         # 检查数据库版本迁移，需要在终端执行 python manage.py migrate 之类的命令
         self.check_migrations()
-        now = datetime.now().strftime('%B %d, %Y - %X')
+        print('【django.core.management.commands.runserver.Command.inner_run】', end='')
+        print(f"Starting development server at {self.protocol}://{self.addr}:{self.port}")
         """
+        now = datetime.now().strftime('%B %d, %Y - %X')
         self.stdout.write(now)
         self.stdout.write((
             "Django version %(version)s, using settings %(settings)r\n"
@@ -147,11 +151,13 @@ class Command(BaseCommand):
         """
 
         try:
+            # 这里 self 是「命令处理对象」
             # django.core.handlers.wsgi.WSGIHandler 类的实例
             # 此实例就相当于 Flask 中的 app 应用对象
             handler = self.get_handler(*args, **options)
             # 这个方法是核心，参数 handler 是应用对象，方法内部会创建服务器对象并启动监听
             # 此方法定义在 django.core.servers.basehttp 模块中
+            # self.server_cls 是服务器类，其实例就是携带 TCP 套接字的对象
             run(self.addr, int(self.port), handler,
                 ipv6=self.use_ipv6, threading=threading, server_cls=self.server_cls)
         except OSError as e:
