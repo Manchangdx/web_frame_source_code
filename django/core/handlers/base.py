@@ -37,11 +37,15 @@ class BaseHandler:
         # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
         # 调用 handler 实际上是调用 self._get_response 方法
         handler = convert_exception_to_response(get_response)
+        print('id(handler):', id(handler), handler)
         handler_is_async = is_async
+
         # reversed 是 Python 内置函数，参数是有序可迭代对象，返回值是倒序的迭代器
         for middleware_path in reversed(settings.MIDDLEWARE):
-            # 此方法用于获取中间件对象
+            # 此方法用于获取中间件对象，注意它是一个类
+            # Django 内置的中间件通常在 django.contrib 包中
             middleware = import_string(middleware_path)
+
             middleware_can_sync = getattr(middleware, 'sync_capable', True)
             middleware_can_async = getattr(middleware, 'async_capable', False)
             if not middleware_can_sync and not middleware_can_async:
@@ -53,8 +57,9 @@ class BaseHandler:
                 middleware_is_async = False
             else:
                 middleware_is_async = middleware_can_async
+
             try:
-                # 这里处理一下，实际上调用 handler 还是调用 self._get_response 方法
+                # 这里处理一下，实际上 handler 变量本身没有变化
                 handler = self.adapt_method_mode(
                     middleware_is_async, 
                     handler, 
@@ -62,9 +67,10 @@ class BaseHandler:
                     debug=settings.DEBUG, 
                     name='middleware %s' % middleware_path,
                 )
-                #print('【django.core.handlers.base.BaseHandler.adapt_method_mode】middleware:', middleware)
-                #print('【django.core.handlers.base.BaseHandler.adapt_method_mode】handler:', handler)
+                print('【django.core.handlers.base.BaseHandler.adapt_method_mode】middleware:', middleware)
+                print('【django.core.handlers.base.BaseHandler.adapt_method_mode】handler:', handler)
                 # middleware 是中间件，它通常是一个类，这里把 handler 函数作为参数获取其实例
+                # 实例初始化时，会把参数 handler 赋值给实例自身的 get_response 属性
                 mw_instance = middleware(handler)
             except MiddlewareNotUsed as exc:
                 if settings.DEBUG:
@@ -95,13 +101,21 @@ class BaseHandler:
                     self.adapt_method_mode(False, mw_instance.process_exception),
                 )
 
+            print('调用 convert_exception_to_response 之前 id(handler):', id(handler), handler)
+            # 下面这一行代码导致 handler 变量的值发生变化，参数是中间件类的实例
+            # 下面这个函数来自 django.core.handlers.exception 模块
+            # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
+            # 每次执行下面折行代码，handler 就变成中间件实例，实例的 get_response 属性就是上一个 handler
             handler = convert_exception_to_response(mw_instance)
+            print('调用 convert_exception_to_response 之后 id(handler):', id(handler), handler)
             handler_is_async = middleware_is_async
 
         # Adapt the top of the stack, if needed.
         handler = self.adapt_method_mode(is_async, handler, handler_is_async)
+        print('最终 id(handler):', id(handler), handler)
         # We only assign to this when initialization is complete as it is used
         # as a flag for initialization being complete.
+        # 它可以看作是中间件列表的第一个中间件实例
         self._middleware_chain = handler
 
     def adapt_method_mode(
@@ -133,9 +147,18 @@ class BaseHandler:
         return method
 
     def get_response(self, request):
+        # 参数 request 是请求对象，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
         # self 是应用对象，此方法利用「请求对象」创建「响应对象」并返回
-        print('【django.core.handlers.base.BaseHandler.get_response】')
+        print('【django.core.handlers.base.BaseHandler.get_response】request:', request)
+
         set_urlconf(settings.ROOT_URLCONF)
+        # self._middleware_chain 属性值是一个中间件实例
+        # 此处调用中间件对象，也就是调用中间件对象的 __call__ 方法
+        # 该 __call__ 方法定义在 django.utils.deprecation.MiddlewareMixin 类中
+        # 在 __call__ 内部会调用中间件对象的 get_response 方法
+        # 此方法本身就是另一个中间件对象，然后继续调用它的 __call__ 方法，链式调用
+        # 最终，调用在当前类中定义的 self._get_response 方法返回响应对象
+        # 然后链式返回，最后下面这个方法返回响应对象
         response = self._middleware_chain(request)
         response._resource_closers.append(request.close)
         if response.status_code >= 400:
@@ -172,8 +195,14 @@ class BaseHandler:
         template_response middleware. This method is everything that happens
         inside the request/response middleware.
         """
+        print('【django.core.handlers.base.BaseHandler._get_response】request:', request)
         response = None
+        # 请求对应的视图函数及其参数
+        # TODO 此处需要深入研究
         callback, callback_args, callback_kwargs = self.resolve_request(request)
+        #print('【django.core.handlers.base.BaseHandler._get_response】callback:', callback)
+        #print('【django.core.handlers.base.BaseHandler._get_response】callback_args:', callback_args)
+        #print('【django.core.handlers.base.BaseHandler._get_response】callback_kwargs:', callback_kwargs)
 
         # Apply view middleware
         for middleware_method in self._view_middleware:
@@ -182,11 +211,14 @@ class BaseHandler:
                 break
 
         if response is None:
+            # 这里保证视图函数中数据库相关的操作具有原子性，返回值仍是视图函数
             wrapped_callback = self.make_view_atomic(callback)
             # If it is an asynchronous view, run it in a subthread.
             if asyncio.iscoroutinefunction(wrapped_callback):
                 wrapped_callback = async_to_sync(wrapped_callback)
             try:
+                # 调用视图函数，返回响应对象
+                # TODO 此处需要分析项目代码
                 response = wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)
@@ -329,6 +361,7 @@ class BaseHandler:
     # Other utility methods.
 
     def make_view_atomic(self, view):
+        # self 是应用对象，view 是视图函数
         non_atomic_requests = getattr(view, '_non_atomic_requests', set())
         for db in connections.all():
             if db.settings_dict['ATOMIC_REQUESTS'] and db.alias not in non_atomic_requests:
@@ -336,6 +369,7 @@ class BaseHandler:
                     raise RuntimeError(
                         'You cannot use ATOMIC_REQUESTS with async views.'
                     )
+                # TODO 保证视图函数涉及的数据库操作具有原子性
                 view = transaction.atomic(using=db.alias)(view)
         return view
 

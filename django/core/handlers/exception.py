@@ -44,6 +44,9 @@ def convert_exception_to_response(get_response):
         @wraps(get_response)
         def inner(request):
             try:
+                # get_response 可能是中间件对象
+                # 或者 django.core.handler.base.BaseHandler._get_response 方法
+                print('【django.core.handlers.exception.c_e_t_r.inner】get_response:', get_response)
                 response = get_response(request)
             except Exception as exc:
                 response = response_for_exception(request, exc)

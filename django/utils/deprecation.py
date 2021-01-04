@@ -89,6 +89,7 @@ class MiddlewareMixin:
     # RemovedInDjango40Warning: when the deprecation ends, replace with:
     #   def __init__(self, get_response):
     def __init__(self, get_response=None):
+        #print('id(get_response):', id(get_response), get_response)
         self._get_response_none_deprecation(get_response)
         self.get_response = get_response
         self._async_check()
@@ -105,6 +106,7 @@ class MiddlewareMixin:
             self._is_coroutine = asyncio.coroutines._is_coroutine
 
     def __call__(self, request):
+        print('【django.utils.deprecation.MiddlewareMixin】self:', self)
         # Exit out to async mode, if needed
         if asyncio.iscoroutinefunction(self.get_response):
             return self.__acall__(request)
@@ -113,7 +115,9 @@ class MiddlewareMixin:
             response = self.process_request(request)
         response = response or self.get_response(request)
         if hasattr(self, 'process_response'):
+            #print(f'request: {request} response: {response} self: {self}')
             response = self.process_response(request, response)
+        print('【django.utils.deprecation.MiddlewareMixin】response:', response)
         return response
 
     async def __acall__(self, request):

@@ -135,7 +135,7 @@ class BaseHandler:
             # 处理请求信息将其整理成字典对象赋值给 self.environ 属性
             self.setup_environ()
             # 调用应用对象处理请求，这里把请求信息 self.environ 传入
-            # 剩下的事情就是应用对象来做了，处理请求，返回响应对象赋值给 self.result 属性
+            # 剩下的事情就是应用对象来做了：处理请求，返回响应对象赋值给 self.result 属性
             # application 是 django.core.handlers.wsgi.WSGIHandler 类的实例
             self.result = application(self.environ, self.start_response)
             self.finish_response()

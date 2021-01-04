@@ -130,15 +130,17 @@ class WSGIHandler(base.BaseHandler):
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】args:', args)
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】kwargs:', kwargs)
         super().__init__(*args, **kwargs)
+        print()
         # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()
+        print()
 
     def __call__(self, environ, start_response):
         # self 是应用对象
         # 服务器对象收到客户端发来的请求后，调用此方法
         import threading
         ct = threading.current_thread()
-        print('【django.core.management.commands.runserver.Command.inner_run】当前线程：', ct.name, ct.ident)
+        print('【django.core.handlers.wsgi.WSGIHandler.__call__】当前线程：', ct.name, ct.ident)
 
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
@@ -146,7 +148,12 @@ class WSGIHandler(base.BaseHandler):
         # self.request_class 是当前模块中定义的 WSGIRequest 类
         # 此处对其进行实例化并赋值给 request 变量，我们称之为「请求对象」
         request = self.request_class(environ)
+
+        # 此方法定义在 django.core.handlers.base.BaseHandler 类中
+        # 把请求对象作为参数调用此方法，返回「响应对象」
+        # 响应对象是 django.http.response.HttpResponse 类的实例
         response = self.get_response(request)
+        print('【django.core.handlers.wsgi.WSGIHandler.__call__】response:', response)
 
         response._handler_class = self.__class__
 
