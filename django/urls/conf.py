@@ -31,7 +31,9 @@ def include(arg, namespace=None):
         urlconf_module = arg
 
     if isinstance(urlconf_module, str):
+        # 根据参数 arg 从应用程序中找到对应的模块赋值给等号前面的变量
         urlconf_module = import_module(urlconf_module)
+    # 下面的变量是模块中的 urlpatterns 列表
     patterns = getattr(urlconf_module, 'urlpatterns', urlconf_module)
     app_name = getattr(urlconf_module, 'app_name', app_name)
     if namespace and not app_name:
@@ -56,9 +58,11 @@ def include(arg, namespace=None):
 
 def _path(route, view, kwargs=None, name=None, Pattern=None):
     if isinstance(view, (list, tuple)):
-        # For include(...) processing.
+        # 下面的变量是 django.urls.resolvers.RoutePattern 类的实例
+        # 该实例的 _route 属性值是参数 route 的值，它是一个字符串
         pattern = Pattern(route, is_endpoint=False)
         urlconf_module, app_name, namespace = view
+        # 下面这个返回值是「路由处理对象」，是 django.ruls.resolvers.URLResolver 类的实例
         return URLResolver(
             pattern,
             urlconf_module,

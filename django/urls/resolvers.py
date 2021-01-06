@@ -66,12 +66,16 @@ class ResolverMatch:
 
 def get_resolver(urlconf=None):
     if urlconf is None:
+        # 项目的路由适配模块的字符串，它默认定义在项目的 settings 配置模块中
+        # 例如项目 myweb 的 myweb.settings 模块中会有 ROOT_URLCONF 配置项
+        # 该配置项的值就是 'myweb.urls' ，指向 myweb/urls.py 文件，即路由适配文件
         urlconf = settings.ROOT_URLCONF
     return _get_cached_resolver(urlconf)
 
 
 @functools.lru_cache(maxsize=None)
 def _get_cached_resolver(urlconf=None):
+    print('【django.urls.resolvers._get_cached_resolver】urlconf:', urlconf)
     return URLResolver(RegexPattern(r'^/'), urlconf)
 
 
@@ -143,6 +147,7 @@ class CheckURLMixin:
 
 
 class RegexPattern(CheckURLMixin):
+    # 正则模式对象
     regex = LocaleRegexDescriptor('_regex')
 
     def __init__(self, regex, name=None, is_endpoint=False):
@@ -153,14 +158,21 @@ class RegexPattern(CheckURLMixin):
         self.converters = {}
 
     def match(self, path):
+        #print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        #print('path:', path)
         match = self.regex.search(path)
+        #print('match:', match)
         if match:
             # If there are any named groups, use those as kwargs, ignoring
             # non-named groups. Otherwise, pass all non-named arguments as
             # positional arguments.
             kwargs = match.groupdict()
+            #print('kwargs:', kwargs)
             args = () if kwargs else match.groups()
+            #print('args:', args)
             kwargs = {k: v for k, v in kwargs.items() if v is not None}
+            #print('path[match.end():]', path[match.end():])
+            #print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
             return path[match.end():], args, kwargs
         return None
 
@@ -245,6 +257,7 @@ def _route_to_regex(route, is_endpoint=False):
 
 
 class RoutePattern(CheckURLMixin):
+    # 路径模式对象
     regex = LocaleRegexDescriptor('_route')
 
     def __init__(self, route, name=None, is_endpoint=False):
@@ -322,6 +335,7 @@ class LocalePrefixPattern:
 
 
 class URLPattern:
+    # 路由模式对象
     def __init__(self, pattern, callback, default_args=None, name=None):
         self.pattern = pattern
         self.callback = callback  # the view
@@ -373,7 +387,9 @@ class URLPattern:
 
 
 class URLResolver:
+    # 路由处理对象
     def __init__(self, pattern, urlconf_name, default_kwargs=None, app_name=None, namespace=None):
+        # 这块儿 pattern 属性值是
         self.pattern = pattern
         # urlconf_name is the dotted Python path to the module defining
         # urlpatterns. It may also be an object with an urlpatterns attribute
@@ -537,13 +553,28 @@ class URLResolver:
         return name in self._callback_strs
 
     def resolve(self, path):
+        # self 是「路由处理对象」
+        # 它在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建
+        print('【django.urls.resolvers.URLResolver.resolve】参数 path:', path)
         path = str(path)  # path may be a reverse_lazy object
         tried = []
+        # 这里去掉了绝对路径开头的斜线
+        # 因为 self.pattern 是当前模块中定义的 RegexPattern 类的实例
+        # 该实例的 _regex 属性值默认是 '^/' ，当然它是可以设置的
+        # 此处该实例的 match 方法返回一个元组，其中第一个元素是 path 开头去掉 _regex 属性后的字符串
+        # 如果 path 开头不能匹配到 _regex 的话，match 返回的就是 None
         match = self.pattern.match(path)
         if match:
             new_path, args, kwargs = match
+            # 以 myweb 项目为例
+            # 此处 self.url_patterns 是 myweb.urls 路由处理模块中的 urlpatterns 列表
+            # 列表里面的元素也是当前类的实例，也就是「路由处理对象」
+            # 也可能是当前模块中的 URLPattern 类的实例，即「路由模式对象」
             for pattern in self.url_patterns:
                 try:
+                    # pattern 的类型不同，其 resolve 方法也不同
+                    # 当处理请求路径到最终一步时，pattern 就「路由模式对象」
+                    # 其 resolve 方法就会返回当前模块中定义的 ResolverMatch 类的实例
                     sub_match = pattern.resolve(new_path)
                 except Resolver404 as e:
                     sub_tried = e.args[0].get('tried')
@@ -585,7 +616,10 @@ class URLResolver:
 
     @cached_property
     def url_patterns(self):
-        # urlconf_module might be a valid set of patterns, so we default to it
+        # self 是「路由处理对象」
+        # 这里 self.urlconf_module 是一个被 property 装饰器装饰的方法，其返回值是 self.urlconf_name
+        # 以 myweb 项目为例，self.urlconf_name 属性的值是应用项目的 myweb.urls 路由处理模块
+        # 下面的 patterns 属性值就是模块里的 urlpatterns 列表
         patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
         try:
             iter(patterns)

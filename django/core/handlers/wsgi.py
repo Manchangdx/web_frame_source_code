@@ -130,10 +130,8 @@ class WSGIHandler(base.BaseHandler):
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】args:', args)
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】kwargs:', kwargs)
         super().__init__(*args, **kwargs)
-        print()
         # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()
-        print()
 
     def __call__(self, environ, start_response):
         # self 是应用对象
@@ -149,7 +147,7 @@ class WSGIHandler(base.BaseHandler):
         # 此处对其进行实例化并赋值给 request 变量，我们称之为「请求对象」
         request = self.request_class(environ)
 
-        # 此方法定义在 django.core.handlers.base.BaseHandler 类中
+        # 此 get_response 方法定义在 django.core.handlers.base.BaseHandler 类中
         # 把请求对象作为参数调用此方法，返回「响应对象」
         # 响应对象是 django.http.response.HttpResponse 类的实例
         response = self.get_response(request)

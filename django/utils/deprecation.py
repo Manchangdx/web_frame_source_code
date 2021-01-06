@@ -106,7 +106,7 @@ class MiddlewareMixin:
             self._is_coroutine = asyncio.coroutines._is_coroutine
 
     def __call__(self, request):
-        print('【django.utils.deprecation.MiddlewareMixin】self:', self)
+        #print('【django.utils.deprecation.MiddlewareMixin】self:', self)
         # Exit out to async mode, if needed
         if asyncio.iscoroutinefunction(self.get_response):
             return self.__acall__(request)
@@ -117,7 +117,7 @@ class MiddlewareMixin:
         if hasattr(self, 'process_response'):
             #print(f'request: {request} response: {response} self: {self}')
             response = self.process_response(request, response)
-        print('【django.utils.deprecation.MiddlewareMixin】response:', response)
+        #print('【django.utils.deprecation.MiddlewareMixin】response:', response)
         return response
 
     async def __acall__(self, request):

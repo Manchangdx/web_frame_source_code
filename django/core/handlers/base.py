@@ -25,6 +25,7 @@ class BaseHandler:
     _middleware_chain = None
 
     def load_middleware(self, is_async=False):
+        print('【django.core.handlers.base.BaseHandler.load_middleware】应用对象初始化')
         # self 是应用对象，初始化时会调用当前方法
         self._view_middleware = []
         self._template_response_middleware = []
@@ -37,7 +38,7 @@ class BaseHandler:
         # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
         # 调用 handler 实际上是调用 self._get_response 方法
         handler = convert_exception_to_response(get_response)
-        print('id(handler):', id(handler), handler)
+        #print('id(handler):', id(handler), handler)
         handler_is_async = is_async
 
         # reversed 是 Python 内置函数，参数是有序可迭代对象，返回值是倒序的迭代器
@@ -67,8 +68,8 @@ class BaseHandler:
                     debug=settings.DEBUG, 
                     name='middleware %s' % middleware_path,
                 )
-                print('【django.core.handlers.base.BaseHandler.adapt_method_mode】middleware:', middleware)
-                print('【django.core.handlers.base.BaseHandler.adapt_method_mode】handler:', handler)
+                #print('【django.core.handlers.base.BaseHandler.load_middleware】middleware:', middleware)
+                #print('【django.core.handlers.base.BaseHandler.load_middleware】handler:', handler)
                 # middleware 是中间件，它通常是一个类，这里把 handler 函数作为参数获取其实例
                 # 实例初始化时，会把参数 handler 赋值给实例自身的 get_response 属性
                 mw_instance = middleware(handler)
@@ -101,18 +102,18 @@ class BaseHandler:
                     self.adapt_method_mode(False, mw_instance.process_exception),
                 )
 
-            print('调用 convert_exception_to_response 之前 id(handler):', id(handler), handler)
+            #print('调用 convert_exception_to_response 之前 id(handler):', id(handler), handler)
             # 下面这一行代码导致 handler 变量的值发生变化，参数是中间件类的实例
             # 下面这个函数来自 django.core.handlers.exception 模块
             # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
             # 每次执行下面折行代码，handler 就变成中间件实例，实例的 get_response 属性就是上一个 handler
             handler = convert_exception_to_response(mw_instance)
-            print('调用 convert_exception_to_response 之后 id(handler):', id(handler), handler)
+            #print('调用 convert_exception_to_response 之后 id(handler):', id(handler), handler)
             handler_is_async = middleware_is_async
 
         # Adapt the top of the stack, if needed.
         handler = self.adapt_method_mode(is_async, handler, handler_is_async)
-        print('最终 id(handler):', id(handler), handler)
+        #print('最终 id(handler):', id(handler), handler)
         # We only assign to this when initialization is complete as it is used
         # as a flag for initialization being complete.
         # 它可以看作是中间件列表的第一个中间件实例
@@ -152,6 +153,7 @@ class BaseHandler:
         print('【django.core.handlers.base.BaseHandler.get_response】request:', request)
 
         set_urlconf(settings.ROOT_URLCONF)
+
         # self._middleware_chain 属性值是一个中间件实例
         # 此处调用中间件对象，也就是调用中间件对象的 __call__ 方法
         # 该 __call__ 方法定义在 django.utils.deprecation.MiddlewareMixin 类中
@@ -190,21 +192,16 @@ class BaseHandler:
         return response
 
     def _get_response(self, request):
-        """
-        Resolve and call the view, then apply view, exception, and
-        template_response middleware. This method is everything that happens
-        inside the request/response middleware.
-        """
         print('【django.core.handlers.base.BaseHandler._get_response】request:', request)
         response = None
-        # 请求对应的视图函数及其参数
-        # TODO 此处需要深入研究
+        # self 是应用对象，此方法获取请求对应的视图函数及其参数
+        # 顺利的话，此方法会返回 django.urls.resolvers.ResolverMatch 类的实例
+        # 该实例有一个 __getitem__ 方法，所以可以将自身赋值给三个变量，第一个就是处理请求的视图函数
         callback, callback_args, callback_kwargs = self.resolve_request(request)
         #print('【django.core.handlers.base.BaseHandler._get_response】callback:', callback)
         #print('【django.core.handlers.base.BaseHandler._get_response】callback_args:', callback_args)
         #print('【django.core.handlers.base.BaseHandler._get_response】callback_kwargs:', callback_kwargs)
 
-        # Apply view middleware
         for middleware_method in self._view_middleware:
             response = middleware_method(request, callback, callback_args, callback_kwargs)
             if response:
@@ -316,18 +313,20 @@ class BaseHandler:
         return response
 
     def resolve_request(self, request):
-        """
-        Retrieve/set the urlconf for the request. Return the view resolved,
-        with its args and kwargs.
-        """
-        # Work out the resolver.
+        # 判断请求对象是否有此属性，此属性值是一个字符串，指向项目的路由适配模块
         if hasattr(request, 'urlconf'):
             urlconf = request.urlconf
             set_urlconf(urlconf)
             resolver = get_resolver(urlconf)
         else:
+            # 此函数来自 django.urls.resolvers 模块
+            # 其返回值是 django.urls.resolvers.URLResolver 类的实例
+            # 该实例的 urlconf_name 属性值是项目的路由适配模块字符串 'myweb.urls' 
+            # 该实例我们称之为「路由处理对象」
             resolver = get_resolver()
-        # Resolve the view, and assign the match object back to the request.
+        print('【django.core.handlers.base.BaseHandler.resolve_request】request.path_info:', request.path_info)
+        # 将请求的绝对路径作为参数调用 django.urls.resolvers.URLResolver.resolve 方法
+        # 顺利的话，会返回 django.urls.resolvers.ResolverMatch 类的实例
         resolver_match = resolver.resolve(request.path_info)
         request.resolver_match = resolver_match
         return resolver_match
