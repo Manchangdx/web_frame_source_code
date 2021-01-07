@@ -8,6 +8,7 @@ from difflib import get_close_matches
 from importlib import import_module
 
 import django
+# apps 是 django.apps.registry.Apps 类的实例
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -331,7 +332,7 @@ class ManagementUtility:
             # 子命令，例如 runserver 、migrate 
             subcommand = self.argv[1]   
         except IndexError:
-            subcommand = 'help'  # Display help if no arguments were given.
+            subcommand = 'help'  
 
         # Preprocess options to extract --settings and --pythonpath.
         # These options could affect the commands that are available, so they
@@ -357,9 +358,6 @@ class ManagementUtility:
             self.settings_exception = exc
 
         if settings.configured:
-            # Start the auto-reloading dev server even if the code is broken.
-            # The hardcoded condition is a code smell but we can't rely on a
-            # flag on the command class because we haven't located it yet.
             #print('【django.core.management.__init__.ManagementUtility.execute】subcommand:', subcommand)
             #print('【django.core.management.__init__.ManagementUtility.execute】self.argv:', self.argv)
             if subcommand == 'runserver' and '--noreload' not in self.argv:
@@ -407,13 +405,15 @@ class ManagementUtility:
         elif self.argv[1:] in (['--help'], ['-h']):
             sys.stdout.write(self.main_help_text() + '\n')
         else:
-            # 这是 django.contrib.staticfiles.management.commands.runserver.Command 类的实例
-            # 我们称之为「命令处理对象」
+            # 下面的 cmd 我们称之为「命令处理对象」
+            # 此对象的父类是 django.contrib.staticfiles.management.commands.runserver.Command 类
+            # 后者的父类是 django.core.management.commands.runserver.Command 类
+            # 后者的父类是 django.core.management.base.BaseCommand 类
             cmd = self.fetch_command(subcommand)
-            # 此方法定义在 django.core.management.base.BaseCommand 类中
+            # 下面这个方法定义在 django.core.management.base.BaseCommand 类中
             # 参数 self.argv 是终端命令参数列表，等同于 sys.argv
+            # 这个方法会调用「命令处理对象」自身的 handle 方法控制其它对象启动线程和创建套接字啥的
             cmd.run_from_argv(self.argv)
-            #self.fetch_command(subcommand).run_from_argv(self.argv)
 
 
 def execute_from_command_line(argv=None):

@@ -24,16 +24,8 @@ class Apps:
         if installed_apps is None and hasattr(sys.modules[__name__], 'apps'):
             raise RuntimeError("You must supply an installed_apps argument.")
 
-        # Mapping of app labels => model names => model classes. Every time a
-        # model is imported, ModelBase.__new__ calls apps.register_model which
-        # creates an entry in all_models. All imported models are registered,
-        # regardless of whether they're defined in an installed application
-        # and whether the registry has been populated. Since it isn't possible
-        # to reimport a module safely (it could reexecute initialization code)
-        # all_models is never overridden or reset.
-        #
-        # 调用字典对象的 key 获取对应的 value 时，如果 key 不存在，会报错
-        # 这个 defaultdict 的返回值就是一个字典对象，调用不存在的 key 时不会报错
+        # 通常调用字典对象的 key 获取对应的 value 时，如果 key 不存在，会报错
+        # 这个 defaultdict 的返回值就是一个类字典对象，调用不存在的 key 时不会报错
         # 对应的 value 就是参数的调用
         # 例如参数是 dict ，value 就是空字典
         # 参数是 list ，value 就是空列表
@@ -95,7 +87,6 @@ class Apps:
             print('【django.apps.registry.Apps.populate】当前线程：', ct.name, ct.ident)
 
             # Phase 1: initialize app configs and import app modules.
-            #print('【django.apps.registry.Apps.populate】')
             for entry in installed_apps:
                 if isinstance(entry, AppConfig):
                     app_config = entry

@@ -314,17 +314,20 @@ class BaseCommand:
         parser.print_help()
 
     def run_from_argv(self, argv):
+        # self 是「命令处理对象」
         self._called_from_command_line = True
+        # 下面这个变量是「命令解析对象」，它是当前模块中定义的 CommandParser 类的实例
         parser = self.create_parser(argv[0], argv[1])
-
+        # 调用「命令解析对象」的方法，此方法定义在当前模块的 CommandParser 类中
         options = parser.parse_args(argv[2:])
         # 内置函数 vars 返回对象的 __dict__ 属性值
         cmd_options = vars(options)
-        #print('【django.core.management.base.BaseCommand.run_from_argv】cmd_options:', cmd_options)
         args = cmd_options.pop('args', ())
+        #print('【django.core.management.base.BaseCommand.run_from_argv】cmd_options:', cmd_options)
+        #print('【django.core.management.base.BaseCommand.run_from_argv】args:', args)
         handle_default_options(options)
         try:
-            # 关键代码
+            # 关键代码，此方法定义在当前类中，就在下面。参数分别是元组和字典对象
             self.execute(*args, **cmd_options)
         except CommandError as e:
             if options.traceback:
@@ -345,13 +348,7 @@ class BaseCommand:
                 pass
 
     def execute(self, *args, **options):
-        """
-        Try to execute this command, performing system checks if needed (as
-        controlled by the ``requires_system_checks`` attribute, except if
-        force-skipped).
-        """
-        #print('>>>>>>>>>>>args:', args)
-        #print('>>>>>>>>>>>options:', options)
+        # self 是「命令处理对象」
         if options['force_color'] and options['no_color']:
             raise CommandError("The --no-color and --force-color options can't be used together.")
         if options['force_color']:

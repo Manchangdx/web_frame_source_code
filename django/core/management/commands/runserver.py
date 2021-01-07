@@ -66,6 +66,8 @@ class Command(BaseCommand):
         return get_internal_wsgi_application()
 
     def handle(self, *args, **options):
+        # self 就是「命令处理对象」
+
         #print('【django.core.management.commands.runserver.Command.handle】args:', args)
         #print('【django.core.management.commands.runserver.Command.handle】options:', options)
         if not settings.DEBUG and not settings.ALLOWED_HOSTS:
@@ -96,12 +98,12 @@ class Command(BaseCommand):
         if not self.addr:
             self.addr = self.default_addr_ipv6 if self.use_ipv6 else self.default_addr
             self._raw_ipv6 = self.use_ipv6
-        #print('【django.core.management.commands.runserver.Command.handle】options:', options)
-        # 下面一行是关键代码，self 就是「命令处理对象」
+        # 下面一行是关键代码，此方法定义在当前类中，就在下面
         self.run(**options)
 
     def run(self, **options):
-        """Run the server, using the autoreloader if needed."""
+        # self 就是「命令处理对象」
+        # 下面这个变量的默认值是 True ，如果有代码变动，会自动重新启动程序
         use_reloader = options['use_reloader']
 
         if use_reloader:
