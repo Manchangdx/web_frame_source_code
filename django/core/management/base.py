@@ -463,7 +463,6 @@ class BaseCommand:
             return
 
         plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
-        """
         if plan:
             apps_waiting_migration = sorted({migration.app_label for migration, backwards in plan})
             self.stdout.write(
@@ -477,7 +476,6 @@ class BaseCommand:
                 )
             )
             self.stdout.write(self.style.NOTICE("Run 'python manage.py migrate' to apply them."))
-        """
 
     def handle(self, *args, **options):
         """
