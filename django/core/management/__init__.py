@@ -216,13 +216,12 @@ class ManagementUtility:
         return '\n'.join(usage)
 
     def fetch_command(self, subcommand):
+        """根据命令行参数找到对应的模块中的 Command 类并返回
         """
-        Try to fetch the given subcommand, printing a message with the
-        appropriate command called from the command line (usually
-        "django-admin" or "manage.py") if it can't be found.
-        """
-        # Get commands outside of try block to prevent swallowing exceptions
+        # 这是一个字典对象，key 是命令字符串，value 是对应的模块或包的字符串
+        # 例如 {'runserver': 'django.contrib.staticfiles', 'migrate': 'django.core'}
         commands = get_commands()
+
         try:
             app_name = commands[subcommand]
         except KeyError:
@@ -404,8 +403,15 @@ class ManagementUtility:
             sys.stdout.write(django.get_version() + '\n')
         elif self.argv[1:] in (['--help'], ['-h']):
             sys.stdout.write(self.main_help_text() + '\n')
-        else:
-            # 下面的 cmd 我们称之为「命令处理对象」
+        else: 
+            # 下面的 fetch_command 方法根据命令行参数找到对应的模块中的 Command 类的实例并返回
+            # 它通过一个字典来找，每个命令都在字典中有对应的 key 
+            # 根据命令找到对应的 value ，它是一个包字符串，再据此找到包下面的 management/commands 子目录
+            # 然后在这个子目录下面找到命令同名的文件
+            # 以 python manage.py makemigrate 命令为例
+            # 这个方法就会返回 .../management/commands/makemigrate.py 文件中的 Command 类的实例
+
+            # 下面的 cmd 我们称之为「命令处理对象」，以 runserver 命令为例
             # 此对象的父类是 django.contrib.staticfiles.management.commands.runserver.Command 类
             # 后者的父类是 django.core.management.commands.runserver.Command 类
             # 后者的父类是 django.core.management.base.BaseCommand 类

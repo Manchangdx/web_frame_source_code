@@ -45,7 +45,7 @@ class CommandParser(ArgumentParser):
     command is called programmatically.
     """
     def __init__(self, *, missing_args_message=None, called_from_command_line=None, **kwargs):
-        #print('【django.core.management.base.CommandParser】kwargs:', kwargs)
+        #print('【django.core.management.base.CommandParser.__init__】kwargs:', kwargs)
         self.missing_args_message = missing_args_message
         self.called_from_command_line = called_from_command_line
         super().__init__(**kwargs)
@@ -315,10 +315,12 @@ class BaseCommand:
 
     def run_from_argv(self, argv):
         # self 是「命令处理对象」
+        print('【django.core.management.base.BaseCommand.run_from_argv】argv:', argv)
         self._called_from_command_line = True
         # 下面这个变量是「命令解析对象」，它是当前模块中定义的 CommandParser 类的实例
         parser = self.create_parser(argv[0], argv[1])
         # 调用「命令解析对象」的方法，此方法定义在当前模块的 CommandParser 类中
+        # 此方法会处理子命令对应的全部选项，返回一个对象，这个对象的 __dict__ 属性值就是选项及其参数
         options = parser.parse_args(argv[2:])
         # 内置函数 vars 返回对象的 __dict__ 属性值
         cmd_options = vars(options)
@@ -366,7 +368,7 @@ class BaseCommand:
         if self.requires_migrations_checks:
             self.check_migrations()
         # 下面这个 handle 方法是重要的
-        # 它定义在 django.core.management.commands.runserver.Command 类中
+        # 它定义在 django.core.management.commands.xxxx.Command 类中
         # 它会调用 self 的 run 方法，此方法也在那个类中，self 就是「命令处理对象」
         # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建线程并启动
         output = self.handle(*args, **options)
@@ -385,10 +387,9 @@ class BaseCommand:
               include_deployment_checks=False, fail_level=checks.ERROR,
               databases=None):
         """
-        Use the system check framework to validate entire Django project.
-        Raise CommandError for any serious message (error or critical errors).
-        If there are only light messages (like warnings), print them to stderr
-        and don't raise an exception.
+        使用系统检查框架来验证整个 Django 项目。
+        对于任何严重的消息（错误或严重错误），请引发 CommandError。
+        如果只有少量消息（如警告），则将它们打印到 tderr 且不要引发异常。
         """
         all_issues = checks.run_checks(
             app_configs=app_configs,
@@ -396,6 +397,7 @@ class BaseCommand:
             include_deployment_checks=include_deployment_checks,
             databases=databases,
         )
+        #print('【django.core.management.base.BaseCommand.check】all_issues:', all_issues)
 
         header, body, footer = "", "", ""
         visible_issue_count = 0  # excludes silenced warnings

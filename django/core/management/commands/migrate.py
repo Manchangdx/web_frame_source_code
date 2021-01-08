@@ -70,7 +70,11 @@ class Command(BaseCommand):
 
     @no_translations
     def handle(self, *args, **options):
-        database = options['database']
+        #print('【django.core.management.commands.migrate.Command.handle】args:', args)
+        #print('【django.core.management.commands.migrate.Command.handle】options:')
+        #for k, v in options.items():
+        #    print(f'{k:<22}{v}')
+        database = options['database']  # 默认值是 'default'
         if not options['skip_checks']:
             self.check(databases=[database])
 
@@ -84,12 +88,16 @@ class Command(BaseCommand):
                 import_module('.management', app_config.name)
 
         # Get the database we're operating from
+        # connections 是 django.db.utils.ConnectionHandler 类的实例
         connection = connections[database]
+        print('ccccc', connection)
 
         # Hook for backends needing any database preparation
         connection.prepare_database()
+
         # Work out which apps have migrations and which do not
         executor = MigrationExecutor(connection, self.migration_progress_callback)
+        print('4444')
 
         # Raise an error if any migrations are applied before their dependencies.
         executor.loader.check_consistent_history(connection)

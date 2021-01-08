@@ -204,7 +204,10 @@ class ConnectionHandler:
         for key, value in default_test_settings:
             test_settings.setdefault(key, value)
 
-    def __getitem__(self, alias):
+    def __getitem__(self, alias, t=None):
+        # self._connections 是 asgiref.local.Local 类的实例
+        if hasattr(self._connections, alias) and t == True:
+            print('hhhh')
         if hasattr(self._connections, alias):
             return getattr(self._connections, alias)
 
