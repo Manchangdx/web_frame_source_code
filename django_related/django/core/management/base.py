@@ -55,6 +55,7 @@ class CommandParser(ArgumentParser):
         if (self.missing_args_message and
                 not (args or any(not arg.startswith('-') for arg in args))):
             self.error(self.missing_args_message)
+        # 此处调用父类的同名方法，该方法定义在 argparse.ArgumentParse 类中
         return super().parse_args(args, namespace)
 
     def error(self, message):
@@ -319,10 +320,10 @@ class BaseCommand:
         self._called_from_command_line = True
         # 下面这个变量是「命令解析对象」，它是当前模块中定义的 CommandParser 类的实例
         parser = self.create_parser(argv[0], argv[1])
-        # 调用「命令解析对象」的方法，此方法定义在当前模块的 CommandParser 类中
+        # 调用「命令解析对象」的 parse_args 方法，此方法定义在当前模块的 CommandParser 类中
         # 此方法会处理子命令对应的全部选项，返回一个对象，这个对象的 __dict__ 属性值就是选项及其参数
         options = parser.parse_args(argv[2:])
-        # 内置函数 vars 返回对象的 __dict__ 属性值
+        # 内置函数 vars 返回对象的 __dict__ 属性值，也就是一个字典对象
         cmd_options = vars(options)
         args = cmd_options.pop('args', ())
         #print('【django.core.management.base.BaseCommand.run_from_argv】cmd_options:', cmd_options)
@@ -367,10 +368,16 @@ class BaseCommand:
             self.check()
         if self.requires_migrations_checks:
             self.check_migrations()
+
         # 下面这个 handle 方法是重要的
         # 它定义在 django.core.management.commands.xxxx.Command 类中
+
+        # 以 python manage.py runserver 为例
         # 它会调用 self 的 run 方法，此方法也在那个类中，self 就是「命令处理对象」
         # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建线程并启动
+
+        # 以 python manage.py migrate 为例
+        # 它会处理数据库相关的事务，创建连接对象，操作数据库版本控制功能，将映射类转换成数据表
         output = self.handle(*args, **options)
         if output:
             if self.output_transaction:

@@ -70,6 +70,7 @@ class Command(BaseCommand):
 
     @no_translations
     def handle(self, *args, **options):
+        # self 是「命令处理对象」
         #print('【django.core.management.commands.migrate.Command.handle】args:', args)
         #print('【django.core.management.commands.migrate.Command.handle】options:')
         #for k, v in options.items():
@@ -87,17 +88,18 @@ class Command(BaseCommand):
             if module_has_submodule(app_config.module, "management"):
                 import_module('.management', app_config.name)
 
-        # Get the database we're operating from
-        # connections 是 django.db.utils.ConnectionHandler 类的实例
+        # connections 是 django.db.utils.ConnectionHandler 类的实例，叫做「数据库连接处理对象」
+        # 此处调用其 __getitem__ 方法，返回的是「数据库包装对象」
+        # 以 MySQL 为例，其所属类定义在 django.db.backends.mysql.base 模块中
         connection = connections[database]
-        print('ccccc', connection)
 
         # Hook for backends needing any database preparation
         connection.prepare_database()
 
+        # 下面这十几行代码用于处理数据版本控制相关的事情
+
         # Work out which apps have migrations and which do not
         executor = MigrationExecutor(connection, self.migration_progress_callback)
-        print('4444')
 
         # Raise an error if any migrations are applied before their dependencies.
         executor.loader.check_consistent_history(connection)

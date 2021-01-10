@@ -58,7 +58,9 @@ class LazySettings(LazyObject):
         is used the first time settings are needed, if the user hasn't
         configured settings manually.
         """
+        # 这个变量是一个字符串，指向项目的配置文件模块
         settings_module = os.environ.get(ENVIRONMENT_VARIABLE)
+
         if not settings_module:
             desc = ("setting %s" % name) if name else "settings"
             raise ImproperlyConfigured(

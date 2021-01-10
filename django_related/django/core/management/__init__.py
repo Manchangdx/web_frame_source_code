@@ -405,9 +405,9 @@ class ManagementUtility:
             sys.stdout.write(self.main_help_text() + '\n')
         else: 
             # 下面的 fetch_command 方法根据命令行参数找到对应的模块中的 Command 类的实例并返回
-            # 它通过一个字典来找，每个命令都在字典中有对应的 key 
-            # 根据命令找到对应的 value ，它是一个包字符串，再据此找到包下面的 management/commands 子目录
-            # 然后在这个子目录下面找到命令同名的文件
+            # 它通过一个字典来找，每个命令都是字典中的一个 key 
+            # 根据命令找到对应的 value ，它是一个包的字符串，再据此找到包下面的 management/commands 子目录
+            # 然后在这个子目录下面找到与命令同名的文件
             # 以 python manage.py makemigrate 命令为例
             # 这个方法就会返回 .../management/commands/makemigrate.py 文件中的 Command 类的实例
 
