@@ -231,10 +231,10 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # 将 self 赋值给「继续处理对象」的 request_handler 属性
         handler.request_handler = self      
 
-        # 调用「继续处理对象」的 run 方法
+        # 调用「继续处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
         # self.server 是服务器对象，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
         # 其返回值是服务器对象的 application 属性值，也就是当前模块倒数第二行代码里的 wsgi_handler
-        # 所以下面 run 方法的参数就是应用对象，此方法定义在 wsgiref.handlers.BaseHandler 类中
+        # 所以下面 run 方法的参数就是应用对象
         handler.run(self.server.get_app())
 
 

@@ -106,17 +106,32 @@ class MiddlewareMixin:
             self._is_coroutine = asyncio.coroutines._is_coroutine
 
     def __call__(self, request):
+        # self 是中间件
+
         #print('【django.utils.deprecation.MiddlewareMixin】self:', self)
+
         # Exit out to async mode, if needed
         if asyncio.iscoroutinefunction(self.get_response):
             return self.__acall__(request)
         response = None
+
+        # 下面这两个 if 语句大概率会执行，但有的中间件对象没有其中的某个方法
+
         if hasattr(self, 'process_request'):
+        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>', self.process_request)
             response = self.process_request(request)
+        #else:
+        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>')
+        # 最后一个中间件对象是没有 process_request 方法的，就调用 self.get_response 方法
+        # 也就是 djang.core.handlers.base.BaseHandler._get_response 方法
         response = response or self.get_response(request)
+
         if hasattr(self, 'process_response'):
-            #print(f'request: {request} response: {response} self: {self}')
+        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>', self.process_response)
             response = self.process_response(request, response)
+        #else:
+        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>')
+
         #print('【django.utils.deprecation.MiddlewareMixin】response:', response)
         return response
 

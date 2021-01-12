@@ -625,7 +625,8 @@ def run_with_reloader(main_func, *args, **kwargs):
         if os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true':
             # 该对象是当前模块中定义的 StatReloader 类的实例
             reloader = get_reloader()
-            #logger.info('【django.utils.authreload.run_with_reloader】Watching for file changes with %s', reloader.__class__.__name__)
+            #logger.info(f'【django.utils.authreload.run_with_reloader】Watching'
+            #        ' for file changes with {reloader.__class__.__name__}')
             # 此函数定义在当前模块中
             start_django(reloader, main_func, *args, **kwargs)
         else:

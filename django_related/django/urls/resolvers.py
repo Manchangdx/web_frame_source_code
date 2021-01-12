@@ -147,7 +147,7 @@ class CheckURLMixin:
 
 
 class RegexPattern(CheckURLMixin):
-    # 正则模式对象
+    # 该类的实例是「正则模式对象」
     regex = LocaleRegexDescriptor('_regex')
 
     def __init__(self, regex, name=None, is_endpoint=False):
@@ -257,7 +257,7 @@ def _route_to_regex(route, is_endpoint=False):
 
 
 class RoutePattern(CheckURLMixin):
-    # 路径模式对象
+    # 该类的实例是「路径模式对象」
     regex = LocaleRegexDescriptor('_route')
 
     def __init__(self, route, name=None, is_endpoint=False):
@@ -335,7 +335,7 @@ class LocalePrefixPattern:
 
 
 class URLPattern:
-    # 路由模式对象
+    # 该类的实例是「路由模式对象」
     def __init__(self, pattern, callback, default_args=None, name=None):
         self.pattern = pattern
         self.callback = callback  # the view
@@ -365,9 +365,17 @@ class URLPattern:
             return []
 
     def resolve(self, path):
+        # self 是「路由模式对象」
+        # 处理请求路径的最终一站就是这里
+        # 该方法返回一个「匹配对象」，该对象有如下属性：
+        # func ：视图函数
+        # url_name ：self.name
+        # route ：当前路由模式对象匹配的路径
         match = self.pattern.match(path)
         if match:
             new_path, args, kwargs = match
+            #print('【django.urls.resolvers.URLPattern.resolve】', 
+            #        f'new_path: {new_path} args: {args} kwargs: {kwargs}')
             # Pass any extra_kwargs as **kwargs.
             kwargs.update(self.default_args)
             return ResolverMatch(self.callback, args, kwargs, self.pattern.name, route=str(self.pattern))
@@ -387,13 +395,11 @@ class URLPattern:
 
 
 class URLResolver:
-    # 路由处理对象
+    # 此类的实例是「路由处理对象」
     def __init__(self, pattern, urlconf_name, default_kwargs=None, app_name=None, namespace=None):
-        # 这块儿 pattern 属性值是
+        # 该属性值是当前模块中定义的 RoutePattern 类的实例，叫「正则模式对象」
         self.pattern = pattern
-        # urlconf_name is the dotted Python path to the module defining
-        # urlpatterns. It may also be an object with an urlpatterns attribute
-        # or urlpatterns itself.
+        # 该属性值是字符串，它指向项目的路由配置模块 'xxx.urls' 
         self.urlconf_name = urlconf_name
         self.callback = None
         self.default_kwargs = default_kwargs or {}
@@ -553,27 +559,30 @@ class URLResolver:
         return name in self._callback_strs
 
     def resolve(self, path):
-        # self 是「路由处理对象」
-        # 它在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建
-        print('【django.urls.resolvers.URLResolver.resolve】参数 path:', path)
+        # self 是「路由处理对象」，项目启动时在 django.urls.conf.path 函数中会自动创建一些
+        # 收到请求后在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建一个
+        # 参数 path 是请求路径或路径的一部分
         path = str(path)  # path may be a reverse_lazy object
         tried = []
-        # 这里去掉了绝对路径开头的斜线
+        # 以收到请求后创建的实例为例，这里去掉了绝对路径开头的斜线
         # 因为 self.pattern 是当前模块中定义的 RegexPattern 类的实例
-        # 该实例的 _regex 属性值默认是 '^/' ，当然它是可以设置的
+        # 该实例的 _regex 属性值默认是 '^/' 
         # 此处该实例的 match 方法返回一个元组，其中第一个元素是 path 开头去掉 _regex 属性后的字符串
-        # 如果 path 开头不能匹配到 _regex 的话，match 返回的就是 None
+        # 例如 path 是 '/home/user/1'
+        # 去掉开头的斜线后，下面 if 语句块中的 new_path 就是 'home/user/1'
+        # 如果 path 开头不能匹配到 _regex 的话，match 方法返回的就是 None
         match = self.pattern.match(path)
         if match:
             new_path, args, kwargs = match
-            # 以 myweb 项目为例
-            # 此处 self.url_patterns 是 myweb.urls 路由处理模块中的 urlpatterns 列表
-            # 列表里面的元素也是当前类的实例，也就是「路由处理对象」
+            # 这里 self.url_patterns 属性是被装饰器装饰的方法，它定义在当前类中
+            # 以 myweb 项目为例，该属性值就是 myweb.urls 路由处理模块中的 urlpatterns 列表
+            # 列表里面的元素可能是当前类 URLResolver 的实例，也就是「路由处理对象」
             # 也可能是当前模块中的 URLPattern 类的实例，即「路由模式对象」
             for pattern in self.url_patterns:
                 try:
                     # pattern 的类型不同，其 resolve 方法也不同
-                    # 当处理请求路径到最终一步时，pattern 就「路由模式对象」
+                    # 
+                    # 当处理请求路径到最终一步时，pattern 就是「路由模式对象」
                     # 其 resolve 方法就会返回当前模块中定义的 ResolverMatch 类的实例
                     sub_match = pattern.resolve(new_path)
                 except Resolver404 as e:
@@ -594,6 +603,7 @@ class URLResolver:
                         if not sub_match_dict:
                             sub_match_args = args + sub_match.args
                         current_route = '' if isinstance(pattern, URLPattern) else str(pattern.pattern)
+                        # 最后再重新整理一下，创建一个新的 ResolverMatch 实例返回
                         return ResolverMatch(
                             sub_match.func,
                             sub_match_args,
@@ -609,6 +619,9 @@ class URLResolver:
 
     @cached_property
     def urlconf_module(self):
+        # self 是「路由处理对象」
+        # 这里会判断 self.urlconf_name 的属性值类型
+        # 如果是字符串，返回对应的模块对象；如果不是字符串，就是列表，直接返回列表
         if isinstance(self.urlconf_name, str):
             return import_module(self.urlconf_name)
         else:
@@ -617,9 +630,9 @@ class URLResolver:
     @cached_property
     def url_patterns(self):
         # self 是「路由处理对象」
-        # 这里 self.urlconf_module 是一个被 property 装饰器装饰的方法，其返回值是 self.urlconf_name
+        # 这里 self.urlconf_module 是一个被 property 装饰器装饰的方法，就在上面
         # 以 myweb 项目为例，self.urlconf_name 属性的值是应用项目的 myweb.urls 路由处理模块
-        # 下面的 patterns 属性值就是模块里的 urlpatterns 列表
+        # 下面的 patterns 变量就是模块里的 urlpatterns 列表
         patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
         try:
             iter(patterns)

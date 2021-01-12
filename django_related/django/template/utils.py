@@ -34,6 +34,7 @@ class EngineHandler:
                 # This will raise an exception if 'BACKEND' doesn't exist or
                 # isn't a string containing at least one dot.
                 default_name = tpl['BACKEND'].rsplit('.', 2)[-2]
+                #print('【django.template.utils.EngineHandler.templates】default_name:', default_name)
             except Exception:
                 invalid_backend = tpl.get('BACKEND', '<not defined>')
                 raise ImproperlyConfigured(
@@ -62,6 +63,7 @@ class EngineHandler:
         return templates
 
     def __getitem__(self, alias):
+        print('【django.template.utils.EngineHandler.__getitem__】alias:', alias)
         try:
             return self._engines[alias]
         except KeyError:

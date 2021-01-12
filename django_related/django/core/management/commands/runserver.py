@@ -154,14 +154,14 @@ class Command(BaseCommand):
 
         try:
             # 这里 self 是「命令处理对象」
-            # django.core.handlers.wsgi.WSGIHandler 类的实例
+            # 下面的 handle 是 django.core.handlers.wsgi.WSGIHandler 类的实例
             # 此实例就相当于 Flask 中的 app 应用对象
             handler = self.get_handler(*args, **options)
-            # 这个方法是核心，参数 handler 是应用对象，方法内部会创建服务器对象并启动监听
-            # 此方法定义在 django.core.servers.basehttp 模块中
-            # self.server_cls 是服务器类，其实例就是携带 TCP 套接字的对象
-            run(self.addr, int(self.port), handler,
-                ipv6=self.use_ipv6, threading=threading, server_cls=self.server_cls)
+            # 这个 run 方法是核心，定义在 django.core.servers.basehttp 模块中
+            # 在方法内部会创建服务器对象并启动监听
+            # 参数 handler 是应用对象，server_cls 是服务器类，其实例就是携带 TCP 套接字的对象
+            run(self.addr, int(self.port), handler, ipv6=self.use_ipv6,
+                threading=threading, server_cls=self.server_cls)
         except OSError as e:
             # Use helpful error messages instead of ugly tracebacks.
             ERRORS = {

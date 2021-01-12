@@ -429,4 +429,5 @@ class Apps:
             function(model)
 
 
+# 应用程序启动的时候就会创建该对象，并且只创建一次
 apps = Apps(installed_apps=None)
