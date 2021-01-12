@@ -13,9 +13,14 @@ from django.utils.functional import Promise
 
 def render(request, template_name, context=None, content_type=None, status=None, using=None):
     """
-    Return a HttpResponse whose content is filled with the result of calling
-    django.template.loader.render_to_string() with the passed arguments.
+    返回一个响应对象，django.http.response.HttpResponse 类的实例
+
+    :request: 请求对象，djang.core.handlers.wsgi.WSGIHandler 类的实例
+    :template_name: 模板文件的相对路径字符串
     """
+    
+    # loader 是 django.template.loader 模块
+    # 此处调用该模块中的 render_to_string 函数，根据参数返回字符串作为响应体
     content = loader.render_to_string(template_name, context, request, using=using)
     return HttpResponse(content, content_type, status)
 

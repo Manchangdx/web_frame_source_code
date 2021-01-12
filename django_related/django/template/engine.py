@@ -98,14 +98,22 @@ class Engine:
         return self.get_template_loaders(self.loaders)
 
     def get_template_loaders(self, template_loaders):
+        # self 是「引擎对象」
         loaders = []
+        # 参数 template_loaders 是列表：
+        # ['django.template.loaders.filesystem.Loader', 
+        #  'django.template.loaders.app_directories.Loader'
+        # ]
         for template_loader in template_loaders:
+            # 下面的 loader 是 ...Loader 类的实例，叫做「模板加载对象」
             loader = self.find_template_loader(template_loader)
             if loader is not None:
                 loaders.append(loader)
+        # 返回值是列表，里面是 django.template.loaders...Loader 类的实例
         return loaders
 
     def find_template_loader(self, loader):
+        # self 是「引擎对象」
         if isinstance(loader, (tuple, list)):
             loader, *args = loader
         else:
@@ -113,6 +121,7 @@ class Engine:
 
         if isinstance(loader, str):
             loader_class = import_string(loader)
+            # 把「引擎对象」作为参数实例化「模板加载对象」
             return loader_class(self, *args)
         else:
             raise ImproperlyConfigured(
@@ -120,6 +129,8 @@ class Engine:
 
     def find_template(self, name, dirs=None, skip=None):
         tried = []
+        # self.template_loaders 是列表
+        # 里面是 django.template.loaders...Loader 类的实例，叫做「模板加载对象」
         for loader in self.template_loaders:
             try:
                 template = loader.get_template(name, skip=skip)
@@ -140,6 +151,7 @@ class Engine:
         Return a compiled Template object for the given template name,
         handling template inheritance recursively.
         """
+        print('【django.template.engine.Engine.get_template】template_name:', template_name)
         template, origin = self.find_template(template_name)
         if not hasattr(template, 'render'):
             # template needs to be compiled

@@ -22,6 +22,17 @@ class DjangoTemplates(BaseEngine):
         options.setdefault('debug', settings.DEBUG)
         options.setdefault('file_charset', 'utf-8')
         libraries = options.get('libraries', {})
+        # 下面这个值是字典对象
+        # {'cache': 'django.templatetags.cache', 
+        #  'i18n': 'django.templatetags.i18n', 
+        #  'l10n': 'django.templatetags.l10n', 
+        #  'static': 'django.templatetags.static', 
+        #  'tz': 'django.templatetags.tz', 
+        #  'admin_list': 'django.contrib.admin.templatetags.admin_list', 
+        #  'admin_modify': 'django.contrib.admin.templatetags.admin_modify', 
+        #  'admin_urls': 'django.contrib.admin.templatetags.admin_urls', 
+        #  'log': 'django.contrib.admin.templatetags.log'
+        # }
         options['libraries'] = self.get_templatetag_libraries(libraries)
         super().__init__(params)
         self.engine = Engine(self.dirs, self.app_dirs, **options)
@@ -30,7 +41,9 @@ class DjangoTemplates(BaseEngine):
         return Template(self.engine.from_string(template_code), self)
 
     def get_template(self, template_name):
+        # self 是「模板引擎对象」
         try:
+            # self.engine 是 django.template.engine.Engine 类的实例，叫做「引擎对象」
             return Template(self.engine.get_template(template_name), self)
         except TemplateDoesNotExist as exc:
             reraise(exc, self)

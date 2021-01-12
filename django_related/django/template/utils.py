@@ -78,8 +78,11 @@ class EngineHandler:
             # self._engines[alias] isn't set and this code may get executed
             # again, so we must preserve the original params. See #24265.
             params = params.copy()
+            # 默认情况下，backend 的值是 'django.template.backends.django.DjangoTemplates'
             backend = params.pop('BACKEND')
+            # 默认情况下，engine_cls 是 backend 对应的类
             engine_cls = import_string(backend)
+            # 默认情况下，engine 就是 django.template.backends.django.DjangoTemplates 类的实例
             engine = engine_cls(params)
 
             self._engines[alias] = engine
@@ -89,6 +92,9 @@ class EngineHandler:
         return iter(self.templates)
 
     def all(self):
+        # 返回列表
+        # 默认情况下，列表中只有一个 django.template.backends.django.DjangoTemplates 类的实例
+        # 该实例被称为「模板引擎对象」
         return [self[alias] for alias in self]
 
 

@@ -31,6 +31,7 @@ class Loader(BaseLoader):
         in template_dirs. For security reasons, if a path doesn't lie inside
         one of the template_dirs it is excluded from the result set.
         """
+        # TODO
         for template_dir in self.get_dirs():
             try:
                 name = safe_join(template_dir, template_name)
