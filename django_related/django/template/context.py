@@ -198,6 +198,7 @@ class RenderContext(BaseContext):
 
     @contextmanager
     def push_state(self, template, isolated_context=True):
+        # 参数 template 是「最终模板对象」，django.template.backends.django.Template 类的实例
         initial = self.template
         self.template = template
         if isolated_context:
@@ -272,6 +273,7 @@ def make_context(context, request=None, **kwargs):
         # The following pattern is required to ensure values from
         # context override those from template context processors.
         original_context = context
+        # 此类定义在当前模块中，叫做「请求上下文对象」
         context = RequestContext(request, **kwargs)
         if original_context:
             context.push(original_context)

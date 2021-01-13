@@ -217,8 +217,7 @@ class BaseHandler:
             if asyncio.iscoroutinefunction(wrapped_callback):
                 wrapped_callback = async_to_sync(wrapped_callback)
             try:
-                # 调用视图函数，返回响应对象
-                # TODO 此处需要分析项目代码
+                # 调用视图函数，返回响应对象，django.http.response.HttpResponse 类的实例
                 response = wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)

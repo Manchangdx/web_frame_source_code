@@ -4,6 +4,7 @@ from django.template import Template, TemplateDoesNotExist
 class Loader:
 
     def __init__(self, engine):
+        # self 是「模板加载对象」，engine 是「引擎对象」
         self.engine = engine
 
     def get_template(self, template_name, skip=None):
@@ -16,16 +17,20 @@ class Loader:
         tried = []
 
         for origin in self.get_template_sources(template_name):
+            # origin 是 django.template.base.Origin 类的实例
             if skip is not None and origin in skip:
                 tried.append((origin, 'Skipped'))
                 continue
 
             try:
+                # 此方法定义在 django.template.loaders.filesystem.Loader 类中
+                # 其返回值是视图函数指定的模板文件中的全部内容
                 contents = self.get_contents(origin)
             except TemplateDoesNotExist:
                 tried.append((origin, 'Source does not exist'))
                 continue
             else:
+                # 最终返回 django.template.base.Template 类的实例，这就是「模板对象」
                 return Template(
                     contents, origin, origin.template_name, self.engine,
                 )

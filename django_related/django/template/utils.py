@@ -98,14 +98,32 @@ class EngineHandler:
         return [self[alias] for alias in self]
 
 
+# 此装饰器用于实现函数缓存功能
+# 当函数被调用时，会将参数作为 key 返回值作为 value 存到函数的缓存区域
+# 下次以同样的参数调用函数时，直接在函数的缓存区域找到对应的 value 并返回
 @functools.lru_cache()
 def get_app_template_dirs(dirname):
     """
     Return an iterable of paths of directories to load app templates from.
-
+    翻译：返回目录的可迭代路径，以从中加载应用程序模板。
     dirname is the name of the subdirectory containing templates inside
     installed applications.
+    翻译：dirname 是包含已安装的应用程序中的模板的子目录的名称。
     """
+    # apps 是定义在 django.apps.registry.Apps 类的实例
+    # 其 get_app_configs 方法的返回值是类列表对象：
+    # [
+    #  <AdminConfig: admin>,                其 path 属性值：'.../site-packages/django/contrib/admin'
+    #  <AuthConfig: auth>,                  其 path 属性值：'.../site-packages/django/contrib/auth'
+    #  <ContentTypesConfig: contenttypes>,  其 path 属性值：'.../site-packages/django/contrib/contenttypes' 
+    #  <SessionsConfig: sessions>,          其 path 属性值：'.../site-packages/django/contrib/sessions'
+    #  <MessagesConfig: messages>,          其 path 属性值：'.../site-packages/django/contrib/messages'
+    #  <StaticFilesConfig: staticfiles>,    其 path 属性值：'.../site-packages/django/contrib/staticfiles'
+    #  <AppConfig: home>                    其 path 属性值：'.../项目主目录/应用目录'
+    # ]
+    # 下面这个列表里面是上面列表中各个对象的 path 属性值 + dirname 后的 PosixPath 类的实例
+    # 类似这样：PosixPath('/.../site-packages/django/contrib/admin/templates')
+    # 关于其中斜线操作符的用法参见 https://docs.python.org/zh-cn/3/library/pathlib.html
     template_dirs = [
         Path(app_config.path) / dirname
         for app_config in apps.get_app_configs()

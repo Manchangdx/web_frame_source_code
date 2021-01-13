@@ -128,11 +128,13 @@ class Engine:
                 "Invalid value in template loaders configuration: %r" % loader)
 
     def find_template(self, name, dirs=None, skip=None):
+        # self 是「引擎对象」
         tried = []
         # self.template_loaders 是列表
         # 里面是 django.template.loaders...Loader 类的实例，叫做「模板加载对象」
         for loader in self.template_loaders:
             try:
+                # 这个就是「模板对象」，它是 django.template.base.Template 类的实例
                 template = loader.get_template(name, skip=skip)
                 return template, template.origin
             except TemplateDoesNotExist as e:
@@ -150,7 +152,9 @@ class Engine:
         """
         Return a compiled Template object for the given template name,
         handling template inheritance recursively.
+        翻译：返回给定模板名称的已编译 Template 对象，以递归方式处理模板继承。
         """
+        # self 是「引擎对象」，当前方法的返回值是「模板对象」
         print('【django.template.engine.Engine.get_template】template_name:', template_name)
         template, origin = self.find_template(template_name)
         if not hasattr(template, 'render'):

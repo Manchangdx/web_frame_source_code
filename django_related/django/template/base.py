@@ -148,10 +148,13 @@ class Template:
             engine = Engine.get_default()
         if origin is None:
             origin = Origin(UNKNOWN_SOURCE)
-        self.name = name
-        self.origin = origin
-        self.engine = engine
-        self.source = str(template_string)  # May be lazy.
+        # 模板文件的相对路径，也就是视图函数中 render 的第二个参数
+        self.name = name        
+        # django.template.base.Origin 类的实例
+        # 它定义在 django.template.loaders.filesystem.Loader.get_template_sources 方法中
+        self.origin = origin    
+        self.engine = engine                # 引擎对象
+        self.source = str(template_string)  # 模板文件中的全部内容
         self.nodelist = self.compile_nodelist()
 
     def __iter__(self):
@@ -159,10 +162,16 @@ class Template:
             yield from node
 
     def _render(self, context):
-        return self.nodelist.render(context)
+        # 此方法返回携带渲染完毕的模板文件内容的 django.utils.safestring.SafeString 类的实例
+        # 称之为「响应体字符串对象」
+        r = self.nodelist.render(context)
+        return r
 
     def render(self, context):
         "Display stage -- can be called many times"
+        # self 是「模板对象」，此方法返回最终的「响应体字符串对象」
+        # context 是「请求上下文对象」，django.template.context.RequestContext 类的实例
+        # 其 render_context 属性值是 django.template.context.RenderContext 类的实例
         with context.render_context.push_state(self):
             if context.template is None:
                 with context.bind_template(self):
@@ -190,7 +199,9 @@ class Template:
         )
 
         try:
-            return parser.parse()
+            # TODO 这是一个类列表对象
+            p = parser.parse()
+            return p
         except Exception as e:
             if self.engine.debug:
                 e.template_debug = self.get_exception_info(e, e.token)

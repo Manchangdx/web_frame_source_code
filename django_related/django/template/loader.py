@@ -19,6 +19,7 @@ def get_template(template_name, using=None):
         try:
             # engine 就是「模板引擎对象」
             # 即 django.template.backends.django.DjangoTemplates 类的实例
+            # 此处返回 django.template.backends.django.Template 类的实例，即「最终模板对象」
             return engine.get_template(template_name)
         except TemplateDoesNotExist as e:
             chain.append(e)
@@ -67,8 +68,11 @@ def render_to_string(template_name, context=None, request=None, using=None):
     if isinstance(template_name, (list, tuple)):
         template = select_template(template_name, using=using)
     else:
-        # 此函数定义在当前模块中
+        # 此函数定义在当前模块中，返回「最终模板对象」
+        # 该对象是 django.template.backends.django.DjangoTemplates 类的实例
         template = get_template(template_name, using=using)
+    # 此处调用「最终模板对象」的 render 方法返回携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
+    # 该对象是 django.utils.safestring.SafeString 类的实例
     return template.render(context, request)
 
 
