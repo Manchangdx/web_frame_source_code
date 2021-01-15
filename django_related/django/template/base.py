@@ -168,7 +168,6 @@ class Template:
         return r
 
     def render(self, context):
-        "Display stage -- can be called many times"
         # self 是「模板对象」，此方法返回最终的「响应体字符串对象」
         # context 是「请求上下文对象」，django.template.context.RequestContext 类的实例
         # 其 render_context 属性值是 django.template.context.RenderContext 类的实例
@@ -187,19 +186,24 @@ class Template:
         annotated with contextual line information where it occurred in the
         template source.
         """
+        # lexer 是当前模块中定义的 Lexer 或其子类的实例，叫做「模板字符串解析对象」
         if self.engine.debug:
             lexer = DebugLexer(self.source)
         else:
             lexer = Lexer(self.source)
 
+        # 此方法根据模板文件中的每一行代码返回包含标记对象的列表
+        # 标记对象就是 django.template.base.Token 类的实例
         tokens = lexer.tokenize()
+        # 该类定义在当前模块中，其实例叫做「标记解析对象」
         parser = Parser(
             tokens, self.engine.template_libraries, self.engine.template_builtins,
             self.origin,
         )
 
         try:
-            # TODO 这是一个类列表对象
+            # 这是一个类列表对象，叫做「节点列表对象」，里面是前端代码的节点或者叫标签
+            # 该对象是当前模块中的 NodeList 类的实例
             p = parser.parse()
             return p
         except Exception as e:
@@ -342,12 +346,14 @@ class Token:
 
 class Lexer:
     def __init__(self, template_string):
+        # 该类的实例是「模板字符串解析对象」，参数是模板文件内容的字符串
         self.template_string = template_string
         self.verbatim = False
 
     def tokenize(self):
         """
-        Return a list of tokens from a given template_string.
+        根据模板文件中的每一行代码返回包含标记对象的列表
+        标记对象就是 django.template.base.Token 类的实例
         """
         in_tag = False
         lineno = 1
@@ -419,7 +425,7 @@ class Parser:
     def __init__(self, tokens, libraries=None, builtins=None, origin=None):
         # Reverse the tokens so delete_first_token(), prepend_token(), and
         # next_token() can operate at the end of the list in constant time.
-        self.tokens = list(reversed(tokens))
+        self.tokens = list(reversed(tokens))    # 反向的标记对象列表
         self.tags = {}
         self.filters = {}
         self.command_stack = []
@@ -443,10 +449,13 @@ class Parser:
         tokens, e.g. ['elif', 'else', 'endif']. If no matching token is
         reached, raise an exception with the unclosed block tag details.
         """
+        # 当前方法的参数用于设置停止解析点
         if parse_until is None:
             parse_until = []
         nodelist = NodeList()
         while self.tokens:
+            # self.tokens 是反向排序的列表
+            # 此处调用 self.next_token 方法弹出列表的最后一个元素
             token = self.next_token()
             # Use the raw values here for TokenType.* for a tiny performance boost.
             if token.token_type.value == 0:  # TokenType.TEXT
@@ -492,6 +501,7 @@ class Parser:
                 self.command_stack.pop()
         if parse_until:
             self.unclosed_block_tag(parse_until)
+        # 返回一个类列表对象，相当于节点列表或者叫标签列表
         return nodelist
 
     def skip_past(self, endtag):
@@ -943,6 +953,7 @@ class NodeList(list):
     contains_nontext = False
 
     def render(self, context):
+        # 处理节点对象，返回 django.utils.safestring.SafeString 类的实例
         bits = []
         for node in self:
             if isinstance(node, Node):
@@ -950,6 +961,8 @@ class NodeList(list):
             else:
                 bit = node
             bits.append(str(bit))
+        # 下面的函数来自 django.utils.safestring 模块
+        # 其返回值是根据解析得到的节点字符串相连的完整字符串创建的 django.utils.safestring.SafeString 类的实例
         return mark_safe(''.join(bits))
 
     def get_nodes_by_type(self, nodetype):

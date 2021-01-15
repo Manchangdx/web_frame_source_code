@@ -20,14 +20,9 @@ def render(request, template_name, context=None, content_type=None, status=None,
     """
     
     # loader 是 django.template.loader 模块
-    # 此处调用该模块中的 render_to_string 函数
-    # 根据参数返回渲染完毕的模板文件内容字符串作为响应体
+    # 此处调用该模块中的 render_to_string 函数返回携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
+    # 该对象是 django.utils.safestring.SafeString 类的实例
     content = loader.render_to_string(template_name, context, request, using=using)
-
-    import threading
-    ct = threading.current_thread()
-    print('【django.shortcuts.render】当前线程：', ct.name, ct.ident)
-
     return HttpResponse(content, content_type, status)
 
 

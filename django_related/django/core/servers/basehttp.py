@@ -278,4 +278,5 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     # 该实例就相当于 Flask 中的 app 应用对象，它会被赋值给服务器对象的 application 属性
     # 当浏览器发送请求过来，服务器在处理请求的过程中会根据自身的 application 属性找到应用对象并调用之
     httpd.set_app(wsgi_handler)
+    # 启动套接字服务器的持续监听，此方法定义在 socketserver.BaseServer 类中
     httpd.serve_forever()
