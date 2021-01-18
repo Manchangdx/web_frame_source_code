@@ -59,6 +59,7 @@ class Command(BaseCommand):
 
     @no_translations
     def handle(self, *app_labels, **options):
+        print('【django.core.management.commands.makemigrations.Command.handle】app_labels:', app_labels)
         self.verbosity = options['verbosity']
         self.interactive = options['interactive']
         self.dry_run = options['dry_run']

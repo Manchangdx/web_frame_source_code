@@ -184,6 +184,7 @@ class Apps:
 
         result = []
         for app_config in self.app_configs.values():
+            print('---------', app_config)
             result.extend(app_config.get_models(include_auto_created, include_swapped))
         return result
 

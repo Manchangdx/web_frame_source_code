@@ -62,12 +62,14 @@ class CheckRegistry:
         """
         errors = []
         checks = self.get_checks(include_deployment_checks)
+        #print('【django.core.checks.registry...run_checks】checks[0]:', checks[0])
 
         if tags is not None:
             checks = [check for check in checks if not set(check.tags).isdisjoint(tags)]
 
         for check in checks:
             new_errors = check(app_configs=app_configs, databases=databases)
+            #print('【django.core.checks.registry...run_checks】new_errors:', new_errors)
             assert is_iterable(new_errors), (
                 "The function %r did not return a list. All functions registered "
                 "with the checks registry must return a list." % check)
