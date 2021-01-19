@@ -17,10 +17,16 @@ def check_all_models(app_configs=None, **kwargs):
     constraints = defaultdict(list)
     errors = []
     if app_configs is None:
+        # 该变量是一个列表，列表里是各个应用中定义的映射类
         models = apps.get_models()
-        print('【django.core.checks.model_checks.check_all_models】models:', models)
+        print()
+        print(f'【django.core.checks.model_checks.check_all_models】models: ({len(models)})')
+        for model in models:
+            print('\t', model)
+        print()
     else:
         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
+
     for model in models:
         if model._meta.managed and not model._meta.proxy:
             db_table_models[model._meta.db_table].append(model._meta.label)
@@ -34,6 +40,7 @@ def check_all_models(app_configs=None, **kwargs):
                 )
             )
         else:
+            print('iiiiiiiiiiiiiiiiiiiiiiii')
             errors.extend(model.check(**kwargs))
         for model_index in model._meta.indexes:
             indexes[model_index.name].append(model._meta.label)

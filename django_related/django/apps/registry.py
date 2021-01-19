@@ -18,9 +18,7 @@ class Apps:
     """
 
     def __init__(self, installed_apps=()):
-        # installed_apps is set to None when creating the master registry
-        # because it cannot be populated at that point. Other registries must
-        # provide a list of installed apps and are populated immediately.
+        # self 是「应用收集对象」apps
         if installed_apps is None and hasattr(sys.modules[__name__], 'apps'):
             raise RuntimeError("You must supply an installed_apps argument.")
 
@@ -32,7 +30,14 @@ class Apps:
         # 参数是 int ，value 就是 0
         self.all_models = defaultdict(dict)
 
-        # Mapping of labels to AppConfig instances for installed apps.
+        # 在这个 self.app_configs 属性字典里：
+        # key 是项目配置文件中的 INSTALLED_APPS 列表里的字符串，它们指向的是一个个应用对象的包
+        # value 是「应用对象」，也就是 django.apps.config.AppConfig 类或其子类的实例
+        # 以 'django.contrib.messages' 为例说下 value 的属性：
+        #     该实例的 module 属性值就是对应的应用的包对象，就是 ...django/contrib/messages/__init__.py 对应的模块
+        #     该实例的 name 属性值就是一个字符串 'django.contrib.messages' 
+        #     该实例的 label 属性值也是一个字符串 'messages'
+        # 这个 self.app_configs 字典的键值对都是在 self.populate 方法中添加的
         self.app_configs = {}
 
         # Stack of app_configs. Used to store the current state in
@@ -85,14 +90,19 @@ class Apps:
             import threading
             ct = threading.current_thread()
             print('【django.apps.registry.Apps.populate】当前线程：', ct.name, ct.ident)
+            print()
 
             # Phase 1: initialize app configs and import app modules.
             for entry in installed_apps:
                 if isinstance(entry, AppConfig):
                     app_config = entry
                 else:
-                    # app_config 就是 django.apps.config.AppConfig 类的实例
+                    # app_config 就是 django.apps.config.AppConfig 类或其子类的实例
+                    # 称之为「应用对象」，它其实就相当于 Flask 框架中的应用对象类 Flask
                     app_config = AppConfig.create(entry)
+                    #print('【django.apps.registry.Apps.populate】app_config.module:\n\t', app_config.module)
+                    #print('\tapp_config.name:', app_config.name, type(app_config.name))
+                    #print('\tapp_config.label:', app_config.label, type(app_config.label))
                 if app_config.label in self.app_configs:
                     raise ImproperlyConfigured(
                         "Application labels aren't unique, "
@@ -101,6 +111,7 @@ class Apps:
                 self.app_configs[app_config.label] = app_config
                 app_config.apps = self
 
+            print()
             # Check for duplicate app names.
             counts = Counter(
                 app_config.name for app_config in self.app_configs.values())
@@ -129,7 +140,8 @@ class Apps:
             self.ready_event.set()
 
     def check_apps_ready(self):
-        """Raise an exception if all apps haven't been imported yet."""
+        """此方法用于保证项目的配置模块中有 INSTALLED_APPS 这一配置项
+        """
         if not self.apps_ready:
             from django.conf import settings
 
@@ -180,12 +192,19 @@ class Apps:
 
         Set the corresponding keyword argument to True to include such models.
         """
+        # self 是「应用收集对象」
+        # 此方法用于保证 self.populate 一定被执行过，也就是收集过应用对象了
         self.check_models_ready()
 
         result = []
+        # self 是「应用收集对象 apps」
+        # self.app_configs 是字典，value 是「应用对象」，也就是 django.apps.config.AppConfig 类或其子类的实例
         for app_config in self.app_configs.values():
-            print('---------', app_config)
-            result.extend(app_config.get_models(include_auto_created, include_swapped))
+            # 此 get_models 方法定义在 django.apps.config.AppConfig 类中，其返回值是生成器
+            g_models = app_config.get_models(include_auto_created, include_swapped)
+            # 将生成器中的元素（也就是各个应用中定义的映射类）依次添加到列表里头
+            result.extend(g_models)
+        # 返回值是列表，列表里是各个应用中定义的映射类
         return result
 
     def get_model(self, app_label, model_name=None, require_ready=True):
@@ -431,4 +450,5 @@ class Apps:
 
 
 # 应用程序启动的时候就会创建该对象，并且只创建一次
+# 这个姑且叫做「应用收集对象」
 apps = Apps(installed_apps=None)

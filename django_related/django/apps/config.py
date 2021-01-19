@@ -111,7 +111,7 @@ class AppConfig:
                 entry = module.default_app_config
             except AttributeError:
                 # Otherwise, it simply uses the default app config class.
-                # 这行是大概率要执行的，创建一个当前类的实例并返回
+                # 当 entry 指向项目中的应用时，执行下面这一行代码创建当前所在类的实例并返回
                 return cls(entry, module)
             else:
                 mod_path, _, cls_name = entry.rpartition('.')
@@ -198,8 +198,13 @@ class AppConfig:
         Set the corresponding keyword argument to True to include such models.
         Keyword arguments aren't documented; they're a private API.
         """
+        # self 是「应用对象」，相当于 Flask 框架的 Flask 类的实例
+        # self.apps 是「应用收集对象」，它定义在 django.apps.registry 模块中
         self.apps.check_models_ready()
+        # self.models.values() 是已注册的应用对象中的映射类的可迭代对象，model 就是映射类
+        #print('【django.apps.config.AppConfig.get_models】model:')
         for model in self.models.values():
+            #print('\t', model)
             if model._meta.auto_created and not include_auto_created:
                 continue
             if model._meta.swapped and not include_swapped:
