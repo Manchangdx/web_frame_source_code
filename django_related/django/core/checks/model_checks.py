@@ -17,19 +17,38 @@ def check_all_models(app_configs=None, **kwargs):
     constraints = defaultdict(list)
     errors = []
     if app_configs is None:
-        # 该变量是一个列表，列表里是各个应用中定义的映射类
         models = apps.get_models()
-        print()
-        print(f'【django.core.checks.model_checks.check_all_models】models: ({len(models)})')
-        for model in models:
-            print('\t', model)
-        print()
     else:
         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
 
+    # 下面这几行打印 models 中的映射类
+    """
+    print()
+    print(f'【django.core.checks.model_checks.check_all_models】models: ({len(models)})')
+    for model in models:
+        print('\t', model)
+    print()
+    """
+
+    # 变量 models 是一个列表，列表里是各个应用中定义的映射类：
+    # <class 'django.contrib.admin.models.LogEntry'>
+    # <class 'django.contrib.auth.models.Permission'>   # 重点分析
+    # <class 'django.contrib.auth.models.Group'>        # 重点分析
+    # <class 'django.contrib.auth.models.User'>
+    # <class 'django.contrib.contenttypes.models.ContentType'>
+    # <class 'django.contrib.sessions.models.Session'>
+    # <class 'authentication.models.User'>              # 重点分析
+    #models = [v for i, v in enumerate(models) if i not in [1, 2,  6]]
     for model in models:
         if model._meta.managed and not model._meta.proxy:
+            #print(f'\t {model._meta.db_table} {model._meta.label}', 
+            #        [i for i in dir(model) if not i.startswith('__') and 
+            #            not inspect.ismethod(getattr(model, i))]
+            #)
+            # model._meta.db_table 是数据表的名字的字符串，通常是用下划线连接应用名和映射类名的全小写
+            # model._meta.label 是指向映射类的别名的字符串，通常是用点号连接应用名和映射类名
             db_table_models[model._meta.db_table].append(model._meta.label)
+        # 此处检查映射类的 check 属性是方法，如果不是就把异常对象放到 errors 列表里
         if not inspect.ismethod(model.check):
             errors.append(
                 Error(
@@ -39,8 +58,9 @@ def check_all_models(app_configs=None, **kwargs):
                     id='models.E020'
                 )
             )
+        # 此处调用映射类的 check 方法
         else:
-            print('iiiiiiiiiiiiiiiiiiiiiiii')
+            print('\t iiiiiiiiiiiiiiiiiiiiiiii')
             errors.extend(model.check(**kwargs))
         for model_index in model._meta.indexes:
             indexes[model_index.name].append(model._meta.label)
@@ -93,6 +113,9 @@ def check_all_models(app_configs=None, **kwargs):
                     id='models.E031' if len(model_labels) == 1 else 'models.E032',
                 ),
             )
+    print(f'【django.core.checks.model_checks】errors: {len(errors)}')
+    for e in errors:
+        print('\t', e)
     return errors
 
 

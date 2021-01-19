@@ -44,6 +44,7 @@ class CheckRegistry:
             registry.register(my_check, 'mytag', 'anothertag')
         """
         def inner(check):
+            # tags 可能是元组 ('models', )
             check.tags = tags
             checks = self.deployment_checks if kwargs.get('deploy') else self.registered_checks
             checks.add(check)
@@ -62,13 +63,26 @@ class CheckRegistry:
         """
         errors = []
         checks = self.get_checks(include_deployment_checks)
-        #print('【django.core.checks.registry...run_checks】checks[0]:', checks[0])
+        #print('【django.core.checks.registry...run_checks】checks:')
+        #for c in checks:
+        #    print('\t', c)
 
         if tags is not None:
             checks = [check for check in checks if not set(check.tags).isdisjoint(tags)]
 
+        # 下面这个 checks 变量是一个列表，里面是来自各个包中的 checks 模块中的函数：
+        # django.core.checks.model_checks.check_lazy_references
+        # django.core.checks.model_checks.check_all_models（接下来研究这个）
+        # django.contrib.auth.checks.check_user_model（和这个）
+        # django.core.checks.urls.check_url_config
+        # django.core.checks.urls.check_url_namespaces_unique
+        # ... ...
+        # 我们分析的是 python manage.py makemigrations 命令，所以主要研究第 2 个函数
         for check in checks:
             new_errors = check(app_configs=app_configs, databases=databases)
+            from django.contrib.auth.checks import check_user_model
+            if check is check_user_model:
+                print('-----cccc', check)
             #print('【django.core.checks.registry...run_checks】new_errors:', new_errors)
             assert is_iterable(new_errors), (
                 "The function %r did not return a list. All functions registered "

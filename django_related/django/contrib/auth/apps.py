@@ -15,6 +15,8 @@ class AuthConfig(AppConfig):
     verbose_name = _("Authentication and Authorization")
 
     def ready(self):
+        print('【django.contrib.auth.apps.AuthConfig.ready】check_user_model:', check_user_model)
+        print('【django.contrib.auth.apps.AuthConfig.ready】checks.Tags.models:', checks.Tags.models)
         post_migrate.connect(
             create_permissions,
             dispatch_uid="django.contrib.auth.management.create_permissions"
@@ -24,5 +26,6 @@ class AuthConfig(AppConfig):
         if isinstance(last_login_field, DeferredAttribute):
             from .models import update_last_login
             user_logged_in.connect(update_last_login, dispatch_uid='update_last_login')
+        # 这块儿就是把第一个参数（它其实是个函数）添加到 checks.register 所属的对象的 registered_checks 属性列表里 
         checks.register(check_user_model, checks.Tags.models)
         checks.register(check_models_permissions, checks.Tags.models)

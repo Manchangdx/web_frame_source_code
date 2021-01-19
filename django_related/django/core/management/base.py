@@ -365,6 +365,8 @@ class BaseCommand:
             self.stderr = OutputWrapper(options['stderr'])
 
         if self.requires_system_checks and not options['skip_checks']:
+            # 通常会执行这个方法，检测整个项目
+            # 主要是各个应用对象的映射类是否有冲突之类的
             self.check()
         if self.requires_migrations_checks:
             self.check_migrations()
@@ -394,10 +396,14 @@ class BaseCommand:
               include_deployment_checks=False, fail_level=checks.ERROR,
               databases=None):
         """
+        原注释翻译：
         使用系统检查框架来验证整个 Django 项目。
         对于任何严重的消息（错误或严重错误），请引发 CommandError。
         如果只有少量消息（如警告），则将它们打印到 tderr 且不要引发异常。
         """
+        # checks 是 django.core.checks 包
+        # checks.run_checks 是 django.core.checks.registry 模块中定义的某个类的实例的方法
+        # 这里面的 4 个参数差不多都是 None 或者是 False
         all_issues = checks.run_checks(
             app_configs=app_configs,
             tags=tags,

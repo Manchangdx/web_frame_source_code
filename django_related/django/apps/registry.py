@@ -90,7 +90,6 @@ class Apps:
             import threading
             ct = threading.current_thread()
             print('【django.apps.registry.Apps.populate】当前线程：', ct.name, ct.ident)
-            print()
 
             # Phase 1: initialize app configs and import app modules.
             for entry in installed_apps:
@@ -101,8 +100,8 @@ class Apps:
                     # 称之为「应用对象」，它其实就相当于 Flask 框架中的应用对象类 Flask
                     app_config = AppConfig.create(entry)
                     #print('【django.apps.registry.Apps.populate】app_config.module:\n\t', app_config.module)
-                    #print('\tapp_config.name:', app_config.name, type(app_config.name))
-                    #print('\tapp_config.label:', app_config.label, type(app_config.label))
+                    #print('\t app_config.name:', app_config.name, type(app_config.name))
+                    #print('\t app_config.label:', app_config.label, type(app_config.label))
                 if app_config.label in self.app_configs:
                     raise ImproperlyConfigured(
                         "Application labels aren't unique, "
@@ -111,7 +110,6 @@ class Apps:
                 self.app_configs[app_config.label] = app_config
                 app_config.apps = self
 
-            print()
             # Check for duplicate app names.
             counts = Counter(
                 app_config.name for app_config in self.app_configs.values())
@@ -132,7 +130,7 @@ class Apps:
 
             self.models_ready = True
 
-            # Phase 3: run ready() methods of app configs.
+            # 调用「应用对象」的 ready 方法
             for app_config in self.get_app_configs():
                 app_config.ready()
 
