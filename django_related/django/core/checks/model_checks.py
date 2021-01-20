@@ -60,7 +60,6 @@ def check_all_models(app_configs=None, **kwargs):
             )
         # 此处调用映射类的 check 方法
         else:
-            print('\t iiiiiiiiiiiiiiiiiiiiiiii')
             errors.extend(model.check(**kwargs))
         for model_index in model._meta.indexes:
             indexes[model_index.name].append(model._meta.label)

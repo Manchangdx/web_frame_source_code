@@ -285,5 +285,5 @@ class UserSettingsHolder:
         }
 
 
-# 这个实例的属性均从项目的 settings.py 文件中获取
+# 这个实例的属性均从项目的 settings.py 文件中获取，该实例叫做「全局配置对象」
 settings = LazySettings()

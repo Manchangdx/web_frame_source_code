@@ -366,7 +366,7 @@ class BaseCommand:
 
         if self.requires_system_checks and not options['skip_checks']:
             # 通常会执行这个方法，检测整个项目
-            # 主要是各个应用对象的映射类是否有冲突之类的
+            # 主要是各个应用对象的映射类是否有问题以及互相之间是否有冲突之类的
             self.check()
         if self.requires_migrations_checks:
             self.check_migrations()
@@ -402,7 +402,8 @@ class BaseCommand:
         如果只有少量消息（如警告），则将它们打印到 tderr 且不要引发异常。
         """
         # checks 是 django.core.checks 包
-        # checks.run_checks 是 django.core.checks.registry 模块中定义的某个类的实例的方法
+        # checks.run_checks 是 django.core.checks.registry 模块中定义的 CheckRegistry 类的实例的方法
+        # 这个类的实例叫做「“检查对象”收集器 registry」，它里面有很多检查对象，都是各个检查模块中的函数
         # 这里面的 4 个参数差不多都是 None 或者是 False
         all_issues = checks.run_checks(
             app_configs=app_configs,

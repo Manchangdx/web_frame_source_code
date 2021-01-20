@@ -44,8 +44,11 @@ class CheckRegistry:
             registry.register(my_check, 'mytag', 'anothertag')
         """
         def inner(check):
-            # tags 可能是元组 ('models', )
+            # 参数 check 可能是一个「检查函数」，tags 可能是元组 ('models', ) 
+            # 下面这行代码给函数对象加个参数
             check.tags = tags
+            # self 是「“检查对象”收集器 registry」
+            # self.registered_checks 是一个集合对象
             checks = self.deployment_checks if kwargs.get('deploy') else self.registered_checks
             checks.add(check)
             return check
@@ -58,10 +61,11 @@ class CheckRegistry:
             return inner
 
     def run_checks(self, app_configs=None, tags=None, include_deployment_checks=False, databases=None):
+        """调用检查函数，返回一个包含错误或警告的列表
         """
-        Run all registered checks and return list of Errors and Warnings.
-        """
+        # self 是「“检查对象”收集器 registry」
         errors = []
+        # 调用自身的方法获取已经收集到的「检查函数」的列表
         checks = self.get_checks(include_deployment_checks)
         #print('【django.core.checks.registry...run_checks】checks:')
         #for c in checks:
@@ -77,7 +81,7 @@ class CheckRegistry:
         # django.core.checks.urls.check_url_config
         # django.core.checks.urls.check_url_namespaces_unique
         # ... ...
-        # 我们分析的是 python manage.py makemigrations 命令，所以主要研究第 2 个函数
+        # 我们分析的是 python manage.py makemigrations 命令，所以主要研究第 2、3 个函数
         for check in checks:
             new_errors = check(app_configs=app_configs, databases=databases)
             from django.contrib.auth.checks import check_user_model
@@ -99,12 +103,15 @@ class CheckRegistry:
         ))
 
     def get_checks(self, include_deployment_checks=False):
+        # 获取已经收集到的「检查函数」并返回
         checks = list(self.registered_checks)
         if include_deployment_checks:
             checks.extend(self.deployment_checks)
         return checks
 
 
+# 项目启动时创建该类的实例，全程只会创建一次
+# 这个实例就是「“检查对象”收集器 registry」
 registry = CheckRegistry()
 register = registry.register
 run_checks = registry.run_checks

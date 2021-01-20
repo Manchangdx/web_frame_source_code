@@ -131,6 +131,8 @@ class Apps:
             self.models_ready = True
 
             # 调用「应用对象」的 ready 方法
+            # 把应用中的某些用于检查的函数添加到「“检查对象”收集器 registry」的 registered_checks 属性中
+            # 该属性是一个集合，里面就是检查函数，函数名都是以 check 开头的
             for app_config in self.get_app_configs():
                 app_config.ready()
 
@@ -180,13 +182,11 @@ class Apps:
     @functools.lru_cache(maxsize=None)
     def get_models(self, include_auto_created=False, include_swapped=False):
         """
-        Return a list of all installed models.
+        返回一个列表，里面是各个应用中定义的映射类。
 
-        By default, the following models aren't included:
-
-        - auto-created models for many-to-many relations without
-          an explicit intermediate table,
-        - models that have been swapped out.
+        默认情况下，也就是两个默认参数使得返回值列表中不包括如下两种映射类（或者叫“模型类”）：
+            1、自动建立的多对多关系模型，而没有明确的中间表；
+            2、已经被 swapped out 的模型类。
 
         Set the corresponding keyword argument to True to include such models.
         """
@@ -196,9 +196,10 @@ class Apps:
 
         result = []
         # self 是「应用收集对象 apps」
-        # self.app_configs 是字典，value 是「应用对象」，也就是 django.apps.config.AppConfig 类或其子类的实例
+        # self.app_configs 是字典，其 value 是「应用对象」，也就是 django.apps.config.AppConfig 类或其子类的实例
         for app_config in self.app_configs.values():
             # 此 get_models 方法定义在 django.apps.config.AppConfig 类中，其返回值是生成器
+            # 生成器里面是各个应用中定义的映射类（也叫做“模型类”）
             g_models = app_config.get_models(include_auto_created, include_swapped)
             # 将生成器中的元素（也就是各个应用中定义的映射类）依次添加到列表里头
             result.extend(g_models)
@@ -225,6 +226,7 @@ class Apps:
         if model_name is None:
             app_label, model_name = app_label.split('.')
 
+        # 这个变量是「应用对象」，django.apps.config.AppConfig 类或其子类的实例
         app_config = self.get_app_config(app_label)
 
         if not require_ready and app_config.models is None:

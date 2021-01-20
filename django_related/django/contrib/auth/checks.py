@@ -10,7 +10,11 @@ from .management import _get_builtin_permissions
 
 def check_user_model(app_configs=None, **kwargs):
     if app_configs is None:
+        print('【django.contrib.auth.checks.check_user_model】settings.AUTH_USER_MODEL:', settings.AUTH_USER_MODEL)
+        # 根据项目的配置项获取对应的映射类
         cls = apps.get_model(settings.AUTH_USER_MODEL)
+        #print('【django.contrib.auth.checks.check_user_model】settings.__dict__['AUTH_USER_MODEL']:', 
+        #        settings.__dict__['AUTH_USER_MODEL'])
     else:
         app_label, model_name = settings.AUTH_USER_MODEL.split('.')
         for app_config in app_configs:
