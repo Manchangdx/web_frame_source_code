@@ -84,9 +84,6 @@ class CheckRegistry:
         # 我们分析的是 python manage.py makemigrations 命令，所以主要研究第 2、3 个函数
         for check in checks:
             new_errors = check(app_configs=app_configs, databases=databases)
-            from django.contrib.auth.checks import check_user_model
-            if check is check_user_model:
-                print('-----cccc', check)
             #print('【django.core.checks.registry...run_checks】new_errors:', new_errors)
             assert is_iterable(new_errors), (
                 "The function %r did not return a list. All functions registered "

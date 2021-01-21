@@ -133,7 +133,7 @@ class Command(BaseCommand):
                     raise CommandError("Can't use run_syncdb with app '%s' as it has migrations." % app_label)
             elif app_label not in executor.loader.migrated_apps:
                 raise CommandError("App '%s' does not have migrations." % app_label)
-
+        
         if options['app_label'] and options['migration_name']:
             migration_name = options['migration_name']
             if migration_name == "zero":

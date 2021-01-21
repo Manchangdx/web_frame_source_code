@@ -87,6 +87,7 @@ def no_translations(handle_func):
         translation.deactivate_all()
         try:
             res = handle_func(*args, **kwargs)
+            #print('【django.core.management.base.no_transactions】res:', res)
         finally:
             if saved_locale is not None:
                 translation.activate(saved_locale)
@@ -454,7 +455,6 @@ class BaseCommand:
                 len(all_issues) - visible_issue_count,
             )
 
-        print('5555')
         if any(e.is_serious(fail_level) and not e.is_silenced() for e in all_issues):
             msg = self.style.ERROR("SystemCheckError: %s" % header) + body + footer
             print('6666')

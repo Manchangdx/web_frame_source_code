@@ -89,7 +89,7 @@ class Apps:
 
             import threading
             ct = threading.current_thread()
-            print('【django.apps.registry.Apps.populate】当前线程：', ct.name, ct.ident)
+            #print('【django.apps.registry.Apps.populate】当前线程：', ct.name, ct.ident)
 
             # Phase 1: initialize app configs and import app modules.
             for entry in installed_apps:
