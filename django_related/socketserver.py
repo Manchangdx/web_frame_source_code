@@ -317,6 +317,8 @@ class BaseServer:
         blocking in get_request().
         """
         try:
+            # 此方法定义在当前类中，调用 self.socket 套接字对象的 accept 方法接收连接请求
+            # 返回值是元组，里面是新建临时套接字对象和客户端地址元组
             request, client_address = self.get_request()
         except OSError:
             return
@@ -674,9 +676,11 @@ class ThreadingMixIn:
             self.shutdown_request(request)
 
     def process_request(self, request, client_address):
-        """客户端发送连接请求后，调用此函数处理请求"""
-        # self 是服务器对象
+        """服务器收到连接请求后，调用此函数处理请求
+        """
+        # self 是服务器对象，self.socket 是套接字对象
         print('【socketserver.ThreadingMixIn.process_request】客户端地址:', client_address)
+        # 此处创建一个子线程，子线程内部调用当前类中定义的 process_request_thread 方法
         t = threading.Thread(target = self.process_request_thread,
                              args = (request, client_address))
         t.daemon = self.daemon_threads
@@ -715,10 +719,13 @@ if hasattr(socket, 'AF_UNIX'):
 
     class ThreadingUnixDatagramServer(ThreadingMixIn, UnixDatagramServer): pass
 
+
+# 在 django.core.servers.basehttp 模块中的 WSGIRequestHandler 类继承了此类
+# 这个子类的实例，也就是这两个类中的 self ，我们称之为「请求处理对象」
 class BaseRequestHandler:
 
     def __init__(self, request, client_address, server):
-        # 该类的实例我们称之为「请求处理对象」
+        # 该类的实例 self 我们称之为「请求处理对象」
         self.request = request                  # 临时套接字
         self.client_address = client_address    # 客户端地址元组
         self.server = server                    # 服务器对象
