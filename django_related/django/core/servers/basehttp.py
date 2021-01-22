@@ -169,13 +169,21 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
         return super().get_environ()
 
+    # 此方法在父类 socketserver.BaseRequestHandler 的 __init__ 方法中被调用
+    # 服务器套接字收到连接请求，创建一个当前类的实例
+    # 实例初始化过程中，将连接的临时套接字对象赋值给实例的 connect 属性，然后调用此方法
     def handle(self):
         # self 是「请求处理对象」
-        # 服务器套接字收到连接请求，创建一个当前类的实例
-        # 实例初始化过程中，将连接的临时套接字对象赋值给实例的 connect 属性，然后调用当前函数
+        # HTTP 1.0 为短连接，连接后收发一次数据后自动断开
+        # HTTP 1.1 及其以后的版本支持长连接，一次连接可以收发多次数据
+        # 下面的属性用于决定连接是否持续
+        # 在 http.server.BaseHTTPRequestHandler.parse_request 方法中
+        # 根据请求的 HTTP 协议版本做出改变
         self.close_connection = True
         # 处理一次请求
         self.handle_one_request()
+
+        # 如果是长连接，继续处理请求
         while not self.close_connection:
             #print('【django.core.servers.basehttp.WSGIRequestHandler.handle】**************************')
             self.handle_one_request()
@@ -243,25 +251,30 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     import threading
     ct = threading.current_thread()
     print('【django.core.servers.basehttp.run】当前线程：', ct.name, ct.ident)
-    # 参数 server_cls 的值是 Python 内置模块 wsgiref.simple_server 中的同名类的子类
-    # 该同名类是 Python 内置模块 socketserver 中的 TCPServer 的子类
-    # 所以函数中的 httpd_cls 就是 socketserver.TCPServer 类的子类
+    # 参数 server_cls 的值是当前模块中定义的 WSGIServer 类
+    # 后者是 Python 内置模块 wsgiref.simple_server 中的 WSGIServer 类的子类
+    # 后者是 Python 内置模块 http.server 中的 HTTPServer 类的子类
+    # 后者是 Python 内置模块 socketserver 中的 TCPServer 类的子类
+    # 后者是 Python 内置模块 socketserver 中的 BaseServer 类的子类
     server_address = (addr, port)
     if threading:
         # 通常 threading 的值是 True ，这里调用 type 函数创建一个类
+        # 第一个参数是新建类的名字，第二个参数是新建类要继承的父类
+        # 该类就是「服务器类」，该类的实例就是「服务器对象」，实例的 socket 属性值就是套接字对象
         httpd_cls = type('WSGIServer', (socketserver.ThreadingMixIn, server_cls), {})
     else:
         httpd_cls = server_cls
 
-    # 此实例相当于服务器对象，其 socket 属性值就是 TCP 套接字对象
+    # 此实例相当于「服务器对象」，其 socket 属性值就是 TCP 套接字对象
     # 当前函数最后一行代码启动套接字的持续监听，套接字对象的 accept 方法收到连接请求后
     # 服务器对象内部会将临时套接字和客户端地址作为参数创建当前模块中的 WSGIRequestHandler 类的实例
-    # 此类是 socketserver.BaseRequestHandler 类的子类
+    # 这个 WSGIRequestHandler 类是 socketserver.BaseRequestHandler 类的子类
     # 实例初始化时，首先调用 socketserver.StreamRequestHandler.setup 方法
     # 将本次连接新建的临时套接字对象赋值给实例的 connection 属性
     # 然后处理一下套接字的设置，包括阻塞超时时间和设置套接字的读写关联对象
     # 接着调用当前模块中的 WSGIRequestHandler.handle 方法处理
     httpd = httpd_cls(server_address, WSGIRequestHandler, ipv6=ipv6)
+
     if threading:
         # ThreadingMixIn.daemon_threads indicates how threads will behave on an
         # abrupt shutdown; like quitting the server by the user or restarting
