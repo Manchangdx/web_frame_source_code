@@ -51,6 +51,7 @@ def convert_exception_to_response(get_response):
             except Exception as exc:
                 response = response_for_exception(request, exc)
             return response
+        inner.get_response = get_response
         return inner
 
 

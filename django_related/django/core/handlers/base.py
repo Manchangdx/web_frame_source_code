@@ -35,17 +35,17 @@ class BaseHandler:
         get_response = self._get_response_async if is_async else self._get_response
         
         # 下面这个函数来自 django.core.handlers.exception 模块
-        # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
-        # 最开始，调用 handler 实际上是调用 self._get_response 方法
+        # 此函数是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
+        # 下面这个 handler 实际上等同于 self._get_response 方法
         handler = convert_exception_to_response(get_response)
-        #print('id(handler):', id(handler), handler)
         handler_is_async = is_async
 
-        # reversed 是 Python 内置函数，参数是有序可迭代对象，定义在项目的配置文件中的中间件列表
-        # 返回值是参数倒序的迭代器
+        # 下面的 reversed 是 Python 内置函数
+        # 参数是定义在项目配置文件中的中间件列表，返回值是参数倒序的迭代器
+        # 这样使得项目配置文件中的中间件列表被倒序初始化（实例化）
+        # 在处理请求对象的过程中顺序执行，在处理响应对象的过程中倒序执行
         for middleware_path in reversed(settings.MIDDLEWARE):
-            # 此方法用于获取中间件对象，注意它是一个类
-            # Django 内置的中间件通常在 django.contrib 包下面
+            # 此方法用于获取中间件类，Django 内置的中间件通常在 django.contrib 包下面
             middleware = import_string(middleware_path)
 
             middleware_can_sync = getattr(middleware, 'sync_capable', True)
@@ -104,21 +104,19 @@ class BaseHandler:
                     self.adapt_method_mode(False, mw_instance.process_exception),
                 )
 
-            #print('调用 convert_exception_to_response 之前 id(handler):', id(handler), handler)
             # 下面这一行代码导致 handler 变量的值发生变化，参数是中间件类的实例
-            # 下面这个函数来自 django.core.handlers.exception 模块
+            # 前面已经提到，下面这个函数来自 django.core.handlers.exception 模块
             # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
+            #
             # 每次执行下面这行代码，handler 就变成中间件实例，实例的 get_response 属性就是上一个 handler
+            # 也就是说，下面这个 handler 的 get_response 属性值就是定义之前的 handler
             handler = convert_exception_to_response(mw_instance)
-            #print('调用 convert_exception_to_response 之后 id(handler):', id(handler), handler)
+            
             handler_is_async = middleware_is_async
 
-        # Adapt the top of the stack, if needed.
+        # 此处不会改变 handler 变量指向的对象
         handler = self.adapt_method_mode(is_async, handler, handler_is_async)
-        #print('最终 id(handler):', id(handler), handler)
-        # We only assign to this when initialization is complete as it is used
-        # as a flag for initialization being complete.
-        # 它可以看作是中间件链条的第一个中间件实例
+        # 它可以看作是中间件链条的第一个中间件类的实例
         self._middleware_chain = handler
 
     def adapt_method_mode(

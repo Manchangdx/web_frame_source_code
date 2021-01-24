@@ -76,6 +76,7 @@ def get_resolver(urlconf=None):
 @functools.lru_cache(maxsize=None)
 def _get_cached_resolver(urlconf=None):
     #print('【django.urls.resolvers._get_cached_resolver】urlconf:', urlconf)
+    # 返回「路由处理对象」
     return URLResolver(RegexPattern(r'^/'), urlconf)
 
 

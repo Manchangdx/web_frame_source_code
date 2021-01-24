@@ -120,9 +120,10 @@ class WSGIRequest(HttpRequest):
     POST = property(_get_post, _set_post)
 
 
-# 应用对象类
-# 该类的实例就是应用对象，相当于 flask.app.Flask 类的实例
 class WSGIHandler(base.BaseHandler):
+    """应用对象类。该类的实例就是「应用对象」，相当于 flask.app.Flask 类的实例。
+    """
+
     request_class = WSGIRequest
 
     def __init__(self, *args, **kwargs):

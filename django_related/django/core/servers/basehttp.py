@@ -219,7 +219,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             return
 
         # 此类定义在当前模块中，是 wsgiref.handlers.SimpleHandler 的子类
-        # 其实例是继续处理请求要用的对象，我们称之为「继续处理对象」
+        # 其实例是继续处理请求要用的对象，我们称之为「服务器处理对象」
         handler = ServerHandler(
             # 参数说明：
             # 1、读取客户端发来的数据的「流对象」
@@ -236,10 +236,10 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # self.request         临时套接字
         # self.client_address  客户端地址元组
         # self.server          服务器对象
-        # 将 self 赋值给「继续处理对象」的 request_handler 属性
+        # 将 self 赋值给「服务器处理对象」的 request_handler 属性
         handler.request_handler = self      
 
-        # 调用「继续处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
+        # 调用「服务器处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
         # self.server 是服务器对象，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
         # 其返回值是服务器对象的 application 属性值，也就是当前模块倒数第二行代码里的 wsgi_handler
         # 所以下面 run 方法的参数就是应用对象
