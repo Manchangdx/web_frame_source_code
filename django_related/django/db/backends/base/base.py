@@ -102,6 +102,10 @@ class BaseDatabaseWrapper:
 
         self.client = self.client_class(self)
         self.creation = self.creation_class(self)
+        # self 是「数据库包装对象」
+        # features_class 属性值是 django.db.backends.mysql.features.DatabaseFeatures 类
+        # 对其进行实例化时，会将自身，也就是「数据库包装对象」赋值给该实例的 connection 属性
+        # 即 self.features.connection 就是 self
         self.features = self.features_class(self)
         self.introspection = self.introspection_class(self)
         self.ops = self.ops_class(self)
@@ -184,6 +188,7 @@ class BaseDatabaseWrapper:
     @async_unsafe
     def connect(self):
         """Connect to the database. Assume that the connection is closed."""
+        # self 是「数据库包装对象」
         # Check for invalid configurations.
         self.check_settings()
         # In case the previous connection was closed while in an atomic block
@@ -197,6 +202,9 @@ class BaseDatabaseWrapper:
         self.errors_occurred = False
         # Establish the connection
         conn_params = self.get_connection_params()
+        # 下面这个方法定义在子类 django.db.backends.mysql.base.DatabaseWrapper 类中
+        # 参数 conn_params 是连接数据库所需的各种信息组成的字典对象
+        # 此处创建「数据库连接对象」，也就是 MySQLdb.connections.Connection 类的实例
         self.connection = self.get_new_connection(conn_params)
         self.set_autocommit(self.settings_dict['AUTOCOMMIT'])
         self.init_connection_state()
@@ -214,8 +222,11 @@ class BaseDatabaseWrapper:
     @async_unsafe
     def ensure_connection(self):
         """Guarantee that a connection to the database is established."""
+        # self 是「数据库包装对象」
+        #print('【django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection】')
         if self.connection is None:
             with self.wrap_database_errors:
+                # 此方法定义在当前类中
                 self.connect()
 
     # ##### Backend-specific wrappers for PEP-249 connection methods #####
@@ -232,6 +243,8 @@ class BaseDatabaseWrapper:
         return wrapped_cursor
 
     def _cursor(self, name=None):
+        # self 是「数据库包装对象」
+        # 此方法定义在当前类中
         self.ensure_connection()
         with self.wrap_database_errors:
             return self._prepare_cursor(self.create_cursor(name))
@@ -598,8 +611,11 @@ class BaseDatabaseWrapper:
 
         Provide a cursor: with self.temporary_connection() as cursor: ...
         """
+        # self 是「数据库包装对象」
+        #print('【django.db.backends.base.base.BaseDatabaseWrapper.temporary_connection】')
         must_close = self.connection is None
         try:
+            # 调用当前类中定义的 cursor 方法
             with self.cursor() as cursor:
                 yield cursor
         finally:

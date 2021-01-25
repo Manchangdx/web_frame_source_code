@@ -353,6 +353,7 @@ class BaseCommand:
 
     def execute(self, *args, **options):
         # self 是「命令处理对象」
+        #print('【django.core.management.base.BaseCommand.execute】args:', args)
         if options['force_color'] and options['no_color']:
             raise CommandError("The --no-color and --force-color options can't be used together.")
         if options['force_color']:
@@ -381,6 +382,7 @@ class BaseCommand:
 
         # 以 python manage.py migrate 为例
         # 它会处理数据库相关的事务，创建连接对象，操作数据库版本控制功能，将映射类转换成数据表
+        print('【django.core.management.base.BaseCommand.execute】args:', args)
         output = self.handle(*args, **options)
         if output:
             if self.output_transaction:

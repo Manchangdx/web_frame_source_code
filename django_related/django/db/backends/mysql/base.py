@@ -96,6 +96,9 @@ class CursorWrapper:
 
 
 class DatabaseWrapper(BaseDatabaseWrapper):
+    """该类的实例是「数据库包装对象」
+    """
+
     vendor = 'mysql'
     # This dictionary maps Field objects to their associated MySQL column
     # types, as strings. Column-type strings can contain format strings; they'll
@@ -231,6 +234,11 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     @async_unsafe
     def get_new_connection(self, conn_params):
+        """此方法用于创建数据库的连接对象
+        """
+        # 第三方库 mysqlclient 的源码目录是 .../site-packages/MySQLdb
+        # Database.connect 是 MySQLdb.connections 模块中的 Connection 类
+        # 返回值就是该类的实例，也就是「数据库连接对象」
         return Database.connect(**conn_params)
 
     def init_connection_state(self):
@@ -356,6 +364,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     @cached_property
     def mysql_server_info(self):
+        # 下面的 temporary_connection 方法定义在父类 django.db.backends.base.BaseDatabaseWrapper 类中
         with self.temporary_connection() as cursor:
             cursor.execute('SELECT VERSION()')
             return cursor.fetchone()[0]

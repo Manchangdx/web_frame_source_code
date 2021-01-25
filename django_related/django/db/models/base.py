@@ -1277,6 +1277,8 @@ class Model(metaclass=ModelBase):
             # clashes.
             if not clash_errors:
                 errors.extend(cls._check_column_name_clashes())
+            # 列表最后一个元素调用映射类自身的 _check_constraints 方法
+            # 此方法定义在当前类中，其作用是检查各种约束
             errors += [
                 *cls._check_index_together(),
                 *cls._check_unique_together(),
@@ -1868,12 +1870,21 @@ class Model(metaclass=ModelBase):
 
     @classmethod
     def _check_constraints(cls, databases):
+        """检查各种约束
+        """
         errors = []
         for db in databases:
             if not router.allow_migrate_model(db, cls):
                 continue
+            # connections 是 django.db.utils.ConnectionHandler 类的实例，叫做「数据库连接处理对象」
+            # 此处调用其 __getitem__ 方法，返回的是「数据库包装对象」
+            # 以 MySQL 为例，其所属类定义在 django.db.backends.mysql.base 模块中
+            # 所以下面的 connection 是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
             connection = connections[db]
+
             if not (
+                # 此处判断数据库是否支持检查约束，这步会创建「数据库连接对象」
+                # 也就是 MySQLdb.connections.Connection 类的实例
                 connection.features.supports_table_check_constraints or
                 'supports_table_check_constraints' in cls._meta.required_db_features
             ) and any(

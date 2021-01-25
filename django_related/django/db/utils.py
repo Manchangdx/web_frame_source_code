@@ -213,8 +213,9 @@ class ConnectionHandler:
         if hasattr(self._connections, alias):
             return getattr(self._connections, alias)
 
-        # self.databases 属性值是字典对象
-        # 此方法定义在当前类中，它的作用是给 self.databases 添加一些缺省键值对
+        # self.databases 属性值是项目配置模块中的 DATABASES 配置项
+        # 它是一个嵌套字典对象，其 value 也是字典对象
+        # 下面的方法定义在当前类中，作用是给 self.databases 中某一组键值对的 value 添加一些缺省键值对
         self.ensure_defaults(alias)
         self.prepare_test_settings(alias)
         # 项目配置模块中的 DATABASES 字典中的 alias 对应的值也是一个字典

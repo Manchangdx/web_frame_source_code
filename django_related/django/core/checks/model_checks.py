@@ -38,7 +38,6 @@ def check_all_models(app_configs=None, **kwargs):
     # <class 'django.contrib.contenttypes.models.ContentType'>
     # <class 'django.contrib.sessions.models.Session'>
     # <class 'authentication.models.User'>              # 重点分析
-    #models = [v for i, v in enumerate(models) if i not in [1, 2,  6]]
     for model in models:
         if model._meta.managed and not model._meta.proxy:
             #print(f'\t {model._meta.db_table} {model._meta.label}', 
@@ -60,7 +59,10 @@ def check_all_models(app_configs=None, **kwargs):
             )
         # 此处调用映射类的 check 方法
         else:
+            # model 是映射类，所有映射类都继承自 django.db.models.base.Model 类
+            # model.check 就是在后者中定义的
             errors.extend(model.check(**kwargs))
+        print('???')
         for model_index in model._meta.indexes:
             indexes[model_index.name].append(model._meta.label)
         for model_constraint in model._meta.constraints:

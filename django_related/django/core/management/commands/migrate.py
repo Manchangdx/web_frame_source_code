@@ -71,12 +71,13 @@ class Command(BaseCommand):
     @no_translations
     def handle(self, *args, **options):
         # self 是「命令处理对象」
-        #print('【django.core.management.commands.migrate.Command.handle】args:', args)
-        #print('【django.core.management.commands.migrate.Command.handle】options:')
+        print('【django.core.management.commands.migrate.Command.handle】args:', args)
+        #print('【django.core.management.commands.migrate.Command.handle】options:' )
         #for k, v in options.items():
-        #    print(f'{k:<22}{v}')
+        #    print(f'\t{k:<22}{v}')
         database = options['database']  # 默认值是 'default'
         if not options['skip_checks']:
+            # 此方法定义在父类 django.core.management.base.BaseCommand 中
             self.check(databases=[database])
 
         self.verbosity = options['verbosity']
@@ -91,7 +92,9 @@ class Command(BaseCommand):
         # connections 是 django.db.utils.ConnectionHandler 类的实例，叫做「数据库连接处理对象」
         # 此处调用其 __getitem__ 方法，返回的是「数据库包装对象」
         # 以 MySQL 为例，其所属类定义在 django.db.backends.mysql.base 模块中
+        # 所以下面的 connection 是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
         connection = connections[database]
+        print('【django.core.management.commands.migrate.Command.handle】connection:', connection)
 
         # Hook for backends needing any database preparation
         connection.prepare_database()
@@ -117,7 +120,6 @@ class Command(BaseCommand):
                 "migration graph: (%s).\nTo fix them run "
                 "'python manage.py makemigrations --merge'" % name_str
             )
-
         # If they supplied command line arguments, work out what they mean.
         run_syncdb = options['run_syncdb']
         target_app_labels_only = True
@@ -250,10 +252,12 @@ class Command(BaseCommand):
         else:
             fake = options['fake']
             fake_initial = options['fake_initial']
+        print(22)
         post_migrate_state = executor.migrate(
             targets, plan=plan, state=pre_migrate_state.clone(), fake=fake,
             fake_initial=fake_initial,
         )
+        print(33)
         # post_migrate signals have access to all models. Ensure that all models
         # are reloaded in case any are delayed.
         post_migrate_state.clear_delayed_apps_cache()

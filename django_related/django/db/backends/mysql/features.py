@@ -101,6 +101,14 @@ class DatabaseFeatures(BaseDatabaseFeatures):
 
     @cached_property
     def supports_column_check_constraints(self):
+        """根据数据库版本判断数据库是否支持检查约束
+        """
+        # self 是「数据库包装对象」的 features 属性值
+        # self 在初始化时，将「数据库包装对象」赋值给了自身的 connection 属性
+        # 所以 self.connection 就是「数据库包装对象」
+        # 该对象是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
+        # 调用「数据库包装对象」的 mysql_version 属性的过程会创建一个连接数据库的对象
+        # 后者是 MySQLdb.connections.Connection 类的实例
         if self.connection.mysql_is_mariadb:
             return self.connection.mysql_version >= (10, 2, 1)
         return self.connection.mysql_version >= (8, 0, 16)
