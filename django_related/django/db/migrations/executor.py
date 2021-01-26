@@ -15,6 +15,8 @@ class MigrationExecutor:
     """
 
     def __init__(self, connection, progress_callback=None):
+        # 下面的 connection 是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
+        # 叫做「数据库包装对象」
         self.connection = connection
         self.loader = MigrationLoader(self.connection)
         self.recorder = MigrationRecorder(self.connection)
@@ -120,16 +122,14 @@ class MigrationExecutor:
             if state is None:
                 # The resulting state should still include applied migrations.
                 state = self._create_project_state(with_applied_migrations=True)
-            print(111)
+            # 这行代码被执行，此方法定义在当前类中，就在下面
             state = self._migrate_all_forwards(state, plan, full_plan, fake=fake, fake_initial=fake_initial)
         else:
             # No need to check for `elif all_backwards` here, as that condition
             # would always evaluate to true.
             state = self._migrate_all_backwards(plan, full_plan, fake=fake)
-        print(222)
 
         self.check_replacements()
-        print(333)
 
         return state
 
@@ -138,10 +138,11 @@ class MigrationExecutor:
         Take a list of 2-tuples of the form (migration instance, False) and
         apply them in the order they occur in the full_plan.
         """
+        # 该集合中存储了全部迁移文件中的迁移类的实例，也就是「迁移对象」的集合
         migrations_to_run = {m[0] for m in plan}
         print('【django.db.migrations.executor.MigrationExecutor._migrate_all_forwards】')
-        for i in migrations_to_run:
-            print(f'\t {i}')
+        # full_plan 是列表，根据名字可以看出里面是全部的二元元组 (迁移对象, 布尔值)
+        # migration 就是「迁移对象」
         for migration, _ in full_plan:
             if not migrations_to_run:
                 # We remove every migration that we applied from these sets so
@@ -149,6 +150,7 @@ class MigrationExecutor:
                 # and don't always run until the very end of the migration
                 # process.
                 break
+            # 这个判断几乎会全部通过
             if migration in migrations_to_run:
                 if 'apps' not in state.__dict__:
                     if self.progress_callback:
@@ -224,21 +226,36 @@ class MigrationExecutor:
 
     def apply_migration(self, state, migration, fake=False, fake_initial=False):
         """Run a migration forwards."""
+        print('【django.db.migrations.executor.MigrationExecutor.apply_migration】state:', state)
+        print('【django.db.migrations.executor.MigrationExecutor.apply_migration】migration:')
+        print('\t', migration.__class__)
         migration_recorded = False
         if self.progress_callback:
             self.progress_callback("apply_start", migration, fake)
+        print(1)
         if not fake:
+            print(11)
             if fake_initial:
                 # Test to see if this is an already-applied initial migration
                 applied, state = self.detect_soft_applied(state, migration)
                 if applied:
                     fake = True
             if not fake:
-                # Alright, do it normally
+                # 下面的 self.connection 是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
+                # 其 schema_editor 方法定义在其父类 django.db.backends.base.base.BaseDatabaseWrapper 中
+                # 该方法的返回值是 django.db.backends.mysql.schema.DatabaseSchemaEditor 类的实例
+                # 该实例是上下文对象，__enter__ 和 __exit__ 方法在 
+                # django.db.backends.base.schema.BaseDatabaseSchemaEditor 类中
+                # 其中包含了执行 SQL 语句的代码
                 with self.connection.schema_editor(atomic=migration.atomic) as schema_editor:
+                    print(222)
                     state = migration.apply(state, schema_editor)
+                    print(333)
                     self.record_migration(migration)
+                    print(444)
                     migration_recorded = True
+                    print(555)
+            print(22)
         if not migration_recorded:
             self.record_migration(migration)
         # Report progress

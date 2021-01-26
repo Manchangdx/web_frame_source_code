@@ -42,10 +42,7 @@ def _related_non_m2m_objects(old_field, new_field):
 
 
 class BaseDatabaseSchemaEditor:
-    """
-    This class and its subclasses are responsible for emitting schema-changing
-    statements to the databases - model creation/removal/alteration, field
-    renaming, index fiddling, and so on.
+    """此类及其子类负责向数据库发出更改模式的语句：数据表的创建、删除、更改，字段重命名，索引修改等。
     """
 
     # Overrideable SQL templates
@@ -112,6 +109,7 @@ class BaseDatabaseSchemaEditor:
     def __exit__(self, exc_type, exc_value, traceback):
         if exc_type is None:
             for sql in self.deferred_sql:
+                print('哇哇哇', sql)
                 self.execute(sql)
         if self.atomic_migration:
             self.atomic.__exit__(exc_type, exc_value, traceback)

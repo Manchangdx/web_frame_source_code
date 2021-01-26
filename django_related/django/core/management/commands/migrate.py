@@ -162,13 +162,20 @@ class Command(BaseCommand):
         elif options['app_label']:
             targets = [key for key in executor.loader.graph.leaf_nodes() if key[0] == app_label]
         else:
-            # executor 是「数据库版本迁移执行器」
+            # executor 是 django.db.migrations.executor.MigrationExecutor 类的实例
+            # 叫做「数据库版本迁移执行器」
             # executor.loader 是 django.db.migrations.loader.MigrationLoader 类的实例
             # 此实例的 graph 属性值是 django.db.migrations.graph.MigrationGraph 类的实例
-            # 
+            # 调用其 leaf_nodes 获得各个应用中最新版本的迁移文件名
+            # targets 是列表，里面是二元元组，类似这样：
+            # [('admin', '0003_logentry_add_action_flag_choices'), ...]
             targets = executor.loader.graph.leaf_nodes()
-            print('>>>', targets)
+            #print('【django.core.management.commands.migrate.Command.handle】targets:')
+            #for i in targets:
+            #    print('\t', i)
 
+        # executor 是 django.db.migrations.executor.MigrationExecutor 类的实例
+        # 叫做「数据库版本迁移执行器」
         plan = executor.migration_plan(targets)
         exit_dry = plan and options['check_unapplied']
 
@@ -262,13 +269,14 @@ class Command(BaseCommand):
         else:
             fake = options['fake']
             fake_initial = options['fake_initial']
-        print(22)
         # executor 是 django.db.migrations.executor.MigrationExecutor 类的实例，叫做「数据库版本迁移执行器」
+        # 参数：
+        # targets 列表，里面是类似 ('auth', '0012_alter_user_first_name_max_length') 这样的元组
+        # plan 列表，里面是类似 (<Migration auth.0001_initial>, False) 这样的元组
         post_migrate_state = executor.migrate(
             targets, plan=plan, state=pre_migrate_state.clone(), fake=fake,
             fake_initial=fake_initial,
         )
-        print(33)
         # post_migrate signals have access to all models. Ensure that all models
         # are reloaded in case any are delayed.
         post_migrate_state.clear_delayed_apps_cache()

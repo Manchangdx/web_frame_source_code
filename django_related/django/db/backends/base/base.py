@@ -645,6 +645,8 @@ class BaseDatabaseWrapper:
         if self.SchemaEditorClass is None:
             raise NotImplementedError(
                 'The SchemaEditorClass attribute of this database wrapper is still None')
+        # 此属性值是 django.db.backends.mysql.schema.DatabaseSchemaEditor 类
+        # 此处对其进行实例化并返回，该实例是上下文对象
         return self.SchemaEditorClass(self, *args, **kwargs)
 
     def on_commit(self, func):

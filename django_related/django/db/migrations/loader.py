@@ -243,6 +243,7 @@ class MigrationLoader:
             # Replacing migrations.
             if migration.replaces:
                 self.replacements[key] = migration
+
         for key, migration in self.disk_migrations.items():
             # Internal (same app) dependencies.
             self.add_internal_dependencies(key, migration)
@@ -250,6 +251,13 @@ class MigrationLoader:
         for key, migration in self.disk_migrations.items():
             self.add_external_dependencies(key, migration)
         # Carry out replacements where possible and if enabled.
+        '''
+        print('>>>')
+        for k, v in self.graph.node_map.items():
+            print(k)
+            print('\t', v.children)
+        print('>>>')
+        '''
         if self.replace_migrations:
             for key, migration in self.replacements.items():
                 # Get applied status of each of this migration's replacement
