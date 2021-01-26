@@ -39,16 +39,20 @@ class MigrationLoader:
     to disk, but this is probably fine. We're already not just operating
     in memory.
     """
+    # 该类通常会在 django.db.migrations.executor.MigrationExecutor.__init__ 方法中被实例化
+    # 该类的实例被称为「数据库版本迁移加载器」
 
     def __init__(
         self, connection, load=True, ignore_no_migrations=False,
         replace_migrations=True,
     ):
+        # 实例化时通常会提供一个 connection 参数，参数值通常是「命令处理对象」
         self.connection = connection
         self.disk_migrations = None
         self.applied_migrations = None
         self.ignore_no_migrations = ignore_no_migrations
         self.replace_migrations = replace_migrations
+        # 实例化时通常不会提供 load 参数，所以下面两行代码都会执行
         if load:
             self.build_graph()
 
@@ -59,6 +63,8 @@ class MigrationLoader:
         and a boolean indicating if the module is specified in
         settings.MIGRATION_MODULE.
         """
+        #print('【django.db.migrations.loader.MigrationLoader.migrations_module】settings.MIGRATION_MODULES:')
+        #print('\t', settings.MIGRATION_MODULES)
         if app_label in settings.MIGRATION_MODULES:
             return settings.MIGRATION_MODULES[app_label], True
         else:
@@ -101,11 +107,14 @@ class MigrationLoader:
                 if was_loaded:
                     reload(module)
             self.migrated_apps.add(app_config.label)
+            # 在各个应用中的 migrations 子目录下的版本迁移文件的名字的字符串集合
             migration_names = {
                 name for _, name, is_pkg in pkgutil.iter_modules(module.__path__)
                 if not is_pkg and name[0] not in '_~'
             }
             # Load migrations
+            #print(f'【django.db.migrations.loader.MigrationLoader.load_disk】{module_name} {len(migration_names)}')
+
             for migration_name in migration_names:
                 migration_path = '%s.%s' % (module_name, migration_name)
                 try:
@@ -122,6 +131,7 @@ class MigrationLoader:
                     raise BadMigrationError(
                         "Migration %s in app %s has no Migration class" % (migration_name, app_config.label)
                     )
+                # 创建各应用中的版本迁移文件中的 Migration 类的实例，并存到 self.disk_migrations 属性字典中
                 self.disk_migrations[app_config.label, migration_name] = migration_module.Migration(
                     migration_name,
                     app_config.label,
@@ -206,8 +216,16 @@ class MigrationLoader:
         You'll need to rebuild the graph if you apply migrations. This isn't
         usually a problem as generally migration stuff runs in a one-shot process.
         """
-        # Load disk data
+        # self 是「数据库版本迁移加载器」
+        # 下面这个方法用于从各个应用中的 migrations 子目录中找到版本迁移文件
+        # 创建各文件中的 Migration 类的实例并加入到 self.disk_migrations 属性字典中
+        # key 是元组 ('admin', '0001_initial')
+        # value 是 xxxx.Migration 类的实例
         self.load_disk()
+        print('【django.db.migrations.loader.MigrationLoader.build_graph】')
+        #for k, v in self.disk_migrations.items():
+        #    print(f'\t{k} {v}')
+        
         # Load database data
         if self.connection is None:
             self.applied_migrations = {}
@@ -219,6 +237,8 @@ class MigrationLoader:
         self.graph = MigrationGraph()
         self.replacements = {}
         for key, migration in self.disk_migrations.items():
+            # 此方法定义在 django.db.migrations.graph.MigrationGraph 类中
+            # 其作用是给 self.graph.nodes 字典添加键值对
             self.graph.add_node(key, migration)
             # Replacing migrations.
             if migration.replaces:

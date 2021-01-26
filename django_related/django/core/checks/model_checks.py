@@ -22,13 +22,13 @@ def check_all_models(app_configs=None, **kwargs):
         models = chain.from_iterable(app_config.get_models() for app_config in app_configs)
 
     # 下面这几行打印 models 中的映射类
-    """
+    '''
     print()
     print(f'【django.core.checks.model_checks.check_all_models】models: ({len(models)})')
     for model in models:
         print('\t', model)
     print()
-    """
+    '''
 
     # 变量 models 是一个列表，列表里是各个应用中定义的映射类：
     # <class 'django.contrib.admin.models.LogEntry'>
@@ -62,7 +62,6 @@ def check_all_models(app_configs=None, **kwargs):
             # model 是映射类，所有映射类都继承自 django.db.models.base.Model 类
             # model.check 就是在后者中定义的
             errors.extend(model.check(**kwargs))
-        print('???')
         for model_index in model._meta.indexes:
             indexes[model_index.name].append(model._meta.label)
         for model_constraint in model._meta.constraints:

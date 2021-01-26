@@ -251,9 +251,14 @@ class MigrationGraph:
         result of a VCS merge and needs some user input.
         """
         leaves = set()
+        # self.nodes 是字典对象
+        # key 是元组 ('admin', '0001_initial') ，应用名，版本迁移文件名
+        # value 是版本迁移文件里的 Migration 类的实例
         for node in self.nodes:
+            print('有点意思', node[0])
             if all(key[0] != node[0] for key in self.node_map[node].children) and (not app or app == node[0]):
                 leaves.add(node)
+        # 返回的是处理过的 TODO 这方法是核心了
         return sorted(leaves)
 
     def ensure_not_cyclic(self):

@@ -404,6 +404,7 @@ class BaseCommand:
         对于任何严重的消息（错误或严重错误），请引发 CommandError。
         如果只有少量消息（如警告），则将它们打印到 tderr 且不要引发异常。
         """
+        print('【django.core.management.base.BaseCommand.check】')
         # checks 是 django.core.checks 包
         # checks.run_checks 是 django.core.checks.registry 模块中定义的 CheckRegistry 类的实例的方法
         # 这个类的实例叫做「“检查对象”收集器 registry」，它里面有很多检查对象，都是各个检查模块中的函数

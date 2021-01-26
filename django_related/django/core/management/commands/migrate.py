@@ -96,15 +96,20 @@ class Command(BaseCommand):
         connection = connections[database]
         print('【django.core.management.commands.migrate.Command.handle】connection:', connection)
 
-        # Hook for backends needing any database preparation
+        # 此方法定义在实例的父类中，是空函数
         connection.prepare_database()
 
         # 下面这十几行代码用于处理数据版本控制相关的事情
 
-        # Work out which apps have migrations and which do not
+        # 此 MigrationExecutor 类定义在 django.db.migrations.executor 模块中，其实例是「数据库版本迁移执行器」
+        # 实例化时提供两个参数，它们分别会被赋值给实例的同名属性：
+        # connection 是「数据库包装对象」，这是位置参数
+        # process_callback 是可选参数，这里提供的是定义在当前类中的方法
         executor = MigrationExecutor(connection, self.migration_progress_callback)
 
-        # Raise an error if any migrations are applied before their dependencies.
+        # executor 是「数据库版本迁移执行器」
+        # executor.loader 是 django.db.migrations.loader.MigrationLoader 类的实例
+        # 该实例的 connection 属性值就是 self
         executor.loader.check_consistent_history(connection)
 
         # Before anything else, see if there's conflicting apps and drop out
@@ -157,7 +162,12 @@ class Command(BaseCommand):
         elif options['app_label']:
             targets = [key for key in executor.loader.graph.leaf_nodes() if key[0] == app_label]
         else:
+            # executor 是「数据库版本迁移执行器」
+            # executor.loader 是 django.db.migrations.loader.MigrationLoader 类的实例
+            # 此实例的 graph 属性值是 django.db.migrations.graph.MigrationGraph 类的实例
+            # 
             targets = executor.loader.graph.leaf_nodes()
+            print('>>>', targets)
 
         plan = executor.migration_plan(targets)
         exit_dry = plan and options['check_unapplied']
@@ -253,6 +263,7 @@ class Command(BaseCommand):
             fake = options['fake']
             fake_initial = options['fake_initial']
         print(22)
+        # executor 是 django.db.migrations.executor.MigrationExecutor 类的实例，叫做「数据库版本迁移执行器」
         post_migrate_state = executor.migrate(
             targets, plan=plan, state=pre_migrate_state.clone(), fake=fake,
             fake_initial=fake_initial,

@@ -11,6 +11,7 @@ class MigrationExecutor:
     """
     End-to-end migration execution - load migrations and run them up or down
     to a specified set of targets.
+    该类的实例叫做「数据库版本迁移执行器」
     """
 
     def __init__(self, connection, progress_callback=None):
@@ -88,6 +89,11 @@ class MigrationExecutor:
         """
         # The django_migrations table must be present to record applied
         # migrations.
+        print('【django.db.migrations.executor.MigrationExecutor.migrate】targets:')
+        for i in targets:
+            print('\t', i)
+        print('【django.db.migrations.executor.MigrationExecutor.migrate】len(plan):', len(plan))
+
         self.recorder.ensure_schema()
 
         if plan is None:
@@ -114,13 +120,16 @@ class MigrationExecutor:
             if state is None:
                 # The resulting state should still include applied migrations.
                 state = self._create_project_state(with_applied_migrations=True)
+            print(111)
             state = self._migrate_all_forwards(state, plan, full_plan, fake=fake, fake_initial=fake_initial)
         else:
             # No need to check for `elif all_backwards` here, as that condition
             # would always evaluate to true.
             state = self._migrate_all_backwards(plan, full_plan, fake=fake)
+        print(222)
 
         self.check_replacements()
+        print(333)
 
         return state
 
@@ -130,6 +139,9 @@ class MigrationExecutor:
         apply them in the order they occur in the full_plan.
         """
         migrations_to_run = {m[0] for m in plan}
+        print('【django.db.migrations.executor.MigrationExecutor._migrate_all_forwards】')
+        for i in migrations_to_run:
+            print(f'\t {i}')
         for migration, _ in full_plan:
             if not migrations_to_run:
                 # We remove every migration that we applied from these sets so
