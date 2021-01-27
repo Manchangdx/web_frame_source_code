@@ -150,7 +150,7 @@ class BaseHandler:
     def get_response(self, request):
         # self 是应用对象，此方法利用「请求对象」创建「响应对象」并返回
         # 参数 request 是请求对象，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
-        print('【django.core.handlers.base.BaseHandler.get_response】request:', request)
+        print('【django.core.handlers.base.BaseHandler.get_response】为创建「响应对象」做准备')
 
         set_urlconf(settings.ROOT_URLCONF)
 
@@ -192,9 +192,9 @@ class BaseHandler:
         return response
 
     def _get_response(self, request):
-        print('【django.core.handlers.base.BaseHandler._get_response】request:', request)
+        print('【django.core.handlers.base.BaseHandler._get_response】为创建「响应对象」做准备')
         response = None
-        # self 是应用对象
+        # self 是「应用对象」
         # 下面的 self.resolve_request 方法定义在当前类中，用于获取请求对应的视图函数及其参数
         # 顺利的话，此方法会返回 django.urls.resolvers.ResolverMatch 类的实例
         # 该实例有一个 __getitem__ 方法，所以可以将自身赋值给三个变量，第一个就是处理请求的视图函数
@@ -324,7 +324,8 @@ class BaseHandler:
             # 该实例的 urlconf_name 属性值是项目的路由适配模块字符串 'xxxx.urls' 
             # 该实例我们称之为「路由处理对象」
             resolver = get_resolver()
-        print('【django.core.handlers.base.BaseHandler.resolve_request】请求路径:', request.path_info)
+        print('【django.core.handlers.base.BaseHandler.resolve_request】根据请求路径找视图对象，请求路径:', 
+                request.path_info)
         # 将请求的绝对路径作为参数调用 django.urls.resolvers.URLResolver.resolve 方法
         # 顺利的话，会返回 django.urls.resolvers.ResolverMatch 类的实例
         resolver_match = resolver.resolve(request.path_info)

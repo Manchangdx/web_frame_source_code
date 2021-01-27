@@ -177,7 +177,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # HTTP 1.0 为短连接，连接后收发一次数据后自动断开
         # HTTP 1.1 及其以后的版本支持长连接，一次连接可以收发多次数据
         # 下面的属性用于决定连接是否持续
-        # 在 http.server.BaseHTTPRequestHandler.parse_request 方法中
+        # 该属性值在 http.server.BaseHTTPRequestHandler.parse_request 方法中
         # 根据请求的 HTTP 协议版本做出改变
         self.close_connection = True
         # 处理一次请求
@@ -199,8 +199,8 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # self 是「请求处理对象」
         # 读取一行数据的前 2 ** 8 个字符，这个数据就是浏览器发送给服务器的数据
         self.raw_requestline = self.rfile.readline(65537)
-        print(('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】'
-               'self.raw_requestline: {}'.format(self.raw_requestline)))
+        #print(('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】'
+        #       'self.raw_requestline: {}'.format(self.raw_requestline)))
         # 如果一行的长度超过这个数，就判定它超出了服务器允许的长度范围，返回 414 状态码
         if len(self.raw_requestline) > 65536:
             print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】414')
@@ -218,8 +218,10 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         if not self.parse_request():  # An error code has been sent, just exit
             return
 
+        print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】「请求处理对象」处理一次请求')
+
         # 此类定义在当前模块中，是 wsgiref.handlers.SimpleHandler 的子类
-        # 其实例是继续处理请求要用的对象，我们称之为「服务器处理对象」
+        # 其实例是继续处理请求要用的对象，我们称之为「服务处理对象」
         handler = ServerHandler(
             # 参数说明：
             # 1、读取客户端发来的数据的「流对象」
@@ -236,13 +238,13 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # self.request         临时套接字
         # self.client_address  客户端地址元组
         # self.server          服务器对象
-        # 将 self 赋值给「服务器处理对象」的 request_handler 属性
+        # 将 self 赋值给「服务处理对象」的 request_handler 属性
         handler.request_handler = self      
 
-        # 调用「服务器处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
+        # 调用「服务处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
         # self.server 是服务器对象，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
         # 其返回值是服务器对象的 application 属性值，也就是当前模块倒数第二行代码里的 wsgi_handler
-        # 所以下面 run 方法的参数就是应用对象
+        # 所以下面 run 方法的参数就是「应用对象」，django.core.handlers.wsgi.WSGIHandler 类的实例
         handler.run(self.server.get_app())
 
 

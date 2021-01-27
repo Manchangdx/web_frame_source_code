@@ -126,17 +126,17 @@ class BaseHandler:
     bytes_sent = 0
 
     def run(self, application):
-        # self 是「继续处理对象」
+        # self 是「服务处理对象」
         import threading
         ct = threading.current_thread()
-        print('【wsgiref.handlers.BaseHandler.run】当前线程：', ct.name, ct.ident)
+        print('【wsgiref.handlers.BaseHandler.run】「服务处理对象」调用「应用对象」，当前线程：', ct.name, ct.ident)
 
         try:
             # 处理请求信息将其整理成字典对象赋值给 self.environ 属性
             self.setup_environ()
-            # 调用应用对象处理请求，这里把请求信息 self.environ 传入
-            # 剩下的事情就是应用对象来做了：处理请求，返回响应对象赋值给 self.result 属性
-            # application 是 django.core.handlers.wsgi.WSGIHandler 类的实例
+            # application 是 django.core.handlers.wsgi.WSGIHandler 类的实例，叫做「应用对象」
+            # 调用「应用对象」处理请求，也就是调用其 __call__ 方法，这里把请求信息 self.environ 传入
+            # 剩下的事情就是「应用对象」来做了：处理请求，返回响应对象赋值给 self.result 属性
             self.result = application(self.environ, self.start_response)
             self.finish_response()
         except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):

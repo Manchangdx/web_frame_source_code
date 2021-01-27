@@ -286,6 +286,11 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         requestline = requestline.rstrip('\r\n')
         self.requestline = requestline
         words = requestline.split()
+        # 通常来说，即使 HTTP 版本是 1.1 及其以上，一次连接也只收发一次信息
+        # 但 self.close_connection 的布尔值是 False ，连接不断开，还是会继续处理
+        # 所以这里在二次处理时，不会收到信息，返回一个 False 就可以了
+        # 这样就避免当前方法后面的代码将 self.close_connection 改成 False 了 
+        # 也就不会有第三次处理了
         if len(words) == 0:
             return False
 

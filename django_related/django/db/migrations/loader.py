@@ -222,7 +222,7 @@ class MigrationLoader:
         # key 是元组 ('admin', '0001_initial')
         # value 是 xxxx.Migration 类的实例
         self.load_disk()
-        print('【django.db.migrations.loader.MigrationLoader.build_graph】')
+        #print('【django.db.migrations.loader.MigrationLoader.build_graph】')
         #for k, v in self.disk_migrations.items():
         #    print(f'\t{k} {v}')
         
@@ -251,13 +251,13 @@ class MigrationLoader:
         for key, migration in self.disk_migrations.items():
             self.add_external_dependencies(key, migration)
         # Carry out replacements where possible and if enabled.
-        '''
-        print('>>>')
-        for k, v in self.graph.node_map.items():
-            print(k)
-            print('\t', v.children)
-        print('>>>')
-        '''
+        
+        #print('>>>')
+        #for k, v in self.graph.node_map.items():
+        #    print(k)
+        #    print('\t', v.children)
+        #print('>>>')
+
         if self.replace_migrations:
             for key, migration in self.replacements.items():
                 # Get applied status of each of this migration's replacement

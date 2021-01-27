@@ -91,10 +91,10 @@ class MigrationExecutor:
         """
         # The django_migrations table must be present to record applied
         # migrations.
-        print('【django.db.migrations.executor.MigrationExecutor.migrate】targets:')
-        for i in targets:
-            print('\t', i)
-        print('【django.db.migrations.executor.MigrationExecutor.migrate】len(plan):', len(plan))
+        #print('【django.db.migrations.executor.MigrationExecutor.migrate】targets:')
+        #for i in targets:
+        #    print('\t', i)
+        #print('【django.db.migrations.executor.MigrationExecutor.migrate】len(plan):', len(plan))
 
         self.recorder.ensure_schema()
 
@@ -226,15 +226,14 @@ class MigrationExecutor:
 
     def apply_migration(self, state, migration, fake=False, fake_initial=False):
         """Run a migration forwards."""
-        print('【django.db.migrations.executor.MigrationExecutor.apply_migration】state:', state)
-        print('【django.db.migrations.executor.MigrationExecutor.apply_migration】migration:')
-        print('\t', migration.__class__)
+        # 参数 migration 是迁移文件中定义的 Migration 类的实例，叫做「迁移对象」
+        #print('【django.db.migrations.executor.MigrationExecutor.apply_migration】state:', state)
+        #print('【django.db.migrations.executor.MigrationExecutor.apply_migration】migration:')
+        #print('\t', migration.apply)
         migration_recorded = False
         if self.progress_callback:
             self.progress_callback("apply_start", migration, fake)
-        print(1)
         if not fake:
-            print(11)
             if fake_initial:
                 # Test to see if this is an already-applied initial migration
                 applied, state = self.detect_soft_applied(state, migration)
@@ -248,14 +247,9 @@ class MigrationExecutor:
                 # django.db.backends.base.schema.BaseDatabaseSchemaEditor 类中
                 # 其中包含了执行 SQL 语句的代码
                 with self.connection.schema_editor(atomic=migration.atomic) as schema_editor:
-                    print(222)
                     state = migration.apply(state, schema_editor)
-                    print(333)
                     self.record_migration(migration)
-                    print(444)
                     migration_recorded = True
-                    print(555)
-            print(22)
         if not migration_recorded:
             self.record_migration(migration)
         # Report progress

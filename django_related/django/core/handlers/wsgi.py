@@ -65,6 +65,7 @@ class WSGIRequest(HttpRequest):
     # 该类的实例是「请求对象」
 
     def __init__(self, environ):
+        print('【django.core.handlers.wsgi.WSGIRequest.__init__】初始化「请求对象」')
         script_name = get_script_name(environ)
         self.environ = environ
         path_info = get_path_info(environ) or '/'
@@ -139,7 +140,7 @@ class WSGIHandler(base.BaseHandler):
         # 服务器对象收到客户端发来的请求后，调用此方法
         import threading
         ct = threading.current_thread()
-        print('【django.core.handlers.wsgi.WSGIHandler.__call__】当前线程：', ct.name, ct.ident)
+        print('【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」，当前线程：', ct.name, ct.ident)
 
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
