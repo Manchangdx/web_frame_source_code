@@ -32,7 +32,7 @@ class ServerHandler(SimpleHandler):
     def close(self):
         try:
             self.request_handler.log_request(
-                self.status.split(' ',1)[0], self.bytes_sent
+                self.status.split(' ',1)[0], f'{self.bytes_sent}\n'
             )
         finally:
             SimpleHandler.close(self)

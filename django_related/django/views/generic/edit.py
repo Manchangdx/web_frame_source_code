@@ -23,11 +23,14 @@ class FormMixin(ContextMixin):
         return self.prefix
 
     def get_form_class(self):
-        """Return the form class to use."""
+        """获取并返回表单类
+        """
+        # 该属性定义在项目中的视图类中，属性值是表单类
         return self.form_class
 
     def get_form(self, form_class=None):
-        """Return an instance of the form to be used in this view."""
+        """获取并返回表单类的实例
+        """
         if form_class is None:
             form_class = self.get_form_class()
         return form_class(**self.get_form_kwargs())
@@ -63,6 +66,7 @@ class FormMixin(ContextMixin):
     def get_context_data(self, **kwargs):
         """Insert the form into the context dict."""
         if 'form' not in kwargs:
+            # self.get_form 方法定义在当前类中
             kwargs['form'] = self.get_form()
         return super().get_context_data(**kwargs)
 
@@ -130,6 +134,8 @@ class ProcessFormView(View):
     """Render a form on GET and processes it on POST."""
     def get(self, request, *args, **kwargs):
         """Handle GET requests: instantiate a blank version of the form."""
+        print('【django.views.generic.edit.ProcessPormView.get】', f'args: {args}  kwargs: {kwargs}')
+        # self.get_context_data 定义在当前模块下的 FormMixin 类中
         return self.render_to_response(self.get_context_data())
 
     def post(self, request, *args, **kwargs):

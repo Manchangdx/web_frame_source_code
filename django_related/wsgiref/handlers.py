@@ -178,7 +178,7 @@ class BaseHandler:
         """根据「响应对象」提供的信息构成响应头和响应体并将完整数据返回给客户端
         """
         # self 是「响应处理对象」
-        print('【wsgiref.handlers.BaseHandler.finish_response】继续处理响应对象')
+        print('【wsgiref.handlers.BaseHandler.finish_response】继续处理「响应对象」，向客户端返回数据')
         try:
             if not self.result_is_file() or not self.sendfile():
                 # self.result 是「响应对象」，其 _container 属性值是列表，里面是二进制响应体
@@ -198,6 +198,7 @@ class BaseHandler:
             # We only call close() when no exception is raised, because it
             # will set status, result, headers, and environ fields to None.
             # See bpo-29183 for more details.
+            # 此方法定义在 django.core.services.basehttp.ServerHandler 类中
             self.close()
 
 

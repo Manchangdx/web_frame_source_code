@@ -47,7 +47,8 @@ class View:
 
     @classonlymethod
     def as_view(cls, **initkwargs):
-        """Main entry point for a request-response process."""
+        """当前方法返回「视图函数」
+        """
         for key in initkwargs:
             if key in cls.http_method_names:
                 raise TypeError(
@@ -60,6 +61,7 @@ class View:
                                 "attributes of the class." % (cls.__name__, key))
 
         def view(request, *args, **kwargs):
+            # self 是「视图对象」，当前函数就是「视图函数」
             self = cls(**initkwargs)
             self.setup(request, *args, **kwargs)
             if not hasattr(self, 'request'):
@@ -81,20 +83,22 @@ class View:
 
     def setup(self, request, *args, **kwargs):
         """Initialize attributes shared by all view methods."""
+        # self 是「视图对象」
+        print('【django.views.generic.base.View.setup】', f'args: {args}  kwargs: {kwargs}')
         if hasattr(self, 'get') and not hasattr(self, 'head'):
             self.head = self.get
         self.request = request
         self.args = args
         self.kwargs = kwargs
 
+    # 视图函数调用此方法
     def dispatch(self, request, *args, **kwargs):
-        # Try to dispatch to the right method; if a method doesn't exist,
-        # defer to the error handler. Also defer to the error handler if the
-        # request method isn't on the approved list.
+        # self 是「视图对象」
         if request.method.lower() in self.http_method_names:
             handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
         else:
             handler = self.http_method_not_allowed
+        # handle 就是请求方法的同名函数
         return handler(request, *args, **kwargs)
 
     def http_method_not_allowed(self, request, *args, **kwargs):
@@ -129,6 +133,7 @@ class TemplateResponseMixin:
 
         Pass response_kwargs to the constructor of the response class.
         """
+        print('【django.views.generic.base.TemplateResponseMixin.render_to_response】')
         response_kwargs.setdefault('content_type', self.content_type)
         return self.response_class(
             request=self.request,

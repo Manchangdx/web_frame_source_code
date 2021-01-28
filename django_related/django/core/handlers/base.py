@@ -150,7 +150,7 @@ class BaseHandler:
     def get_response(self, request):
         # self 是「应用对象」，此方法利用「请求对象」创建「响应对象」并返回
         # 参数 request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
-        print('【django.core.handlers.base.BaseHandler.get_response】为创建「响应对象」做准备')
+        #print('【django.core.handlers.base.BaseHandler.get_response】为创建「响应对象」做准备')
 
         set_urlconf(settings.ROOT_URLCONF)
 
