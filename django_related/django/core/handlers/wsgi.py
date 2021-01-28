@@ -136,8 +136,7 @@ class WSGIHandler(base.BaseHandler):
         self.load_middleware()
 
     def __call__(self, environ, start_response):
-        # self 是应用对象
-        # 服务器对象收到客户端发来的请求后，调用此方法
+        # self 是「应用对象」，客户端发来请求后「响应处理对象」调用此方法
         import threading
         ct = threading.current_thread()
         print('【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」，当前线程：', ct.name, ct.ident)
@@ -150,10 +149,10 @@ class WSGIHandler(base.BaseHandler):
         request = self.request_class(environ)
 
         # 此 get_response 方法定义在 django.core.handlers.base.BaseHandler 类中
-        # 把请求对象作为参数调用此方法，返回「响应对象」
-        # 响应对象是 django.http.response.HttpResponse 类的实例
+        # 把「请求对象」作为参数调用此方法，返回「响应对象」
+        # 后者是 django.http.response.HttpResponse 类的实例
         response = self.get_response(request)
-        print('【django.core.handlers.wsgi.WSGIHandler.__call__】response:', response)
+        print('【django.core.handlers.wsgi.WSGIHandler.__call__】获得「响应对象」:', response)
 
         response._handler_class = self.__class__
 
@@ -162,6 +161,7 @@ class WSGIHandler(base.BaseHandler):
             *response.items(),
             *(('Set-Cookie', c.output(header='')) for c in response.cookies.values()),
         ]
+        # 给「服务处理对象」增加 status 和 headers 属性
         start_response(status, response_headers)
         if getattr(response, 'file_to_stream', None) is not None and environ.get('wsgi.file_wrapper'):
             # If `wsgi.file_wrapper` is used the WSGI server does not call

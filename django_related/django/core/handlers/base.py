@@ -148,8 +148,8 @@ class BaseHandler:
         return method
 
     def get_response(self, request):
-        # self 是应用对象，此方法利用「请求对象」创建「响应对象」并返回
-        # 参数 request 是请求对象，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
+        # self 是「应用对象」，此方法利用「请求对象」创建「响应对象」并返回
+        # 参数 request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
         print('【django.core.handlers.base.BaseHandler.get_response】为创建「响应对象」做准备')
 
         set_urlconf(settings.ROOT_URLCONF)
@@ -196,7 +196,7 @@ class BaseHandler:
         response = None
         # self 是「应用对象」
         # 下面的 self.resolve_request 方法定义在当前类中，用于获取请求对应的视图函数及其参数
-        # 顺利的话，此方法会返回 django.urls.resolvers.ResolverMatch 类的实例
+        # 顺利的话，此方法会返回 django.urls.resolvers.ResolverMatch 类的实例，叫做「路由匹配结果对象」
         # 该实例有一个 __getitem__ 方法，所以可以将自身赋值给三个变量，第一个就是处理请求的视图函数
         callback, callback_args, callback_kwargs = self.resolve_request(request)
         #print('【django.core.handlers.base.BaseHandler._get_response】callback:', callback)
@@ -215,7 +215,8 @@ class BaseHandler:
             if asyncio.iscoroutinefunction(wrapped_callback):
                 wrapped_callback = async_to_sync(wrapped_callback)
             try:
-                # 调用视图函数，返回响应对象，django.http.response.HttpResponse 类的实例
+                print('【django.core.handlers.base.BaseHandler._get_response】获得视图对象:', wrapped_callback)
+                # 调用视图对象返回「响应对象」，即 django.http.response.HttpResponse 类的实例
                 response = wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)
@@ -326,8 +327,8 @@ class BaseHandler:
             resolver = get_resolver()
         print('【django.core.handlers.base.BaseHandler.resolve_request】根据请求路径找视图对象，请求路径:', 
                 request.path_info)
-        # 将请求的绝对路径作为参数调用 django.urls.resolvers.URLResolver.resolve 方法
-        # 顺利的话，会返回 django.urls.resolvers.ResolverMatch 类的实例
+        # 将请求的绝对路径作为参数调用「路由处理对象」的 resolve 方法
+        # 顺利的话，会返回 django.urls.resolvers.ResolverMatch 类的实例，叫做「路由匹配结果对象」
         resolver_match = resolver.resolve(request.path_info)
         request.resolver_match = resolver_match
         return resolver_match

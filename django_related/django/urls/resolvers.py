@@ -30,12 +30,14 @@ from .utils import get_callable
 
 
 class ResolverMatch:
+    """该类的实例叫做「路由匹配结果对象」
+    """
     def __init__(self, func, args, kwargs, url_name=None, app_names=None, namespaces=None, route=None):
-        self.func = func
+        self.func = func            # path 函数的第二个位置参数
         self.args = args
         self.kwargs = kwargs
-        self.url_name = url_name
-        self.route = route
+        self.url_name = url_name    # path 函数的 name 参数
+        self.route = route          # path 函数的第一个位置参数
 
         # If a URLRegexResolver doesn't have a namespace or app_name, it passes
         # in an empty value.
@@ -262,7 +264,7 @@ class RoutePattern(CheckURLMixin):
     regex = LocaleRegexDescriptor('_route')
 
     def __init__(self, route, name=None, is_endpoint=False):
-        self._route = route
+        self._route = route     # path 函数的第一个位置参数字符串
         self._regex_dict = {}
         self._is_endpoint = is_endpoint
         self.name = name
@@ -338,8 +340,8 @@ class LocalePrefixPattern:
 class URLPattern:
     # 该类的实例是「路由模式对象」
     def __init__(self, pattern, callback, default_args=None, name=None):
-        self.pattern = pattern
-        self.callback = callback  # the view
+        self.pattern = pattern      # 路径模式对象，用于匹配路径
+        self.callback = callback    # 视图对象，视图类或者视图函数
         self.default_args = default_args or {}
         self.name = name
 
@@ -379,7 +381,11 @@ class URLPattern:
             #        f'new_path: {new_path} args: {args} kwargs: {kwargs}')
             # Pass any extra_kwargs as **kwargs.
             kwargs.update(self.default_args)
-            return ResolverMatch(self.callback, args, kwargs, self.pattern.name, route=str(self.pattern))
+            # 此类定义在当前模块下，其实例叫做「路由匹配结果对象」，参数说明：
+            # self.callback : path 函数的第二个位置参数
+            # self.name : path 函数的 name 参数
+            # route : path 函数的第一个位置参数
+            return ResolverMatch(self.callback, args, kwargs, self.name, route=str(self.pattern))
 
     @cached_property
     def lookup_str(self):
@@ -397,6 +403,8 @@ class URLPattern:
 
 class URLResolver:
     # 此类的实例是「路由处理对象」
+    # 项目启动时在 django.urls.conf.path 函数中会自动创建一些
+    # 收到请求后在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建一个
     def __init__(self, pattern, urlconf_name, default_kwargs=None, app_name=None, namespace=None):
         # 该属性值是当前模块中定义的 RoutePattern 类的实例，叫「正则模式对象」
         self.pattern = pattern
@@ -560,15 +568,16 @@ class URLResolver:
         return name in self._callback_strs
 
     def resolve(self, path):
-        # self 是「路由处理对象」，项目启动时在 django.urls.conf.path 函数中会自动创建一些
-        # 收到请求后在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建一个
+        # self 是「路由处理对象」
         # 参数 path 是请求路径或路径的一部分
         path = str(path)  # path may be a reverse_lazy object
         tried = []
+        # 该类的实例，项目启动时在 django.urls.conf.path 函数中会自动创建一些
+        # 收到请求后在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建一个
         # 以收到请求后创建的实例为例，这里去掉了绝对路径开头的斜线
         # 因为 self.pattern 是当前模块中定义的 RegexPattern 类的实例
         # 该实例的 _regex 属性值默认是 '^/' 
-        # 此处该实例的 match 方法返回一个元组，其中第一个元素是 path 开头去掉 _regex 属性后的字符串
+        # 此处该实例的 match 方法返回一个三元元组，其中第一个元素是 path 开头去掉 _regex 属性后的字符串
         # 例如 path 是 '/home/user/1'
         # 去掉开头的斜线后，下面 if 语句块中的 new_path 就是 'home/user/1'
         # 如果 path 开头不能匹配到 _regex 的话，match 方法返回的就是 None
@@ -576,15 +585,15 @@ class URLResolver:
         if match:
             new_path, args, kwargs = match
             # 这里 self.url_patterns 属性是被装饰器装饰的方法，它定义在当前类中
-            # 以 myweb 项目为例，该属性值就是 myweb.urls 路由处理模块中的 urlpatterns 列表
-            # 列表里面的元素可能是当前类 URLResolver 的实例，也就是「路由处理对象」
-            # 也可能是当前模块中的 URLPattern 类的实例，即「路由模式对象」
+            # 其返回值是项目的总路由处理模块中的 urlpatterns 列表
             for pattern in self.url_patterns:
                 try:
+                    # pattern 有两种：
+                    # 1. URLResolver 的实例，叫做「路由处理对象」
+                    # 2. URLPattern 的实例，叫做「路由模式对象」
                     # pattern 的类型不同，其 resolve 方法也不同
-                    # 
                     # 当处理请求路径到最终一步时，pattern 就是「路由模式对象」
-                    # 其 resolve 方法就会返回当前模块中定义的 ResolverMatch 类的实例
+                    # 其 resolve 方法就会返回当前模块中定义的 ResolverMatch 类的实例，也就是「路由匹配结果对象」
                     sub_match = pattern.resolve(new_path)
                 except Resolver404 as e:
                     sub_tried = e.args[0].get('tried')
@@ -606,13 +615,13 @@ class URLResolver:
                         current_route = '' if isinstance(pattern, URLPattern) else str(pattern.pattern)
                         # 最后再重新整理一下，创建一个新的 ResolverMatch 实例返回
                         return ResolverMatch(
-                            sub_match.func,
-                            sub_match_args,
+                            sub_match.func,     # path 函数的第二个位置参数
+                            sub_match_args,     
                             sub_match_dict,
-                            sub_match.url_name,
+                            sub_match.url_name, # path 函数的 name 参数
                             [self.app_name] + sub_match.app_names,
                             [self.namespace] + sub_match.namespaces,
-                            self._join_route(current_route, sub_match.route),
+                            self._join_route(current_route, sub_match.route),   # path 函数的第一个位置参数
                         )
                     tried.append([pattern])
             raise Resolver404({'tried': tried, 'path': new_path})

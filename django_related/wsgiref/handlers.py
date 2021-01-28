@@ -126,10 +126,10 @@ class BaseHandler:
     bytes_sent = 0
 
     def run(self, application):
-        # self 是「服务处理对象」
+        # self 是「响应处理对象」
         import threading
         ct = threading.current_thread()
-        print('【wsgiref.handlers.BaseHandler.run】「服务处理对象」调用「应用对象」，当前线程：', ct.name, ct.ident)
+        print('【wsgiref.handlers.BaseHandler.run】「响应处理对象」调用「应用对象」，当前线程：', ct.name, ct.ident)
 
         try:
             # 处理请求信息将其整理成字典对象赋值给 self.environ 属性
@@ -138,6 +138,7 @@ class BaseHandler:
             # 调用「应用对象」处理请求，也就是调用其 __call__ 方法，这里把请求信息 self.environ 传入
             # 剩下的事情就是「应用对象」来做了：处理请求，返回响应对象赋值给 self.result 属性
             self.result = application(self.environ, self.start_response)
+            # 构建并返回给客户端响应信息
             self.finish_response()
         except (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
             # We expect the client to close the connection abruptly from time
@@ -174,16 +175,17 @@ class BaseHandler:
 
 
     def finish_response(self):
-        """Send any iterable data, then close self and the iterable
-
-        Subclasses intended for use in asynchronous servers will
-        want to redefine this method, such that it sets up callbacks
-        in the event loop to iterate over the data, and to call
-        'self.close()' once the response is finished.
+        """根据「响应对象」提供的信息构成响应头和响应体并将完整数据返回给客户端
         """
+        # self 是「响应处理对象」
+        print('【wsgiref.handlers.BaseHandler.finish_response】继续处理响应对象')
         try:
             if not self.result_is_file() or not self.sendfile():
+                # self.result 是「响应对象」，其 _container 属性值是列表，里面是二进制响应体
+                # 该 _container 属性就是「响应对象」的 __iter__ 方法中被循环的对象
+                # 所以 for 循环中的 data 是二进制响应体，这个循环通常只有 1 次
                 for data in self.result:
+                    # 将响应头和响应头写入向浏览器返回数据的「wfile 流对象」并执行数据传出操作
                     self.write(data)
                 self.finish_content()
         except:
@@ -238,7 +240,9 @@ class BaseHandler:
         elif self.headers is not None:
             raise AssertionError("Headers already set!")
 
+        # self 是「响应处理对象」，给 self 增加一个 status 属性
         self.status = status
+        # 给 self 增加一个 headers 属性，属性值是 wsgiref.handlers.Handlers 类的实例
         self.headers = self.headers_class(headers)
         status = self._convert_string_type(status, "Status")
         assert len(status)>=4,"Status must be at least 4 characters"
@@ -252,6 +256,7 @@ class BaseHandler:
                 assert not is_hop_by_hop(name),\
                        f"Hop-by-hop header, '{name}: {val}', not allowed"
 
+        # 这个返回值暂时没啥用，因为没有对象接收
         return self.write
 
     def _convert_string_type(self, value, title):
@@ -277,8 +282,9 @@ class BaseHandler:
             self._write(('Status: %s\r\n' % self.status).encode('iso-8859-1'))
 
     def write(self, data):
-        """'write()' callable as specified by PEP 3333"""
-
+        """将响应头和响应头写入向浏览器返回数据的「wfile 流对象」并执行数据传出操作
+        """
+        # self 是「响应处理对象」
         assert type(data) is bytes, \
             "write() argument must be a bytes instance"
 
@@ -287,12 +293,15 @@ class BaseHandler:
 
         elif not self.headers_sent:
             # Before the first output, send the stored headers
-            self.bytes_sent = len(data)    # make sure we know content-length
+            # 把响应体的长度赋值给「响应处理对象」的 bytes_sent 属性
+            self.bytes_sent = len(data)  
+            # 根据自身的 headers 属性将响应头信息写入向浏览器返回数据的「wfile 流对象」
             self.send_headers()
         else:
             self.bytes_sent += len(data)
 
         # XXX check Content-Length and truncate if too many bytes written?
+        # 将响应体二进制值写入向浏览器返回数据的「wfile 流对象」
         self._write(data)
         self._flush()
 
@@ -342,11 +351,15 @@ class BaseHandler:
 
 
     def send_headers(self):
-        """Transmit headers to the client, via self._write()"""
+        """根据自身的 headers 属性将响应头信息写入向浏览器返回数据的「wfile 流对象」
+        """
+        # self 是「响应处理对象」
         self.cleanup_headers()
         self.headers_sent = True
         if not self.origin_server or self.client_is_modern():
             self.send_preamble()
+            # self.headers 是 wsgiref.handlers.Handlers 类的实例
+            # bytes(self.headers) 是该实例的 __str__ 方法的返回值的二进制值，也就是响应头
             self._write(bytes(self.headers))
 
 
@@ -467,6 +480,9 @@ class SimpleHandler(BaseHandler):
         self.environ.update(self.base_env)
 
     def _write(self,data):
+        """将二进制值写入向浏览器返回数据的「wfile 流对象」
+        """
+        # self 是「响应处理对象」
         result = self.stdout.write(data)
         if result is None or result == len(data):
             return

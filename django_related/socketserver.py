@@ -220,10 +220,11 @@ class BaseServer:
         self.timeout. If you need to do periodic tasks, do them in
         another thread.
         """
+        # self 是「服务器对象」
         import threading
         ct = threading.current_thread()
-        print('【socketserver.BaseServer.serve_forever】当前线程：', ct.name, ct.ident)
-        print('【socketserver.BaseServer.serve_forever】等待客户端发送请求 ...')
+        print('【socketserver.BaseServer.serve_forever】当前线程:', ct.name, ct.ident)
+        print('【socketserver.BaseServer.serve_forever】等待客户端发送请求 ...\n')
         self.__is_shut_down.clear()
         try:
             # XXX: Consider using another file descriptor or connecting to the
@@ -316,12 +317,19 @@ class BaseServer:
         readable before this function was called, so there should be no risk of
         blocking in get_request().
         """
+
         try:
             # 此方法定义在当前类中，调用 self.socket 套接字对象的 accept 方法接收连接请求
             # 返回值是元组，里面是新建临时套接字对象和客户端地址元组
             request, client_address = self.get_request()
         except OSError:
             return
+
+        import threading
+        ct = threading.current_thread()
+        print('【socketserver.BaseServer._handle_request_noblock】请求进入:', client_address)
+        print('【socketserver.BaseServer._handle_request_noblock】当前线程:', ct.name, ct.ident)
+
         if self.verify_request(request, client_address):
             try:
                 # 此方法定义在当前模块下的 ThreadingMixIn 类中
@@ -371,7 +379,7 @@ class BaseServer:
     # 服务器收到连接请求后，创建一个子线程处理请求
     # 子线程内执行下面这个方法，把临时套接字和客户端地址元组作为参数
     def finish_request(self, request, client_address):
-        # self 是服务器对象，它定义在 django.core.servers.basehttp.run 函数中
+        # self 是「服务器对象」，它定义在 django.core.servers.basehttp.run 函数中
         # 这个属性是定义在 django.core.servers.basehttp 模块中 WSGIRequestHandler 类
         # 该类是当前模块下的 BaseRequestHandler 类的子类
         # 这里对其进行实例化，执行的是当前模块下的 BaseRequestHandler.__init__ 方法
@@ -666,7 +674,7 @@ class ThreadingMixIn:
         """
         import threading
         ct = threading.current_thread()
-        print('【socketserver.ThreadingMixIn.process_request_thread】当前线程：', ct.name, ct.ident)
+        print('【socketserver.ThreadingMixIn.process_request_thread】当前处于子线程中:', ct.name, ct.ident)
         try:
             # 此方法定义在当前模块中的 BaseServer 类中
             self.finish_request(request, client_address)
@@ -679,7 +687,7 @@ class ThreadingMixIn:
         """服务器收到连接请求后，调用此函数处理请求
         """
         # self 是服务器对象，self.socket 是套接字对象
-        print('【socketserver.ThreadingMixIn.process_request】客户端地址:', client_address)
+        print('【socketserver.ThreadingMixIn.process_request】创建子线程并启动，继续处理请求')
         # 此处创建一个子线程，子线程内部调用当前类中定义的 process_request_thread 方法
         t = threading.Thread(target = self.process_request_thread,
                              args = (request, client_address))
@@ -726,6 +734,7 @@ class BaseRequestHandler:
 
     def __init__(self, request, client_address, server):
         # 该类的实例 self 我们称之为「请求处理对象」
+        print('【socketserver.BaseRequestHandler.__init__】「请求处理对象」初始化')
         self.request = request                  # 临时套接字
         self.client_address = client_address    # 客户端地址元组
         self.server = server                    # 服务器对象
@@ -738,6 +747,7 @@ class BaseRequestHandler:
             # 此方法定义在 django.core.servers.basehttp.WSGIRequestHandler 类中
             self.handle()
         finally:
+            # 此方法定义在当前模块中的 StreamRequestHandler 类中
             self.finish()
 
     def setup(self):

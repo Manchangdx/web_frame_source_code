@@ -293,6 +293,7 @@ class HttpResponse(HttpResponseBase):
     streaming = False
 
     def __init__(self, content=b'', *args, **kwargs):
+        print('【django.http.response.HttpResponse.__init__】初始化「响应对象」')
         super().__init__(*args, **kwargs)
         # Content is a bytestring. See the `content` property methods.
         self.content = content

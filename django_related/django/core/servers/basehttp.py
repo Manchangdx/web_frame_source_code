@@ -220,12 +220,14 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
         print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】「请求处理对象」处理一次请求')
 
-        # 此类定义在当前模块中，是 wsgiref.handlers.SimpleHandler 的子类
-        # 其实例是继续处理请求要用的对象，我们称之为「服务处理对象」
+        # 此类定义在当前模块中，其父类是 wsgiref.simple_server.ServerHandler
+        # 后者的父类是 wsgiref.handlers.SimpleHandler 
+        # 后者的父类是 wsgiref.handlers.BaseHandler 
+        # 其实例是创建响应对象并作进一步处理的对象，我们称之为「响应处理对象」
         handler = ServerHandler(
             # 参数说明：
-            # 1、读取客户端发来的数据的「流对象」
-            # 2、写入返回给客户端的数据的「流对象」
+            # 1、读取客户端发来的数据的「rfile 流对象」
+            # 2、写入返回给客户端的数据的「wfile 流对象」
             # 3、协议相关的错误信息
             # 4、self.get_environ 方法处理请求头中的无效字段
             #    然后调用父类 wsgiref.simple_server.WSGIRequestHandler 的同名方法
@@ -238,13 +240,14 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # self.request         临时套接字
         # self.client_address  客户端地址元组
         # self.server          服务器对象
-        # 将 self 赋值给「服务处理对象」的 request_handler 属性
+        # 将 self 赋值给「响应处理对象」的 request_handler 属性
         handler.request_handler = self      
 
-        # 调用「服务处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
+        # 调用「响应处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
         # self.server 是服务器对象，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
         # 其返回值是服务器对象的 application 属性值，也就是当前模块倒数第二行代码里的 wsgi_handler
         # 所以下面 run 方法的参数就是「应用对象」，django.core.handlers.wsgi.WSGIHandler 类的实例
+        # 之前的操作是处理请求，下面这步操作就是处理响应以及返回数据给客户端
         handler.run(self.server.get_app())
 
 
