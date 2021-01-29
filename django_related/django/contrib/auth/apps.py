@@ -15,7 +15,6 @@ class AuthConfig(AppConfig):
     verbose_name = _("Authentication and Authorization")
 
     def ready(self):
-        print('【django.contrib.auth.apps.AuthConfig.ready】check_user_model:', check_user_model)
         print('【django.contrib.auth.apps.AuthConfig.ready】checks.Tags.models:', checks.Tags.models)
         post_migrate.connect(
             create_permissions,

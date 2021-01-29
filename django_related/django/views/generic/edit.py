@@ -47,6 +47,7 @@ class FormMixin(ContextMixin):
                 'data': self.request.POST,
                 'files': self.request.FILES,
             })
+        print('【django.views.generic.edit.FormMixin.get_from_kwargs】kwargs:', kwargs)
         return kwargs
 
     def get_success_url(self):
@@ -66,9 +67,13 @@ class FormMixin(ContextMixin):
     def get_context_data(self, **kwargs):
         """Insert the form into the context dict."""
         if 'form' not in kwargs:
-            # self.get_form 方法定义在当前类中
+            # self.get_form 方法定义在当前类中，返回值是表单类的实例
             kwargs['form'] = self.get_form()
-        return super().get_context_data(**kwargs)
+        # 此父类方法返回字典对象，里面有两组键值对：
+        # 'form': 表单类实例
+        # 'view': 视图类实例
+        kw = super().get_context_data(**kwargs)
+        return kw
 
 
 class ModelFormMixin(FormMixin, SingleObjectMixin):
@@ -134,8 +139,14 @@ class ProcessFormView(View):
     """Render a form on GET and processes it on POST."""
     def get(self, request, *args, **kwargs):
         """Handle GET requests: instantiate a blank version of the form."""
+        # self 是「视图对象」
         print('【django.views.generic.edit.ProcessPormView.get】', f'args: {args}  kwargs: {kwargs}')
         # self.get_context_data 定义在当前模块下的 FormMixin 类中
+        # 此方法返回字典对象，里面有两组键值对：
+        # 'form': 表单类实例
+        # 'view': 视图类实例，也就是 self
+        # self.render_to_response 定义在 django.views.generic.base.TemplateResponseMixin 类中
+        # 此方法返回「响应对象」
         return self.render_to_response(self.get_context_data())
 
     def post(self, request, *args, **kwargs):

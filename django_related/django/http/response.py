@@ -40,6 +40,7 @@ class HttpResponseBase:
         # _headers is a mapping of the lowercase name to the original case of
         # the header (required for working with legacy systems) and the header
         # value. Both the name of the header and its value are ASCII strings.
+        print('【django.http.response.HttpResponseBase.__init__】到家了')
         self._headers = {}
         self._resource_closers = []
         # This parameter is set by the handler. It's necessary to preserve the
@@ -293,9 +294,10 @@ class HttpResponse(HttpResponseBase):
     streaming = False
 
     def __init__(self, content=b'', *args, **kwargs):
-        print('【django.http.response.HttpResponse.__init__】初始化「响应对象」')
+        import threading
+        ct = threading.current_thread()
+        print('【django.http.response.HttpResponse.__init__】初始化「响应对象」，当前线程：', ct.name, ct.ident)
         super().__init__(*args, **kwargs)
-        # Content is a bytestring. See the `content` property methods.
         self.content = content
 
     def __repr__(self):

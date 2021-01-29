@@ -62,6 +62,9 @@ class View:
 
         def view(request, *args, **kwargs):
             # self 是「视图对象」，当前函数就是「视图函数」
+            import threading
+            ct = threading.current_thread()
+            print('【django.views.generic.base.View.as_view.view】当前线程：', ct.name, ct.ident)
             self = cls(**initkwargs)
             self.setup(request, *args, **kwargs)
             if not hasattr(self, 'request'):
@@ -84,7 +87,6 @@ class View:
     def setup(self, request, *args, **kwargs):
         """Initialize attributes shared by all view methods."""
         # self 是「视图对象」
-        print('【django.views.generic.base.View.setup】', f'args: {args}  kwargs: {kwargs}')
         if hasattr(self, 'get') and not hasattr(self, 'head'):
             self.head = self.get
         self.request = request
@@ -123,22 +125,24 @@ class TemplateResponseMixin:
     """A mixin that can be used to render a template."""
     template_name = None
     template_engine = None
+    # 通常响应对象是 django.http.response.HttpResponse 类的实例，该类我们称后者为「响应基类」
+    # 下面这个 django.template.response.TemplateResponse 类是「响应基类」的子类
     response_class = TemplateResponse
     content_type = None
 
     def render_to_response(self, context, **response_kwargs):
+        """创建响应对象并返回
         """
-        Return a response, using the `response_class` for this view, with a
-        template rendered with the given context.
-
-        Pass response_kwargs to the constructor of the response class.
-        """
-        print('【django.views.generic.base.TemplateResponseMixin.render_to_response】')
         response_kwargs.setdefault('content_type', self.content_type)
+        # 返回 django.template.response.TemplateResponse 类的实例，也就是「响应对象」
         return self.response_class(
+            # django.core.handlers.wsgi.WSGIRequest 类的实例，也就是「请求对象」
             request=self.request,
+            # 字符串，定义在项目中的视图类的 template_name 属性值
             template=self.get_template_names(),
+            # 参数，字典对象 {'form': 表单类实例, 'view': 视图类实例，也就是 self}
             context=context,
+            # 默认值是 None
             using=self.template_engine,
             **response_kwargs
         )

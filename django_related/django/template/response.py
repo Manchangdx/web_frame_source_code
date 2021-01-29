@@ -15,7 +15,9 @@ class SimpleTemplateResponse(HttpResponse):
         # It would seem obvious to call these next two members 'template' and
         # 'context', but those names are reserved as part of the test Client
         # API. To avoid the name collision, we use different names.
+        print('【django.template.response.SimpleTemplateResponse.__init__】')
         self.template_name = template
+        # context 是字典对象：{'form': 表单类实例, 'view': 视图类实例，也就是 self}
         self.context_data = context
 
         self.using = using
@@ -58,10 +60,12 @@ class SimpleTemplateResponse(HttpResponse):
         return obj_dict
 
     def resolve_template(self, template):
-        """Accept a template object, path-to-template, or list of paths."""
+        # self 是「响应对象」，参数 template 是模板文件相对路径的字符串
         if isinstance(template, (list, tuple)):
             return select_template(template, using=self.using)
         elif isinstance(template, str):
+            # 此函数定义在 django.template.loader 模块中，根据给定名称加载并返回「最终模板对象」
+            # 该对象是 django.template.backends.django.Template 类的实例
             return get_template(template, using=self.using)
         else:
             return template
@@ -78,8 +82,12 @@ class SimpleTemplateResponse(HttpResponse):
         response content, you must either call render(), or set the
         content explicitly using the value of this property.
         """
+        # 该对象是 django.template.backends.django.Template 类的实例，叫做「最终模板对象」
         template = self.resolve_template(self.template_name)
+        # self.context_data 是字典对象：{'form': 表单类实例, 'view': 视图类实例，也就是 self}
+        # self.resolve_context 的返回值就是参数
         context = self.resolve_context(self.context_data)
+        
         return template.render(context, self._request)
 
     def add_post_render_callback(self, callback):
@@ -93,6 +101,7 @@ class SimpleTemplateResponse(HttpResponse):
         else:
             self._post_render_callbacks.append(callback)
 
+    # 此方法在 django.core.handlers.base.BaseHandler._get_response 方法中被调用
     def render(self):
         """Render (thereby finalizing) the content of the response.
 
@@ -102,6 +111,7 @@ class SimpleTemplateResponse(HttpResponse):
         """
         retval = self
         if not self._is_rendered:
+            # self 是「响应对象」，其 rendered_content 方法定义在当前类中
             self.content = self.rendered_content
             for post_callback in self._post_render_callbacks:
                 newretval = post_callback(retval)
@@ -136,9 +146,16 @@ class SimpleTemplateResponse(HttpResponse):
 
 
 class TemplateResponse(SimpleTemplateResponse):
+    # 当前类的父类是定义在当前模块的 SimpleTemplateResponse 类
+    # 后者的父类是 django.http.response.HttpResponse 类
+    # 后者的父类是 django.http.response.HttpResponseBase 类
     rendering_attrs = SimpleTemplateResponse.rendering_attrs + ['_request']
 
     def __init__(self, request, template, context=None, content_type=None,
                  status=None, charset=None, using=None):
+        print('【django.template.response.TemplateResponse.__init__】')
         super().__init__(template, context, content_type, status, charset, using)
         self._request = request
+        #print('------')
+        #print([i for i in dir(self) if not i.startswith('__')])
+        #print('------')

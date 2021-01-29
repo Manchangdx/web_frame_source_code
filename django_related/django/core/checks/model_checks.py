@@ -10,8 +10,8 @@ from django.core.checks import Error, Tags, Warning, register
 
 @register(Tags.models)
 def check_all_models(app_configs=None, **kwargs):
-    print('【django.core.checks.model_checks.check_all_models】app_configs:', app_configs)
-    print('【django.core.checks.model_checks.check_all_models】kwargs:', kwargs)
+    #print('【django.core.checks.model_checks.check_all_models】app_configs:', app_configs)
+    #print('【django.core.checks.model_checks.check_all_models】kwargs:', kwargs)
     db_table_models = defaultdict(list)
     indexes = defaultdict(list)
     constraints = defaultdict(list)

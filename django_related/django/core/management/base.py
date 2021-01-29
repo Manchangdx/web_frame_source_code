@@ -415,7 +415,7 @@ class BaseCommand:
             include_deployment_checks=include_deployment_checks,
             databases=databases,
         )
-        print('【django.core.management.base.BaseCommand.check】all_issues:', all_issues)
+        #print('【django.core.management.base.BaseCommand.check】all_issues:', all_issues)
 
         header, body, footer = "", "", ""
         visible_issue_count = 0  # excludes silenced warnings

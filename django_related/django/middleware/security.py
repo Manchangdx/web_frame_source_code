@@ -31,8 +31,11 @@ class SecurityMiddleware(MiddlewareMixin):
             )
 
     def process_response(self, request, response):
-        print('【django.middleware.security.SecurityMiddleware.process_response】request:', request)
-        print('【django.middleware.security.SecurityMiddleware.process_response】response:', response)
+        #print('【django.middleware.security.SecurityMiddleware.process_response】request:', request)
+        #print('【django.middleware.security.SecurityMiddleware.process_response】response:', response)
+        import threading
+        ct = threading.current_thread()
+        print('【django.middleware.security.SecurityMiddleware.process_response】当前线程：', ct.name, ct.ident)
         if (self.sts_seconds and request.is_secure() and
                 'Strict-Transport-Security' not in response):
             sts_header = "max-age=%s" % self.sts_seconds

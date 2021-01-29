@@ -155,7 +155,7 @@ class Engine:
         翻译：返回给定模板名称的已编译 Template 对象，以递归方式处理模板继承。
         """
         # self 是「引擎对象」，当前方法的返回值是「模板对象」
-        print('【django.template.engine.Engine.get_template】template_name:', template_name)
+        #print('【django.template.engine.Engine.get_template】template_name:', template_name)
         template, origin = self.find_template(template_name)
         if not hasattr(template, 'render'):
             # template needs to be compiled

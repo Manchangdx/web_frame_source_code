@@ -240,6 +240,8 @@ class BaseHandler:
                     )
                 )
             try:
+                # 这里调用「响应对象」的 render 方法生成 content 属性值，也就是响应体
+                # 此方法定义在 django.template.response.SimpleTemplateResponse 类中
                 response = response.render()
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)

@@ -139,7 +139,7 @@ class WSGIHandler(base.BaseHandler):
         # self 是「应用对象」，客户端发来请求后「响应处理对象」调用此方法
         import threading
         ct = threading.current_thread()
-        print('【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」，当前线程：', ct.name, ct.ident)
+        print('【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」')
 
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
