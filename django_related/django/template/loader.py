@@ -10,15 +10,14 @@ def get_template(template_name, using=None):
 
     :template_name: 模板文件相对路径字符串
     """
-
+    print('【django.template.loader.get_template】获取「最终模板对象」')
     chain = []
-    # 此函数定义在当前模块最下面，返回值是列表，列表里面是「模板引擎对象」
+    # 此函数定义在当前模块最下面，返回值是「模板引擎列表对象」
     engines = _engine_list(using)
 
     for engine in engines:
         try:
-            # engine 就是「模板引擎对象」
-            # 即 django.template.backends.django.DjangoTemplates 类的实例
+            # engine 是 django.template.backends.django.DjangoTemplates 类的实例，叫做「模板引擎对象」
             # 此处返回 django.template.backends.django.Template 类的实例，即「最终模板对象」
             return engine.get_template(template_name)
         except TemplateDoesNotExist as e:

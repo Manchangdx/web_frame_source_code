@@ -44,7 +44,7 @@ class DjangoTemplates(BaseEngine):
         # self 是「模板引擎对象」
         try:
             # self.engine 是 django.template.engine.Engine 类的实例，叫做「引擎对象」
-            # 该对象的 get_template 的返回值是「模板对象」，django.template.base.Template 类的实例
+            # self.engine.get_template 的返回值是「模板对象」，django.template.base.Template 类的实例
             # 下面这个 Template 是定义在当前模块中的类，该类的实例被称为「最终模板对象」
             return Template(self.engine.get_template(template_name), self)
         except TemplateDoesNotExist as exc:
@@ -64,8 +64,8 @@ class Template:
 
     def __init__(self, template, backend):
         # self 是「最终模板对象」
-        # template 是「模板对象」，django.template.base.Template 类的实例
-        # backend 是「模板引擎对象」，当前模块中的 DjangoTemplates 类的实例
+        # 参数 template 是「模板对象」，django.template.base.Template 类的实例
+        # 参数 backend 是「模板引擎对象」，当前模块中的 DjangoTemplates 类的实例
         self.template = template
         self.backend = backend
 
@@ -74,6 +74,10 @@ class Template:
         return self.template.origin     
 
     def render(self, context=None, request=None):
+        # self 是「最终模板对象」
+        # 参数 context 是字典对象：{'form': 表单类实例, 'view': 视图类实例}
+        # 参数 request 是「请求对象」，django.core.handlers.wsgi.WSGIRequest 类的实例
+
         # django.template.context.RequestContext 类的实例，叫做「请求上下文对象」
         context = make_context(context, request, autoescape=self.backend.engine.autoescape)
         try:

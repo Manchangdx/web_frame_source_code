@@ -4,7 +4,8 @@ from django.template import Template, TemplateDoesNotExist
 class Loader:
 
     def __init__(self, engine):
-        # self 是「模板加载对象」，engine 是「引擎对象」
+        # self 是「模板加载对象」
+        # engine 是「引擎对象」，django.template.engine.Engine 类的实例
         self.engine = engine
 
     def get_template(self, template_name, skip=None):
@@ -31,6 +32,11 @@ class Loader:
                 continue
             else:
                 # 最终返回 django.template.base.Template 类的实例，这就是「模板对象」
+                # 参数说明：
+                # contents              : 视图函数中指定的模板文件内容字符串
+                # origin                : django.template.base.Origin 类的实例
+                # origin.template_name  : 视图函数中指定的模板文件的相对路径
+                # self.engine           : 参数 engine
                 return Template(
                     contents, origin, origin.template_name, self.engine,
                 )

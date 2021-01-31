@@ -154,11 +154,11 @@ class Engine:
         handling template inheritance recursively.
         翻译：返回给定模板名称的已编译 Template 对象，以递归方式处理模板继承。
         """
-        # self 是「引擎对象」，当前方法的返回值是「模板对象」
-        #print('【django.template.engine.Engine.get_template】template_name:', template_name)
+        # self 是「引擎对象」，参数 template_name 是视图函数提供的前端模板文件名字
+        # template: django.template.base.Template 类的实例，就是「模板对象」
+        # origin: django.template.base.Origin 类的实例
         template, origin = self.find_template(template_name)
         if not hasattr(template, 'render'):
-            # template needs to be compiled
             template = Template(template, origin, template_name, engine=self)
         return template
 

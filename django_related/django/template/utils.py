@@ -14,6 +14,7 @@ class InvalidTemplateEngineError(ImproperlyConfigured):
 
 
 class EngineHandler:
+    # 该类的实例是「模板引擎列表
     def __init__(self, templates=None):
         """
         templates is an optional list of template engine definitions
@@ -24,6 +25,7 @@ class EngineHandler:
 
     @cached_property
     def templates(self):
+        # self 是「模板引擎列表对象」
         if self._templates is None:
             self._templates = settings.TEMPLATES
 
@@ -60,10 +62,20 @@ class EngineHandler:
                 "Set a unique NAME for each engine in settings.TEMPLATES."
                 .format(", ".join(duplicates)))
 
+        # templates 是类似这样的字典：
+        # {'django': 
+        #     {'NAME': 'django', 
+        #      'DIRS': ['/.../test/qa_community/templates'], 
+        #      'APP_DIRS': True, 
+        #      'OPTIONS': {'context_processors': ['django.template...]},
+        #      'BACKEND': 'django.template.backends.django.DjangoTemplates'
+        #     }
+        # }
         return templates
 
     def __getitem__(self, alias):
-        print('【django.template.utils.EngineHandler.__getitem__】alias:', alias)
+        # self 是「模板引擎列表对象」
+        print('【django.template.utils.EngineHandler.__getitem__】创建「引擎模板对象」')
         try:
             return self._engines[alias]
         except KeyError:
@@ -82,7 +94,8 @@ class EngineHandler:
             backend = params.pop('BACKEND')
             # 默认情况下，engine_cls 是 backend 对应的类
             engine_cls = import_string(backend)
-            # 默认情况下，engine 就是 django.template.backends.django.DjangoTemplates 类的实例
+            # 默认情况下，engine 就是「模板引擎对象」
+            # 该对象是 django.template.backends.django.DjangoTemplates 类的实例
             engine = engine_cls(params)
 
             self._engines[alias] = engine
@@ -92,6 +105,7 @@ class EngineHandler:
         return iter(self.templates)
 
     def all(self):
+        # self 是「模板引擎列表对象」
         # 返回列表
         # 默认情况下，列表中只有一个 django.template.backends.django.DjangoTemplates 类的实例
         # 该实例被称为「模板引擎对象」

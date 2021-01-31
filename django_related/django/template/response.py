@@ -12,10 +12,8 @@ class SimpleTemplateResponse(HttpResponse):
 
     def __init__(self, template, context=None, content_type=None, status=None,
                  charset=None, using=None):
-        # It would seem obvious to call these next two members 'template' and
-        # 'context', but those names are reserved as part of the test Client
-        # API. To avoid the name collision, we use different names.
-        print('【django.template.response.SimpleTemplateResponse.__init__】')
+        #print('【django.template.response.SimpleTemplateResponse.__init__】')
+        # 定义在项目中的视图类中的 template_name 属性值，字符串类型
         self.template_name = template
         # context 是字典对象：{'form': 表单类实例, 'view': 视图类实例，也就是 self}
         self.context_data = context
@@ -24,24 +22,25 @@ class SimpleTemplateResponse(HttpResponse):
 
         self._post_render_callbacks = []
 
-        # _request stores the current request object in subclasses that know
-        # about requests, like TemplateResponse. It's defined in the base class
-        # to minimize code duplication.
-        # It's called self._request because self.request gets overwritten by
-        # django.test.client.Client. Unlike template_name and context_data,
-        # _request should not be considered part of the public API.
+        # 原注释翻译：
+        # _request 将当前请求对象存储在知道请求的子类中，例如 TemplateResponse。  
+        # 该属性在基类中定义，以最大程度地减少代码重复。  
+        # 之所以称为 self._request，是因为 self.request 被 django.test.client.Client 覆盖。  
+        # 与 template_name 和 context_data 不同，_request 不应被视为公共 API 的一部分。
         self._request = None
 
-        # content argument doesn't make sense here because it will be replaced
-        # with rendered template so we always pass empty string in order to
-        # prevent errors and provide shorter signature.
+        # 调用父类 django.http.response.HttpResponse 的初始化方法，通常后面仨参数都是 None
+        # 第一个参数 content 是空字符串，在这里只作占位之用，不写也行，因为它将被呈现的模板替换
         super().__init__('', content_type, status, charset=charset)
 
-        # _is_rendered tracks whether the template and context has been baked
-        # into a final response.
-        # Super __init__ doesn't know any better than to set self.content to
-        # the empty string we just gave it, which wrongly sets _is_rendered
-        # True, so we initialize it to False after the call to super __init__.
+        # 原注释翻译：
+        # _is_rendered 跟踪模板和上下文是否已准备好并赋值到最终响应中。  
+        # 超级 __init__ 没有什么比将 self.content 设置为我们刚刚给它的空字符串更好的了，
+        # 它错误地将 _is_rendered 设置为 True，因此在调用超级 __init__ 之后将其初始化为 False。
+        # 我的注释：
+        # 此属性定义在当前类中，用于判断 self.content 属性是否已经被赋值
+        # 为 self.content 赋值的操作定义在当前类中，它是一个由 content.setter 装饰的方法
+        # 调用此方法会将 self._is_render 属性变成 True 
         self._is_rendered = False
 
     def __getstate__(self):
@@ -75,19 +74,22 @@ class SimpleTemplateResponse(HttpResponse):
 
     @property
     def rendered_content(self):
-        """Return the freshly rendered content for the template and context
-        described by the TemplateResponse.
-
-        This *does not* set the final content of the response. To set the
-        response content, you must either call render(), or set the
-        content explicitly using the value of this property.
         """
+        原注释翻译：
+        返回 TemplateResponse 描述的模板和上下文的最新渲染内容。
+        这并没有设置响应的最终内容。 
+        要设置响应内容，必须调用 render 或使用此属性的值显式设置内容。
+        """
+        # self 是「响应对象」
         # 该对象是 django.template.backends.django.Template 类的实例，叫做「最终模板对象」
         template = self.resolve_template(self.template_name)
-        # self.context_data 是字典对象：{'form': 表单类实例, 'view': 视图类实例，也就是 self}
-        # self.resolve_context 的返回值就是参数
+        # self.context_data 是字典对象：{'form': 表单类实例, 'view': 视图类实例}
+        # self.resolve_context 的返回值就是参数 self.context_data
         context = self.resolve_context(self.context_data)
         
+        # self._request 是「请求对象」，django.core.handlers.wsgi.WSGIRequest 类的实例
+        # 返回值是携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
+        # 该对象是 django.utils.safestring.SafeString 类的实例
         return template.render(context, self._request)
 
     def add_post_render_callback(self, callback):
@@ -110,13 +112,22 @@ class SimpleTemplateResponse(HttpResponse):
         Return the baked response instance.
         """
         retval = self
+        # 下面的 _is_rendered 属性定义在当前类的 __init__ 方法中，默认值是 False
+        # 如果 self.content 被赋值过，那么该属性值就是 True ；否则下面的代码块将对其进行赋值操作
         if not self._is_rendered:
             # self 是「响应对象」，其 rendered_content 方法定义在当前类中
+            # self.content 是携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
+            # 该对象是 django.utils.safestring.SafeString 类的实例
             self.content = self.rendered_content
             for post_callback in self._post_render_callbacks:
                 newretval = post_callback(retval)
                 if newretval is not None:
                     retval = newretval
+
+        print('【django.template.response.SimpleTemplateResponse.renderd_content】'
+              '获取渲染完毕的模板文件内容并赋值给「响应对象」的 content 属性')
+
+        # 返回值是自身，也就是「响应对象」
         return retval
 
     @property
@@ -153,9 +164,8 @@ class TemplateResponse(SimpleTemplateResponse):
 
     def __init__(self, request, template, context=None, content_type=None,
                  status=None, charset=None, using=None):
-        print('【django.template.response.TemplateResponse.__init__】')
+        #print('【django.template.response.TemplateResponse.__init__】')
         super().__init__(template, context, content_type, status, charset, using)
+        # 把「请求对象」赋值给「响应对象」的 _request 属性
+        # 前者是 django.core.handlers.wsgi.WSGIRequest 类的实例
         self._request = request
-        #print('------')
-        #print([i for i in dir(self) if not i.startswith('__')])
-        #print('------')

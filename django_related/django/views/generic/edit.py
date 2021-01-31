@@ -139,7 +139,7 @@ class ProcessFormView(View):
     """Render a form on GET and processes it on POST."""
     def get(self, request, *args, **kwargs):
         """Handle GET requests: instantiate a blank version of the form."""
-        # self 是「视图对象」
+        # self 是视图类的实例
         print('【django.views.generic.edit.ProcessPormView.get】', f'args: {args}  kwargs: {kwargs}')
         # self.get_context_data 定义在当前模块下的 FormMixin 类中
         # 此方法返回字典对象，里面有两组键值对：

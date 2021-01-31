@@ -240,8 +240,11 @@ class BaseHandler:
                     )
                 )
             try:
-                # 这里调用「响应对象」的 render 方法生成 content 属性值，也就是响应体
-                # 此方法定义在 django.template.response.SimpleTemplateResponse 类中
+                # 等号后面的 response 是「响应对象」
+                # 该对象的 render 方法定义在 django.template.response.SimpleTemplateResponse 类中
+                # 该方法会为自身的 content 属性赋值携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
+                # 后者是 django.utils.safestring.SafeString 类的实例
+                # 该方法的返回值仍是「响应对象」自身
                 response = response.render()
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)

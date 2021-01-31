@@ -37,10 +37,11 @@ class HttpResponseBase:
     status_code = 200
 
     def __init__(self, content_type=None, status=None, reason=None, charset=None):
-        # _headers is a mapping of the lowercase name to the original case of
-        # the header (required for working with legacy systems) and the header
-        # value. Both the name of the header and its value are ASCII strings.
-        print('【django.http.response.HttpResponseBase.__init__】到家了')
+        # self 是「响应对象」
+        print('【django.http.response.HttpResponseBase.__init__】「响应对象」最终的父类初始化')
+        # 原注释翻译：
+        # _headers 是小写名称到标头的原始大小写（与旧系统一起使用所必需）和标头值的映射。 
+        # 标头名称及其值均为ASCII字符串。
         self._headers = {}
         self._resource_closers = []
         # This parameter is set by the handler. It's necessary to preserve the
@@ -59,7 +60,9 @@ class HttpResponseBase:
         self._reason_phrase = reason
         self._charset = charset
         if content_type is None:
+            # self.charset 的值是 'utf-8'
             content_type = 'text/html; charset=%s' % self.charset
+        # 当前类定义了 __setitem__ 方法，下面这行代码将键值对添加到 self._headers 字典中
         self['Content-Type'] = content_type
 
     @property
@@ -83,6 +86,7 @@ class HttpResponseBase:
         if matched:
             # Extract the charset and strip its double quotes
             return matched['charset'].replace('"', '')
+        # 下面的配置项定义在 django.conf.global_settings 模块中，值是 'utf-8'
         return settings.DEFAULT_CHARSET
 
     @charset.setter
