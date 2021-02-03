@@ -73,6 +73,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler):
     server_version = "WSGIServer/" + __version__
 
     def get_environ(self):
+        # self 是「请求处理对象」
         env = self.server.base_environ.copy()
         env['SERVER_PROTOCOL'] = self.request_version
         env['SERVER_SOFTWARE'] = self.server_version

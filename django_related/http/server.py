@@ -267,14 +267,7 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
     default_request_version = "HTTP/0.9"
 
     def parse_request(self):
-        """Parse a request (internal).
-
-        The request should be stored in self.raw_requestline; the results
-        are in self.command, self.path, self.request_version and
-        self.headers.
-
-        Return True for success, False for failure; on failure, any relevant
-        error response has already been sent back.
+        """获取客户端发来的请求数据并解析
         """
         self.command = None  # set in case of error on the first line
         self.request_version = version = self.default_request_version

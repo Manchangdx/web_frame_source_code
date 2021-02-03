@@ -330,6 +330,7 @@ class BaseServer:
         print('【socketserver.BaseServer._handle_request_noblock】请求进入:', client_address)
         print('【socketserver.BaseServer._handle_request_noblock】当前线程:', ct.name, ct.ident)
 
+        # 下面这个方法默认情况下什么也不做，只返回 True
         if self.verify_request(request, client_address):
             try:
                 # 此方法定义在当前模块下的 ThreadingMixIn 类中
@@ -380,7 +381,7 @@ class BaseServer:
     # 子线程内执行下面这个方法，把临时套接字和客户端地址元组作为参数
     def finish_request(self, request, client_address):
         # self 是「服务器对象」，它定义在 django.core.servers.basehttp.run 函数中
-        # 这个属性是定义在 django.core.servers.basehttp 模块中 WSGIRequestHandler 类
+        # 下面这个属性值是定义在 django.core.servers.basehttp 模块中的 WSGIRequestHandler 类
         # 该类是当前模块下的 BaseRequestHandler 类的子类
         # 这里对其进行实例化，执行的是当前模块下的 BaseRequestHandler.__init__ 方法
         self.RequestHandlerClass(request, client_address, self)
@@ -772,13 +773,12 @@ class StreamRequestHandler(BaseRequestHandler):
 
     """Define self.rfile and self.wfile for stream sockets."""
 
-    # Default buffer sizes for rfile, wfile.
-    # We default rfile to buffered because otherwise it could be
-    # really slow for large data (a getc() call per byte); we make
-    # wfile unbuffered because (a) often after a write() we want to
-    # read and we need to flush the line; (b) big writes to unbuffered
-    # files are typically optimized by stdio even when big reads
-    # aren't.
+    # 原注释翻译：
+    # 设置 rfile，wfile 的默认缓冲区大小。
+    # 我们将 rfile 设置为有缓冲的，因为不这样做的话它对于大数据可能真的很慢（每个字节的 getc() 调用）。
+    # 我们将 wfile 设为无缓冲，因为：
+    #  （a）通常在我们要读取的 write() 之后，需要刷新该行； 
+    #  （b）即使未进行大量读操作，stdio 通常也会优化对未缓冲文件的大量写操作。
     rbufsize = -1
     wbufsize = 0
 
@@ -798,8 +798,11 @@ class StreamRequestHandler(BaseRequestHandler):
         if self.disable_nagle_algorithm:
             self.connection.setsockopt(socket.IPPROTO_TCP,
                                        socket.TCP_NODELAY, True)
+        # 套接字对象的 makefile 方法返回一个与套接字相关联的文件对象
+        # 在这之后，你就可以像操作一个文件一样去操作 socket 连接
         self.rfile = self.connection.makefile('rb', self.rbufsize)
         if self.wbufsize == 0:
+            # 这个 _SocketWriter 类定义在当前模块，在下面
             self.wfile = _SocketWriter(self.connection)
         else:
             self.wfile = self.connection.makefile('wb', self.wbufsize)

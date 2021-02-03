@@ -32,6 +32,7 @@ class FormMixin(ContextMixin):
         """获取并返回表单类的实例
         """
         if form_class is None:
+            # 下面这个 get_form_class 调用的可能是当前模块在的 ModelFormMixin 类中的方法
             form_class = self.get_form_class()
         return form_class(**self.get_form_kwargs())
 
@@ -81,7 +82,8 @@ class ModelFormMixin(FormMixin, SingleObjectMixin):
     fields = None
 
     def get_form_class(self):
-        """Return the form class to use in this view."""
+        """返回表单类
+        """
         if self.fields is not None and self.form_class:
             raise ImproperlyConfigured(
                 "Specifying both 'fields' and 'form_class' is not permitted."

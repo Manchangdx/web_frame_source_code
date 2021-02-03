@@ -132,6 +132,7 @@ class BaseHandler:
         print('【wsgiref.handlers.BaseHandler.run】「响应处理对象」调用「应用对象」，当前线程：', ct.name, ct.ident)
 
         try:
+            print('2>>>', self.stdin)
             # 处理请求信息将其整理成字典对象赋值给 self.environ 属性
             self.setup_environ()
             # application 是 django.core.handlers.wsgi.WSGIHandler 类的实例，叫做「应用对象」
@@ -464,12 +465,18 @@ class SimpleHandler(BaseHandler):
     def __init__(self,stdin,stdout,stderr,environ,
         multithread=True, multiprocess=False
     ):
+        # self 是「响应处理对象」
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
         self.base_env = environ
         self.wsgi_multithread = multithread
         self.wsgi_multiprocess = multiprocess
+
+        print('【wsgiref.handlers.SimpleHandler.__init__】「响应处理对象」初始化')
+        #print('【wsgiref.handlers.SimpleHandler.__init__】environ:')
+        #for k, v in environ.items():
+        #    print(f'\t{k:<20s} {v}')
 
     def get_stdin(self):
         return self.stdin

@@ -167,10 +167,11 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             if '_' in k:
                 del self.headers[k]
 
+        # 父类的方法定义在 wsgiref.simple_server.WSGIRequestHandler 类中
         return super().get_environ()
 
     # 此方法在父类 socketserver.BaseRequestHandler 的 __init__ 方法中被调用
-    # 服务器套接字收到连接请求，创建一个当前类的实例
+    # 服务器套接字收到连接请求，创建一个当前类的实例，叫做「请求处理对象」
     # 实例初始化过程中，将连接的临时套接字对象赋值给实例的 connect 属性，然后调用此方法
     def handle(self):
         # self 是「请求处理对象」
@@ -183,7 +184,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # 处理一次请求
         self.handle_one_request()
 
-        # 如果是长连接，继续处理请求
+        # 如果是长连接，即客户端的版本是 HTTP 1.1 及其以上，继续处理请求
         while not self.close_connection:
             #print('【django.core.servers.basehttp.WSGIRequestHandler.handle】**************************')
             self.handle_one_request()
@@ -197,10 +198,12 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         """
 
         # self 是「请求处理对象」
-        # 读取一行数据的前 2 ** 8 个字符，这个数据就是浏览器发送给服务器的数据
+        # 读取一行数据的前 2 ** 8 + 1 个字符，这个数据就是浏览器发送给服务器的数据
         self.raw_requestline = self.rfile.readline(65537)
-        #print(('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】'
-        #       'self.raw_requestline: {}'.format(self.raw_requestline)))
+        print('1>>>', self.rfile)
+        if self.raw_requestline:
+            print(('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】'
+                    '请求信息的第一行: {}'.format(self.raw_requestline)))
         # 如果一行的长度超过这个数，就判定它超出了服务器允许的长度范围，返回 414 状态码
         if len(self.raw_requestline) > 65536:
             print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】414')
@@ -218,10 +221,8 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         if not self.parse_request():  # An error code has been sent, just exit
             return
 
-        print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】「请求处理对象」处理一次请求')
-
         # 此类定义在当前模块中，其父类是 wsgiref.simple_server.ServerHandler
-        # 后者的父类是 wsgiref.handlers.SimpleHandler 
+        # 后者的父类是 wsgiref.handlers.SimpleHandler（初始化就在此类中） 
         # 后者的父类是 wsgiref.handlers.BaseHandler 
         # 其实例是创建响应对象并作进一步处理的对象，我们称之为「响应处理对象」
         handler = ServerHandler(
@@ -235,7 +236,6 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             self.rfile, self.wfile, self.get_stderr(), self.get_environ()
         )
 
-
         # self 是「请求处理对象」
         # self.request         临时套接字
         # self.client_address  客户端地址元组
@@ -244,7 +244,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         handler.request_handler = self      
 
         # 调用「响应处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
-        # self.server 是服务器对象，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
+        # self.server 是「服务器对象」，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
         # 其返回值是服务器对象的 application 属性值，也就是当前模块倒数第二行代码里的 wsgi_handler
         # 所以下面 run 方法的参数就是「应用对象」，django.core.handlers.wsgi.WSGIHandler 类的实例
         # 之前的操作是处理请求，下面这步操作就是处理响应以及返回数据给客户端
@@ -255,7 +255,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
     import threading
     ct = threading.current_thread()
-    print('【django.core.servers.basehttp.run】当前线程：', ct.name, ct.ident)
+    print('【django.core.servers.basehttp.run】「服务器对象」初始化，当前线程:', ct.name, ct.ident)
     # 参数 server_cls 的值是当前模块中定义的 WSGIServer 类
     # 后者是 Python 内置模块 wsgiref.simple_server 中的 WSGIServer 类的子类
     # 后者是 Python 内置模块 http.server 中的 HTTPServer 类的子类
@@ -270,24 +270,14 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     else:
         httpd_cls = server_cls
 
-    # 此实例相当于「服务器对象」，其 socket 属性值就是 TCP 套接字对象
-    # 当前函数最后一行代码启动套接字的持续监听，套接字对象的 accept 方法收到连接请求后
-    # 服务器对象内部会将临时套接字和客户端地址作为参数创建当前模块中的 WSGIRequestHandler 类的实例
-    # 这个 WSGIRequestHandler 类是 socketserver.BaseRequestHandler 类的子类
-    # 实例初始化时，首先调用 socketserver.StreamRequestHandler.setup 方法
-    # 将本次连接新建的临时套接字对象赋值给实例的 connection 属性
-    # 然后处理一下套接字的设置，包括阻塞超时时间和设置套接字的读写关联对象
-    # 接着调用当前模块中的 WSGIRequestHandler.handle 方法处理
+    # 对「服务器类」进行实例化得到「服务器对象」，其 socket 属性值就是 TCP 套接字对象
+    # 当前函数最后一行代码将启动套接字的持续监听
+    # WSGIRequestHandler 是请求处理类，socketserver.BaseRequestHandler 类的子类，其实例是「请求处理对象」
     httpd = httpd_cls(server_address, WSGIRequestHandler, ipv6=ipv6)
 
     if threading:
-        # ThreadingMixIn.daemon_threads indicates how threads will behave on an
-        # abrupt shutdown; like quitting the server by the user or restarting
-        # by the auto-reloader. True means the server will not wait for thread
-        # termination before it quits. This will make auto-reloader faster
-        # and will prevent the need to kill the server manually if a thread
-        # isn't terminating correctly.
-        # 翻译：ThreadingMixIn.daemon_threads 指示线程在突然关闭时的行为
+        # 原注释翻译：
+        # ThreadingMixIn.daemon_threads 指示线程在突然关闭时的行为
         # 例如由用户退出服务器或由自动重新加载器重新启动时
         # True 表示服务器在退出之前不会等待线程终止
         # 这将使自动重新加载器更快，并且可以防止在线程未正确终止的情况下手动杀死服务器。
