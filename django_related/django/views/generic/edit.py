@@ -25,6 +25,7 @@ class FormMixin(ContextMixin):
     def get_form_class(self):
         """获取并返回表单类
         """
+        # self 是视图类的实例
         # 该属性定义在项目中的视图类中，属性值是表单类
         return self.form_class
 
@@ -32,8 +33,9 @@ class FormMixin(ContextMixin):
         """获取并返回表单类的实例
         """
         if form_class is None:
-            # 下面这个 get_form_class 调用的可能是当前模块在的 ModelFormMixin 类中的方法
+            # 下面这个 get_form_class 调用的可能是当前模块在的 ModelFormMixin 类中的方法，返回值是表单类
             form_class = self.get_form_class()
+        # self.get_form_kwargs 方法定义在当前模块的 ModelFormMixin 类中，返回值是字典对象
         return form_class(**self.get_form_kwargs())
 
     def get_form_kwargs(self):
@@ -44,11 +46,11 @@ class FormMixin(ContextMixin):
         }
 
         if self.request.method in ('POST', 'PUT'):
+            print('【django.views.generic.edit.FormMixin.get_from_kwargs】从「请求对象」的 POST 属性中获取请求表单数据')
             kwargs.update({
                 'data': self.request.POST,
                 'files': self.request.FILES,
             })
-        print('【django.views.generic.edit.FormMixin.get_from_kwargs】kwargs:', kwargs)
         return kwargs
 
     def get_success_url(self):
@@ -67,6 +69,7 @@ class FormMixin(ContextMixin):
 
     def get_context_data(self, **kwargs):
         """Insert the form into the context dict."""
+        # self 是视图类的实例
         if 'form' not in kwargs:
             # self.get_form 方法定义在当前类中，返回值是表单类的实例
             kwargs['form'] = self.get_form()
@@ -142,7 +145,6 @@ class ProcessFormView(View):
     def get(self, request, *args, **kwargs):
         """Handle GET requests: instantiate a blank version of the form."""
         # self 是视图类的实例
-        print('【django.views.generic.edit.ProcessPormView.get】', f'args: {args}  kwargs: {kwargs}')
         # self.get_context_data 定义在当前模块下的 FormMixin 类中
         # 此方法返回字典对象，里面有两组键值对：
         # 'form': 表单类实例
@@ -156,8 +158,11 @@ class ProcessFormView(View):
         Handle POST requests: instantiate a form instance with the passed
         POST variables and then check if it's valid.
         """
+        # self 是视图类的实例
+        # 此方法定义在当前模块中的 FormMixin 类中，创建并返回表单类的实例
         form = self.get_form()
         if form.is_valid():
+            print('a')
             return self.form_valid(form)
         else:
             return self.form_invalid(form)

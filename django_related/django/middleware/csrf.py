@@ -146,6 +146,7 @@ class CsrfViewMiddleware(MiddlewareMixin):
         return None
 
     def _reject(self, request, reason):
+        # 异常处理专用函数
         response = _get_failure_view()(request, reason=reason)
         log_response(
             'Forbidden (%s): %s', reason, request.path,
@@ -203,6 +204,9 @@ class CsrfViewMiddleware(MiddlewareMixin):
             request.META['CSRF_COOKIE'] = csrf_token
 
     def process_view(self, request, callback, callback_args, callback_kwargs):
+        """检验请求头中的 Csrf-Cookie 字段值与表单隐藏域 csrfmiddlewaretoken 的值是否相等
+        """
+        print('【django.middleware.csrf.CsrfViewMiddleware.process_request】调用视图函数前「中间件」进行 CSRF TOKEN 验证')
         if getattr(request, 'csrf_processing_done', False):
             return None
 
@@ -309,6 +313,7 @@ class CsrfViewMiddleware(MiddlewareMixin):
                 request_csrf_token = request.META.get(settings.CSRF_HEADER_NAME, '')
 
             request_csrf_token = _sanitize_token(request_csrf_token)
+            # 如果 CSRF 验证失败，抛出 Forbidden 异常，响应码 403
             if not _compare_masked_tokens(request_csrf_token, csrf_token):
                 return self._reject(request, REASON_BAD_TOKEN)
 

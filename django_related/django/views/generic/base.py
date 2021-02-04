@@ -64,7 +64,7 @@ class View:
             # self 是视图类的实例，当前函数就是「视图函数」
             import threading
             ct = threading.current_thread()
-            print('【django.views.generic.base.View.as_view.view】当前线程：', ct.name, ct.ident)
+            print('【django.views.generic.base.View.as_view.view】调用视图对象，当前线程：', ct.name, ct.ident)
             self = cls(**initkwargs)
             self.setup(request, *args, **kwargs)
             if not hasattr(self, 'request'):

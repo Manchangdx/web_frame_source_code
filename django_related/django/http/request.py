@@ -302,11 +302,22 @@ class HttpRequest:
 
     def parse_file_upload(self, META, post_data):
         """Return a tuple of (POST QueryDict, FILES MultiValueDict)."""
+        # self 是「请求对象」
         self.upload_handlers = ImmutableList(
             self.upload_handlers,
             warning="You cannot alter upload handlers after the upload has been processed."
         )
+        print('【django.http.request.HttpRequest.parse_file_upload】'
+              '「请求对象」创建「请求表单解析对象」并调用其 parse 方法')
+
+        # 此类定义在 django.http.multipartparser 模块中，其实例被称为「请求表单解析对象」
+        # META 是包含请求头信息的字典对象
+        # post_data 是 self ，也就是「请求对象」
+        # self.upload_handlers 是元组，里面是一些文件上传相关的对象
+        # self.encoding 是字符串或 None TODO
         parser = MultiPartParser(META, post_data, self.upload_handlers, self.encoding)
+        # 调用「请求表单解析对象」的 parse 方法
+        # 处理请求体中的表单数据和文件数据，生成两个类字典对象并返回
         return parser.parse()
 
     @property
@@ -322,6 +333,7 @@ class HttpRequest:
 
             try:
                 self._body = self.read()
+                print('--- 响应体：', self._body)
             except OSError as e:
                 raise UnreadablePostError(*e.args) from e
             self._stream = BytesIO(self._body)
@@ -333,6 +345,7 @@ class HttpRequest:
 
     def _load_post_and_files(self):
         """Populate self._post and self._files if the content-type is a form type"""
+        # self 是「请求对象」
         if self.method != 'POST':
             self._post, self._files = QueryDict(encoding=self._encoding), MultiValueDict()
             return
@@ -340,6 +353,7 @@ class HttpRequest:
             self._mark_post_parse_error()
             return
 
+        # 请求方式是 POST 且 CONTENT_TYPE 是 'multipart/form-data' 时，就是以表单的形式发送请求体
         if self.content_type == 'multipart/form-data':
             if hasattr(self, '_body'):
                 # Use already read data
@@ -347,6 +361,12 @@ class HttpRequest:
             else:
                 data = self
             try:
+                # self.parse_file_upload 方法定义在当前类中
+                # 此方法创建并调用「请求表单解析对象」的 parse 方法
+                # 处理请求体中的表单数据和文件数据，生成两个类字典对象并返回
+                # self.META 在实例初始化时定义，是包含请求头信息的字典
+                # data 是 self ，也就是「请求对象」
+                # self._post 和 self._files 分别对应请求体的表单数据和文件数据的字典对象
                 self._post, self._files = self.parse_file_upload(self.META, data)
             except MultiPartParserError:
                 # An error occurred while parsing POST data. Since when

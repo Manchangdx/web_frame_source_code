@@ -163,6 +163,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # the WSGI environ. This prevents header-spoofing based on ambiguity
         # between underscores and dashes both normalized to underscores in WSGI
         # env vars. Nginx and Apache 2.4+ both do this as well.
+        # self 是「请求处理对象」
         for k in self.headers:
             if '_' in k:
                 del self.headers[k]
@@ -200,7 +201,6 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # self 是「请求处理对象」
         # 读取一行数据的前 2 ** 8 + 1 个字符，这个数据就是浏览器发送给服务器的数据
         self.raw_requestline = self.rfile.readline(65537)
-        print('1>>>', self.rfile)
         if self.raw_requestline:
             print(('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】'
                     '请求信息的第一行: {}'.format(self.raw_requestline)))

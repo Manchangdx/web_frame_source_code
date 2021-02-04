@@ -132,7 +132,6 @@ class BaseHandler:
         print('【wsgiref.handlers.BaseHandler.run】「响应处理对象」调用「应用对象」，当前线程：', ct.name, ct.ident)
 
         try:
-            print('2>>>', self.stdin)
             # 处理请求信息将其整理成字典对象赋值给 self.environ 属性
             self.setup_environ()
             # application 是 django.core.handlers.wsgi.WSGIHandler 类的实例，叫做「应用对象」

@@ -100,7 +100,9 @@ class WSGIRequest(HttpRequest):
         return QueryDict(raw_query_string, encoding=self._encoding)
 
     def _get_post(self):
+        # self 是「请求对象」
         if not hasattr(self, '_post'):
+            # 此方法定义在父类 django.http.request.HttpRequest 类中
             self._load_post_and_files()
         return self._post
 
@@ -118,6 +120,9 @@ class WSGIRequest(HttpRequest):
             self._load_post_and_files()
         return self._files
 
+    # 下面这行代码的作用是处理请求体中的表单信息生成一个类字典对象赋值给 self._post 属性，其实也就是 self.POST 属性
+    # 初始化「请求对象」时并不执行下面这一行代码，调用「请求对象」的 POST 属性时才会执行这行代码
+    # 在中间件处理请求对象的过程中会调用「请求对象」的 POST 属性
     POST = property(_get_post, _set_post)
 
 
@@ -128,7 +133,7 @@ class WSGIHandler(base.BaseHandler):
     request_class = WSGIRequest
 
     def __init__(self, *args, **kwargs):
-        # 初始化应用对象
+        # 初始化「应用对象」
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】args:', args)
         #print('【django.core.handlers.wsgi.WSGIHandler.__init__】kwargs:', kwargs)
         super().__init__(*args, **kwargs)
