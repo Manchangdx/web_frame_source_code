@@ -30,16 +30,21 @@ ALL_FIELDS = '__all__'
 
 
 def construct_instance(form, instance, fields=None, exclude=None):
+    """给映射类实例填充属性值
+
+    :form:      表单类实例
+    :instance:  映射类实例
+    :fields:    要填充的属性列表
+    :exclude:   禁止填充的属性列表
     """
-    Construct and return a model instance from the bound ``form``'s
-    ``cleaned_data``, but do not save the returned instance to the database.
-    """
+
     from django.db import models
     opts = instance._meta
 
     cleaned_data = form.cleaned_data
     file_field_list = []
     for f in opts.fields:
+        print('????')
         if not f.editable or isinstance(f, models.AutoField) \
                 or f.name not in cleaned_data:
             continue
@@ -278,10 +283,17 @@ class ModelFormMetaclass(DeclarativeFieldsMetaclass):
 
 
 class BaseModelForm(BaseForm):
+    """表单类基类
+    """
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  initial=None, error_class=ErrorList, label_suffix=None,
                  empty_permitted=False, instance=None, use_required_attribute=None,
                  renderer=None):
+        # 参数说明：
+        # data      从请求体中提取的表单数据生成的类字典对象
+        # files     从请求体中提取的文件数据生成的类字典对象
+        # instance  表单对应的映射类的实例
+
         opts = self._meta
         if opts.model is None:
             raise ValueError('ModelForm has no model class specified.')
@@ -381,6 +393,7 @@ class BaseModelForm(BaseForm):
         self.add_error(None, errors)
 
     def _post_clean(self):
+        # self 是表单类实例
         opts = self._meta
 
         exclude = self._get_validation_exclusions()
@@ -397,7 +410,11 @@ class BaseModelForm(BaseForm):
                 exclude.append(name)
 
         try:
+            # 此函数定义在当前模块，其作用是给映射类实例填充属性值
+            # 参数分别是：表单类实例、映射类实例、要填充的属性列表、禁止填充的属性列表
+            print('self.instance.username:', self.instance.username)
             self.instance = construct_instance(self, self.instance, opts.fields, opts.exclude)
+            print('self.instance.username:', self.instance.username)
         except ValidationError as e:
             self._update_errors(e)
 

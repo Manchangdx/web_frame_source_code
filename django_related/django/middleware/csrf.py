@@ -157,6 +157,7 @@ class CsrfViewMiddleware(MiddlewareMixin):
         return response
 
     def _get_token(self, request):
+        # 这个配置项是布尔值，默认值是 False
         if settings.CSRF_USE_SESSIONS:
             try:
                 return request.session.get(CSRF_SESSION_KEY)

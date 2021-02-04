@@ -53,6 +53,7 @@ class DeclarativeFieldsMetaclass(MediaDefiningClass):
 @html_safe
 class BaseForm:
     """
+    表单类基类的父类
     The main implementation of all the Form logic. Note that this class is
     different than Form. See the comments by the Form class for more info. Any
     improvements to the form API should be made to this class, not to the Form
@@ -66,7 +67,21 @@ class BaseForm:
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  initial=None, error_class=ErrorList, label_suffix=None,
                  empty_permitted=False, field_order=None, use_required_attribute=None, renderer=None):
+        # self 是表单类实例
+        # 参数说明：
+        # data      从请求体中提取的表单数据生成的类字典对象
+        # files     从请求体中提取的文件数据生成的类字典对象
+        # instance  表单对应的映射类的实例
+        
+        # 布尔值，用于判断是否有数据要填充表单类实例
         self.is_bound = data is not None or files is not None
+        # 该属性值是这样的类字典对象：
+        # {'username': ['James'], 
+        #  'email': ['james@qq.com'], 
+        #  'password': ['shiyanlou'], 
+        #  'confirm_password': ['shiyanlou'], 
+        #  'csrfmiddlewaretoken': ['rrM3JPzBqQixXRl18B6zY4b88YWzrlakU5UqLiRYPjTv9aBk6KIMyOjGJOGaF2bO']
+        # }
         self.data = MultiValueDict() if data is None else data
         self.files = MultiValueDict() if files is None else files
         self.auto_id = auto_id
@@ -79,11 +94,16 @@ class BaseForm:
         self.empty_permitted = empty_permitted
         self._errors = None  # Stores the errors after clean() has been called.
 
-        # The base_fields class attribute is the *class-wide* definition of
-        # fields. Because a particular *instance* of the class might want to
-        # alter self.fields, we create self.fields here by copying base_fields.
-        # Instances should always modify self.fields; they should not modify
-        # self.base_fields.
+        # 原注释翻译：
+        # 因为表单对应的映射类实例可能想要修改表单的字段，但前者不应该修改表单的字段
+        # 所以这里我们创建一个表单字段的复制品，映射类实例可以对复制品进行修改和使用
+        #
+        # self.base_fields 是定义在元类里的类属性，属性值是字典对象，类似这样：
+        # {'username': <django.forms.fields.CharField object at 0x108124b50>, 
+        #  'email': <django.forms.fields.EmailField object at 0x108131040>, 
+        #  'password': <django.forms.fields.CharField object at 0x108124d30>, 
+        #  'confirm_password': <django.forms.fields.CharField object at 0x108124eb0>
+        # }
         self.fields = copy.deepcopy(self.base_fields)
         self._bound_fields_cache = {}
         self.order_fields(self.field_order if field_order is None else field_order)
@@ -106,6 +126,7 @@ class BaseForm:
                 renderer = self.default_renderer
                 if isinstance(self.default_renderer, type):
                     renderer = renderer()
+        # 该属性值是 django.forms.renderers.DjangoTemplates 类的实例
         self.renderer = renderer
 
     def order_fields(self, field_order):

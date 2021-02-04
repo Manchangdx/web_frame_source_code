@@ -39,7 +39,8 @@ class FormMixin(ContextMixin):
         return form_class(**self.get_form_kwargs())
 
     def get_form_kwargs(self):
-        """Return the keyword arguments for instantiating the form."""
+        """从「请求对象」的 POST 属性中获取请求表单数据并返回字典对象
+        """
         kwargs = {
             'initial': self.get_initial(),
             'prefix': self.get_prefix(),
@@ -161,6 +162,7 @@ class ProcessFormView(View):
         # self 是视图类的实例
         # 此方法定义在当前模块中的 FormMixin 类中，创建并返回表单类的实例
         form = self.get_form()
+        # 此方法定义在 django.forms.forms.BaseForm 类中
         if form.is_valid():
             print('a')
             return self.form_valid(form)

@@ -61,6 +61,7 @@ class LimitedStream:
         return line
 
 
+# 父类定义在 django.http.request 模块中
 class WSGIRequest(HttpRequest):
     # 该类的实例是「请求对象」
 

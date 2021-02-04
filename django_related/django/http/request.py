@@ -333,7 +333,7 @@ class HttpRequest:
 
             try:
                 self._body = self.read()
-                print('--- 响应体：', self._body)
+                #print('--- 响应体：', self._body)
             except OSError as e:
                 raise UnreadablePostError(*e.args) from e
             self._stream = BytesIO(self._body)
