@@ -138,6 +138,7 @@ class Field:
                 if hasattr(e, 'code') and e.code in self.error_messages:
                     e.message = self.error_messages[e.code]
                 errors.extend(e.error_list)
+
         if errors:
             raise ValidationError(errors)
 

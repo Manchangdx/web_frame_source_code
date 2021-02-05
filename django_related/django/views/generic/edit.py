@@ -30,12 +30,13 @@ class FormMixin(ContextMixin):
         return self.form_class
 
     def get_form(self, form_class=None):
-        """获取并返回表单类的实例
+        """创建并返回表单类的实例
         """
         if form_class is None:
             # 下面这个 get_form_class 调用的可能是当前模块在的 ModelFormMixin 类中的方法，返回值是表单类
             form_class = self.get_form_class()
         # self.get_form_kwargs 方法定义在当前模块的 ModelFormMixin 类中，返回值是字典对象
+        # 表单类实例的初始化在 django.forms.models.BaseModelForm.__init__ 方法中完成
         return form_class(**self.get_form_kwargs())
 
     def get_form_kwargs(self):
@@ -66,6 +67,10 @@ class FormMixin(ContextMixin):
 
     def form_invalid(self, form):
         """If the form is invalid, render the invalid form."""
+        # self 是视图类的实例，form 是表单类的实例
+        # self.get_context_data 就在下面，返回值是字典
+        # self.render_to_response 定义在 django.views.generic.base.TemplateResponseMixin 类中
+        # 此方法返回「响应对象」
         return self.render_to_response(self.get_context_data(form=form))
 
     def get_context_data(self, **kwargs):
@@ -163,10 +168,13 @@ class ProcessFormView(View):
         # 此方法定义在当前模块中的 FormMixin 类中，创建并返回表单类的实例
         form = self.get_form()
         # 此方法定义在 django.forms.forms.BaseForm 类中
+        # 如果 POST 请求携带的表单数据被顺利解析并且表单验证器验证全部通过，返回 True
         if form.is_valid():
-            print('a')
+            # 通常情况下 self.form_valid 方法定义在项目中的自定义视图类中
+            # 将调用表单类实例的某些方法创建映射类实例并将其存入数据库，最后返回的是「响应对象」
             return self.form_valid(form)
         else:
+            # 此方法定义在当前模块的 FormMixin 类中，返回值是「响应对象」
             return self.form_invalid(form)
 
     # PUT is a valid HTTP verb for creating (with a known URL) or editing an

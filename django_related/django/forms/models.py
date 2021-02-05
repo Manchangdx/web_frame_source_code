@@ -43,8 +43,9 @@ def construct_instance(form, instance, fields=None, exclude=None):
 
     cleaned_data = form.cleaned_data
     file_field_list = []
+
+    # 循环映射类字段
     for f in opts.fields:
-        print('????')
         if not f.editable or isinstance(f, models.AutoField) \
                 or f.name not in cleaned_data:
             continue
@@ -311,6 +312,7 @@ class BaseModelForm(BaseForm):
         # It is False by default so overriding self.clean() and failing to call
         # super will stop validate_unique from being called.
         self._validate_unique = False
+        # 下面这个初始化方法是 django.forms.forms.BaseModel.__init__ 方法
         super().__init__(
             data, files, auto_id, prefix, object_data, error_class,
             label_suffix, empty_permitted, use_required_attribute=use_required_attribute,
@@ -393,6 +395,8 @@ class BaseModelForm(BaseForm):
         self.add_error(None, errors)
 
     def _post_clean(self):
+        """处理 POST 请求发来的表单数据，把合适的数据填入映射类实例的相应字段
+        """
         # self 是表单类实例
         opts = self._meta
 
@@ -405,6 +409,13 @@ class BaseModelForm(BaseForm):
         # object being referred to may not yet fully exist (#12749).
         # However, these fields *must* be included in uniqueness checks,
         # so this can't be part of _get_validation_exclusions().
+
+        # self.fields 是字典对象，类似这样：
+        # {'username': <django.forms.fields.CharField object at 0x108124b50>, 
+        #  'email': <django.forms.fields.EmailField object at 0x108131040>, 
+        #  'password': <django.forms.fields.CharField object at 0x108124d30>, 
+        #  'confirm_password': <django.forms.fields.CharField object at 0x108124eb0>
+        # }
         for name, field in self.fields.items():
             if isinstance(field, InlineForeignKeyField):
                 exclude.append(name)
@@ -412,9 +423,7 @@ class BaseModelForm(BaseForm):
         try:
             # 此函数定义在当前模块，其作用是给映射类实例填充属性值
             # 参数分别是：表单类实例、映射类实例、要填充的属性列表、禁止填充的属性列表
-            print('self.instance.username:', self.instance.username)
             self.instance = construct_instance(self, self.instance, opts.fields, opts.exclude)
-            print('self.instance.username:', self.instance.username)
         except ValidationError as e:
             self._update_errors(e)
 

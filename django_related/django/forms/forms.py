@@ -190,11 +190,16 @@ class BaseForm:
     def errors(self):
         """Return an ErrorDict for the data provided for the form."""
         if self._errors is None:
+            # 验证表单并将通过验证的表单项填入映射类实例的相应字段
             self.full_clean()
         return self._errors
 
     def is_valid(self):
-        """Return True if the form has no errors, or False otherwise."""
+        """如果 POST 请求携带的表单数据被顺利解析并且表单验证器验证全部通过，返回 True
+        """
+        # self 是表单类实例
+        # self.is_bound 是布尔值，POST 请求进来时，如果「请求对象」成功解析获取了请求表单数据，该属性为 True
+        # self.errors 是类字典对象，里面保存验证表单过程中各种验证器抛出的异常
         return self.is_bound and not self.errors
 
     def add_prefix(self, field_name):
@@ -380,9 +385,9 @@ class BaseForm:
         )
 
     def full_clean(self):
+        """验证表单并将通过验证的表单项填入映射类实例的相应字段
         """
-        Clean all of self.data and populate self._errors and self.cleaned_data.
-        """
+        print('【django.forms.forms.BaseForm.full_clean】表单类实例进行表单项验证')
         self._errors = ErrorDict()
         if not self.is_bound:  # Stop further processing.
             return
@@ -392,15 +397,24 @@ class BaseForm:
         if self.empty_permitted and not self.has_changed():
             return
 
-        self._clean_fields()
+        self._clean_fields()    # 验证表单信息，此方法就在下面
         self._clean_form()
-        self._post_clean()
+        self._post_clean()      # 把合适的数据填入映射类实例的相应字段
 
     def _clean_fields(self):
+        """处理表单数据
+
+        没问题的放到 self.cleaned_data 字典里 {'字段名': 字段值}
+        有问题的把异常信息放到 self._errors 字典里
+        """
+        # self.fields 属性值是字典对象，类似这样：
+        # {'username': <django.forms.fields.CharField object at 0x108124b50>, 
+        #  'email': <django.forms.fields.EmailField object at 0x108131040>, 
+        #  'password': <django.forms.fields.CharField object at 0x108124d30>, 
+        #  'confirm_password': <django.forms.fields.CharField object at 0x108124eb0>
+        # }
         for name, field in self.fields.items():
-            # value_from_datadict() gets the data from the data dictionaries.
-            # Each widget type knows how to retrieve its own data, because some
-            # widgets split data over several HTML fields.
+            # value 就是用户在表单输入框中输入的内容
             if field.disabled:
                 value = self.get_initial_for_field(field, name)
             else:
