@@ -94,8 +94,12 @@ def login(request, user, backend=None):
     if user is None:
         user = request.user
     if hasattr(user, 'get_session_auth_hash'):
+        # 此方法定义在 django.contrib.auth.base_user.AbstractBaseUser 类中
+        # 返回值是密码的 64 位十六进制哈希值
         session_auth_hash = user.get_session_auth_hash()
 
+    print('ddd', request.session.flush)
+    print('ddd', request.session.cycle_key)
     if SESSION_KEY in request.session:
         if _get_user_session_key(request) != user.pk or (
                 session_auth_hash and
@@ -103,6 +107,8 @@ def login(request, user, backend=None):
             # To avoid reusing another user's session, create a new, empty
             # session if the existing session corresponds to a different
             # authenticated user.
+            # 此方法定义在 django.contrib.sessions.backends.SessionBase 类中
+            # 其作用是在数据库的 django_session 表中移除请求的 session 
             request.session.flush()
     else:
         request.session.cycle_key()
