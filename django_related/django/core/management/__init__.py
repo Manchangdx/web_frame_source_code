@@ -244,7 +244,12 @@ class ManagementUtility:
             klass = app_name
         else:
             klass = load_command_class(app_name, subcommand)
-        # 这是 django.contrib.staticfiles.management.commands.runserver.Command 类的实例
+
+        # 返回值可能是下列某个类的实例：
+        # django.contrib.staticfiles.management.commands.runserver.Command 
+        # django.core.management.commands.makemigrations.Command
+        # django.core.management.commands.migrate.Command
+        # django.contrib.auth.management.commands.createsuperuser.Command
         return klass
 
     def autocomplete(self):
@@ -416,7 +421,8 @@ class ManagementUtility:
             # 后者的父类是 django.core.management.commands.runserver.Command 类
             # 后者的父类是 django.core.management.base.BaseCommand 类
             cmd = self.fetch_command(subcommand)
-            # 下面这个方法定义在 django.core.management.base.BaseCommand 类中
+            # 不论终端命令是啥
+            # 下面这个方法都定义在 django.core.management.base.BaseCommand 父类中
             # 参数 self.argv 是终端命令参数列表，等同于 sys.argv
             # 这个方法会调用「命令处理对象」自身的 handle 方法控制其它对象启动线程和创建套接字啥的
             cmd.run_from_argv(self.argv)

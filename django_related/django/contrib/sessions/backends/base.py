@@ -65,6 +65,7 @@ class SessionBase:
         return self._session[key]
 
     def __setitem__(self, key, value):
+        print(f'\t 给 request.session 增加一组键值对：{{{key}: {value}}}')
         self._session[key] = value
         self.modified = True
 
@@ -135,6 +136,7 @@ class SessionBase:
 
     def _legacy_encode(self, session_dict):
         # RemovedInDjango40Warning.
+        print('dddata:', session_dict)
         serialized = self.serializer().dumps(session_dict)
         hash = self._hash(serialized)
         return base64.b64encode(hash.encode() + b':' + serialized).decode('ascii')
@@ -190,9 +192,13 @@ class SessionBase:
             return True
 
     def _get_new_session_key(self):
-        "Return session key that isn't being used."
         while True:
+            # 变量 VALID_KEY_CHARS 是字符串 a~z + 0~9
+            # 从字符串中随机找一个字符，找 32 次，生成一个字符串
+            # 这个字符串作为客户端中存储的 Cookie 中的 sessionid 的值
             session_key = get_random_string(32, VALID_KEY_CHARS)
+            # 因为是随机生成的有固定范围的字符串，所以可能在数据表中已经存在
+            # 这里进行一个判断，确定数据表中没有该值才返回
             if not self.exists(session_key):
                 return session_key
 
@@ -235,6 +241,13 @@ class SessionBase:
             if self.session_key is None or no_load:
                 self._session_cache = {}
             else:
+                # 此方法定义在子类 django.contrib.sessions.backends.db.SessionStore 类中
+                # 其作用是根据 self._session_key 属性值获取 django_session 数据表中对应的数据
+                # 再解析并返回字典对象：
+                # {'_auth_user_id': '2', 
+                #  '_auth_user_backend': 'django.contrib.auth.backends.ModelBackend', 
+                #  '_auth_user_hash': 64 位十六进制字符串
+                # }
                 self._session_cache = self.load()
         return self._session_cache
 
@@ -339,9 +352,11 @@ class SessionBase:
         """
         Create a new session key, while retaining the current session data.
         """
-        data = self._session
-        key = self.session_key
-        self.create()
+        # self 是 request.session
+        data = self._session    # 空字典
+        key = self.session_key  # None
+        # 创建一个 django_session 数据表对应的映射类实例，并调用实例的 save 方法将自身存到数据表中
+        self.create()           
         self._session_cache = data
         if key:
             self.delete(key)

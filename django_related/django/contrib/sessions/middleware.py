@@ -20,7 +20,12 @@ class SessionMiddleware(MiddlewareMixin):
         self.SessionStore = engine.SessionStore
 
     def process_request(self, request):
+        # self 是「中间件对象」，settings.SESSION_COOKIE_NAME 的值是 'sessionid'
+        # 登录之前，请求的 COOKIES 中没有 sessionid 字段
+        # POST 登录请求成功时，响应对象中会包含该字段
         session_key = request.COOKIES.get(settings.SESSION_COOKIE_NAME)
+        # 给「请求对象」增加一个 session 属性
+        # 属性值是 django.contrib.sessions.backends.db.SessionStore 类的实例
         request.session = self.SessionStore(session_key)
 
     def process_response(self, request, response):
@@ -38,6 +43,9 @@ class SessionMiddleware(MiddlewareMixin):
         # First check if we need to delete this cookie.
         # The session should be deleted only if the session is entirely empty.
         if settings.SESSION_COOKIE_NAME in request.COOKIES and empty:
+            # 退出登录时，执行下面这个方法设置 response.cookies 中的 sessionid 字段值为空字符串
+            # 这样浏览器收到响应后，会重置 sessionid 字段
+            # 因为对应的值是空字符串，所以就在浏览器 Cookie 中移除该字段
             response.delete_cookie(
                 settings.SESSION_COOKIE_NAME,
                 path=settings.SESSION_COOKIE_PATH,
@@ -60,6 +68,9 @@ class SessionMiddleware(MiddlewareMixin):
                 # Skip session save for 500 responses, refs #3881.
                 if response.status_code != 500:
                     try:
+                        # 在 django.contrib.auth.__init__.login 函数的执行过程中调用过一次该方法
+                        # 向 django_session 数据表中添加了一条数据
+                        # 此处再次调用该方法，修改前面添加的那条数据中的 session_data 字段值，使之完整
                         request.session.save()
                     except UpdateError:
                         raise SuspiciousOperation(
@@ -67,6 +78,15 @@ class SessionMiddleware(MiddlewareMixin):
                             "request completed. The user may have logged "
                             "out in a concurrent request, for example."
                         )
+                    # 给 response.cookies 属性字典中添加一组键值对
+                    # key 是 'sessionid'
+                    # value 是很长的字符串：
+                    # 'Set-Cookie: sessionid=jr56mfliwgejxo4num4msgpsd8yzpde5; 
+                    #  expires=Wed, 24 Feb 2021 14:55:25 GMT; 
+                    #  HttpOnly; 
+                    #  Max-Age=1209600; 
+                    #  Path=/; 
+                    #  SameSite=Lax'
                     response.set_cookie(
                         settings.SESSION_COOKIE_NAME,
                         request.session.session_key, max_age=max_age,

@@ -537,6 +537,10 @@ class AdminSite:
 
 class DefaultAdminSite(LazyObject):
     def _setup(self):
+        # apps.get_app_config('admin') 是 django.contrib.admin.apps.AdminConfig 类的实例
+        # 该实例的 default_site 属性定义在父类 django.contrib.admin.apps.SimpleAdminConfig 类中
+        # 属性值是字符串 'django.contrib.admin.sites.AdminSite'
+        # 所以下面的 AdminSiteClass 就是当前模块中的 AdminSite 类
         AdminSiteClass = import_string(apps.get_app_config('admin').default_site)
         self._wrapped = AdminSiteClass()
 

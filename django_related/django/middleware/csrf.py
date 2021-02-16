@@ -81,8 +81,10 @@ def get_token(request):
     header to the outgoing response.  For this reason, you may need to use this
     function lazily, as is done by the csrf context processor.
     """
+    # 返回一个包含数字和大小写字母的随机字符串，作为创建 csrftoken 字段的参数
     if "CSRF_COOKIE" not in request.META:
         csrf_secret = _get_new_csrf_string()
+        print('【django.middleware.csrf.get_token】csrf_secret:', csrf_secret)
         request.META["CSRF_COOKIE"] = _mask_cipher_secret(csrf_secret)
     else:
         csrf_secret = _unmask_cipher_token(request.META["CSRF_COOKIE"])
@@ -157,6 +159,10 @@ class CsrfViewMiddleware(MiddlewareMixin):
         return response
 
     def _get_token(self, request):
+        # self 是中间件对象
+        # 当前方法的作用是查找 request.COOKIES 中的 csrftoken 字段并返回相应的字段值
+        # 客户端首次访问时返回 None
+
         # 这个配置项是布尔值，默认值是 False
         if settings.CSRF_USE_SESSIONS:
             try:
@@ -181,17 +187,19 @@ class CsrfViewMiddleware(MiddlewareMixin):
             return csrf_token
 
     def _set_token(self, request, response):
+        # 浏览器第一次发送带表单的请求时，服务器返回的响应对象的 cookie 里要带上 csrftoken 键值对
         if settings.CSRF_USE_SESSIONS:
             if request.session.get(CSRF_SESSION_KEY) != request.META['CSRF_COOKIE']:
                 request.session[CSRF_SESSION_KEY] = request.META['CSRF_COOKIE']
         else:
+            # 此方法定义在 django.http.response.HttpResponseBase 类中
             response.set_cookie(
-                settings.CSRF_COOKIE_NAME,
-                request.META['CSRF_COOKIE'],
-                max_age=settings.CSRF_COOKIE_AGE,
-                domain=settings.CSRF_COOKIE_DOMAIN,
-                path=settings.CSRF_COOKIE_PATH,
-                secure=settings.CSRF_COOKIE_SECURE,
+                settings.CSRF_COOKIE_NAME,                  # 字符串 'csrftoken'
+                request.META['CSRF_COOKIE'],                # request.COOKIES 中 csrftoken 字段值
+                max_age=settings.CSRF_COOKIE_AGE,           # 整数 31449600 ，单位是秒，合 364 天
+                domain=settings.CSRF_COOKIE_DOMAIN,         # 空值 None
+                path=settings.CSRF_COOKIE_PATH,             # 字符串 '/'
+                secure=settings.CSRF_COOKIE_SECURE,         # 布尔值 False
                 httponly=settings.CSRF_COOKIE_HTTPONLY,
                 samesite=settings.CSRF_COOKIE_SAMESITE,
             )
@@ -199,6 +207,7 @@ class CsrfViewMiddleware(MiddlewareMixin):
             patch_vary_headers(response, ('Cookie',))
 
     def process_request(self, request):
+        # 给请求对象的元数据中增加一个属性 CSRF_COOKIE ，属性值是 request.COOKIES 的 csrftoken 字段值
         csrf_token = self._get_token(request)
         if csrf_token is not None:
             # Use same token next time.
@@ -207,7 +216,7 @@ class CsrfViewMiddleware(MiddlewareMixin):
     def process_view(self, request, callback, callback_args, callback_kwargs):
         """检验请求头中的 Csrf-Cookie 字段值与表单隐藏域 csrfmiddlewaretoken 的值是否相等
         """
-        print('【django.middleware.csrf.CsrfViewMiddleware.process_request】调用视图函数前「中间件」进行 CSRF TOKEN 验证')
+
         if getattr(request, 'csrf_processing_done', False):
             return None
 
@@ -218,6 +227,8 @@ class CsrfViewMiddleware(MiddlewareMixin):
 
         # Assume that anything not defined as 'safe' by RFC7231 needs protection
         if request.method not in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):
+            print('【django.middleware.csrf.CsrfViewMiddleware.process_view】'
+                    '调用视图函数前「中间件」进行 CSRF TOKEN 验证')
             if getattr(request, '_dont_enforce_csrf_checks', False):
                 # Mechanism to turn off CSRF checks for test suite.
                 # It comes after the creation of CSRF cookies, so that
@@ -328,8 +339,8 @@ class CsrfViewMiddleware(MiddlewareMixin):
         if not request.META.get("CSRF_COOKIE_USED", False):
             return response
 
-        # Set the CSRF cookie even if it's already set, so we renew
-        # the expiry timer.
+        # 如果 request.COOKIES 中没有 csrftoken 字段，此方法为其增加该字段
+        # 即使 request.COOKIES 中有 csrftoken 字段，该方法也要执行，作用是重置字段的有效期
         self._set_token(request, response)
         response.csrf_cookie_set = True
         return response

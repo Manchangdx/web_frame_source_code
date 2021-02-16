@@ -122,6 +122,8 @@ class ServerHandler(simple_server.ServerHandler):
 
 
 class WSGIRequestHandler(simple_server.WSGIRequestHandler):
+    # 此类的实例就是「请求处理对象」
+    # 此类的终极父类是 socketserver.BaseRequestHandler 类，初始化方法就在后者中
     protocol_version = 'HTTP/1.1'
 
     def address_string(self):
@@ -236,7 +238,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             self.rfile, self.wfile, self.get_stderr(), self.get_environ()
         )
 
-        # self 是「请求处理对象」
+        # self 是「请求处理对象」，下面的 handler 是「响应处理对象」
         # self.request         临时套接字
         # self.client_address  客户端地址元组
         # self.server          服务器对象

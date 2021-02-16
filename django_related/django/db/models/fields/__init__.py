@@ -1781,6 +1781,7 @@ class IntegerField(Field):
         return "IntegerField"
 
     def to_python(self, value):
+        # 参数 value 的值是 django_session 数据表中的 session_key 字段的值
         if value is None:
             return value
         try:

@@ -387,6 +387,7 @@ class BaseForm:
     def full_clean(self):
         """验证表单并将通过验证的表单项填入映射类实例的相应字段
         """
+        # self 是表单类实例
         print('【django.forms.forms.BaseForm.full_clean】表单类实例进行表单项验证')
         self._errors = ErrorDict()
         if not self.is_bound:  # Stop further processing.

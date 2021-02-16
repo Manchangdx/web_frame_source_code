@@ -129,7 +129,9 @@ class AbstractBaseUser(models.Model):
     def get_session_auth_hash(self):
         """
         Return an HMAC of the password field.
+        根据用户的密码计算并返回一个哈希值，密码与哈希值是一一对应的。
         """
+        # self 是用户映射类实例
         key_salt = "django.contrib.auth.models.AbstractBaseUser.get_session_auth_hash"
         return salted_hmac(
             key_salt,

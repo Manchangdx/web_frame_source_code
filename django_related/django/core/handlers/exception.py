@@ -20,16 +20,11 @@ from django.views import debug
 
 def convert_exception_to_response(get_response):
     """
-    Wrap the given get_response callable in exception-to-response conversion.
-
-    All exceptions will be converted. All known 4xx exceptions (Http404,
-    PermissionDenied, MultiPartParserError, SuspiciousOperation) will be
-    converted to the appropriate response, and all other exceptions will be
-    converted to 500 responses.
-
-    This decorator is automatically applied to all middleware to ensure that
-    no middleware leaks an exception and that the next middleware in the stack
-    can rely on getting a response instead of an exception.
+    原注释翻译：
+    将给定的参数 get_response 函数包装在异常到响应转换中。所有异常将被转换。 
+    所有已知的 4xx 异常（Http404，PermissionDenied，MultiPartParserError，SuspiciousOperation）将转换为适当的响应。
+    而所有其它异常将转换为 5xx 响应。
+    该装饰器自动应用于所有中间件，以确保没有中间件泄漏异常，并且堆栈中的下一个中间件可以依赖于获取响应而不是异常。
     """
     if asyncio.iscoroutinefunction(get_response):
         @wraps(get_response)
@@ -46,7 +41,6 @@ def convert_exception_to_response(get_response):
             try:
                 # get_response 可能是中间件对象
                 # 或者 django.core.handler.base.BaseHandler._get_response 方法
-                #print('【django.core.handlers.exception.c_e_t_r.inner】get_response:', get_response)
                 response = get_response(request)
             except Exception as exc:
                 response = response_for_exception(request, exc)

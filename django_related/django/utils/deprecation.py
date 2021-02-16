@@ -83,6 +83,8 @@ class DeprecationInstanceCheck(type):
 
 
 class MiddlewareMixin:
+    """中间件基类，所有的中间件类都需要继承此类，所有的中间件实例的 __call__ 方法都定义在此类中
+    """
     sync_capable = True
     async_capable = True
 
@@ -107,30 +109,34 @@ class MiddlewareMixin:
 
     def __call__(self, request):
         # self 是中间件
+        # 在「响应处理对象」的处理过程中，会链式调用当前方法多次
+        # 最终调用「应用对象」的 _get_response 方法获取请求所对应的视图函数及其参数
 
-        #print('【django.utils.deprecation.MiddlewareMixin】self:', self)
 
-        # Exit out to async mode, if needed
         if asyncio.iscoroutinefunction(self.get_response):
             return self.__acall__(request)
         response = None
 
-        # 下面这两个 if 语句大概率会执行，但有的中间件对象没有其中的某个方法
-
+        # 中间件对象处理请求
+        print(f'\t【djang.utils.deprecation.MiddlewareMixin.__call__】{str(self.__class__):<70s}', end='')
         if hasattr(self, 'process_request'):
-        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>', self.process_request)
+            print('process_request')
             response = self.process_request(request)
-        #else:
-        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>')
+        else:
+            print()
+
+        # 下面这行代码创建「响应对象」，这行代码算是分界线，此前中间件处理请求，此后中间件处理响应
         # 最后一个中间件对象是没有 process_request 方法的，就调用 self.get_response 方法
         # 也就是 djang.core.handlers.base.BaseHandler._get_response 方法
         response = response or self.get_response(request)
 
+        # 中间件对象处理响应
+        print(f'\t【djang.utils.deprecation.MiddlewareMixin.__call__】{str(self.__class__):<70s}', end='')
         if hasattr(self, 'process_response'):
-        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>', self.process_response)
+            print('process_response')
             response = self.process_response(request, response)
-        #else:
-        #    print('CCCCCCCCCCCCCCCCCC>>>>>>>>>>>>>')
+        else:
+            print()
 
         #print('【django.utils.deprecation.MiddlewareMixin】response:', response)
         return response

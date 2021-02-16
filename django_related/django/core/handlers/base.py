@@ -27,8 +27,16 @@ class BaseHandler:
     def load_middleware(self, is_async=False):
         print('【django.core.handlers.base.BaseHandler.load_middleware】应用对象初始化')
         # self 是应用对象，初始化时会调用当前方法
+
+        # 下面这个列表里面是各中间件实例的 process_view 方法
+        # 这些方法在 self._get_response 中会被循环调用
         self._view_middleware = []
+        # 下面这个列表里面是各中间件实例的 process_template_response 方法
+        # 这些方法在 self._get_response 中会被循环调用
         self._template_response_middleware = []
+        # 下面这个列表里面是各中间件实例的 process_exception 方法
+        # 这些方法在 self.process_exception_by_middleware 中会被循环调用
+        # 而后者在 self._get_response 中被调用
         self._exception_middleware = []
 
         # 默认情况下此变量的值是 self._get_response 方法，它定义在当前类中
@@ -150,13 +158,12 @@ class BaseHandler:
     def get_response(self, request):
         # self 是「应用对象」，此方法利用「请求对象」创建「响应对象」并返回
         # 参数 request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
-        #print('【django.core.handlers.base.BaseHandler.get_response】为创建「响应对象」做准备')
 
         set_urlconf(settings.ROOT_URLCONF)
 
         # self._middleware_chain 属性值是一个中间件类的实例
         # 此处调用中间件对象，也就是调用中间件对象的 __call__ 方法
-        # 该 __call__ 方法定义在 django.utils.deprecation.MiddlewareMixin 类中
+        # 所有的中间件对象的 __call__ 方法都是 django.utils.deprecation.MiddlewareMixin.__call__
         # 在 __call__ 内部会调用中间件对象的 get_response 方法
         # 此方法本身就是另一个中间件对象，然后继续调用它的 __call__ 方法，链式调用
         # 最终，调用在当前类中定义的 self._get_response 方法返回响应对象
@@ -334,6 +341,7 @@ class BaseHandler:
         print('【django.core.handlers.base.BaseHandler.resolve_request】根据请求路径找视图对象，请求路径:', 
                 request.path_info)
         # 将请求的绝对路径作为参数调用「路由处理对象」的 resolve 方法
+        # 此方法也是来自 django.urls.resolvers 模块
         # 顺利的话，会返回 django.urls.resolvers.ResolverMatch 类的实例，叫做「路由匹配结果对象」
         resolver_match = resolver.resolve(request.path_info)
         request.resolver_match = resolver_match

@@ -38,10 +38,12 @@ class HttpResponseBase:
 
     def __init__(self, content_type=None, status=None, reason=None, charset=None):
         # self 是「响应对象」
+
         print('【django.http.response.HttpResponseBase.__init__】「响应对象」最终的父类初始化')
+
         # 原注释翻译：
         # _headers 是小写名称到标头的原始大小写（与旧系统一起使用所必需）和标头值的映射。 
-        # 标头名称及其值均为ASCII字符串。
+        # 标头名称及其值均为 ASCII 字符串。
         self._headers = {}
         self._resource_closers = []
         # This parameter is set by the handler. It's necessary to preserve the
@@ -163,14 +165,19 @@ class HttpResponseBase:
     def set_cookie(self, key, value='', max_age=None, expires=None, path='/',
                    domain=None, secure=False, httponly=False, samesite=None):
         """
-        Set a cookie.
+        给响应对象的 cookies 属性添加一组键值对：{'csrftoken': xxx} 或 {'sessionid': xxx}
 
-        ``expires`` can be:
-        - a string in the correct format,
-        - a naive ``datetime.datetime`` object in UTC,
-        - an aware ``datetime.datetime`` object in any time zone.
-        If it is a ``datetime.datetime`` object then calculate ``max_age``.
+        参数说明：
+        key: 固定值，字符串 'csrftoken' 或 'sessionid'
+        value: request.COOKIES['csrftoken'] 或 request.session.session_key 
+        max_age: 31449600 合 364 天 | 1209600 合 14 天
         """
+        # self              是「响应对象」
+        # self.cookies      是 http.cookies.SimpleCookie 类的实例，是类字典对象
+        # self.cookies[key] 是 http.cookies.Morsel 类的实例，也是类字典对象
+        #
+        # 所以 self.cookies 中的每个 key 对应的 value 都是字典
+
         self.cookies[key] = value
         if expires is not None:
             if isinstance(expires, datetime.datetime):
@@ -486,14 +493,17 @@ class HttpResponseRedirectBase(HttpResponse):
 
 
 class HttpResponseRedirect(HttpResponseRedirectBase):
+    # 临时重定向
     status_code = 302
 
 
 class HttpResponsePermanentRedirect(HttpResponseRedirectBase):
+    # 永久重定向（网站重构时使用）
     status_code = 301
 
 
 class HttpResponseNotModified(HttpResponse):
+    # 特殊重定向（发送用于重新验证的条件请求，表示缓存的响应仍然是新鲜的并且可以使用）
     status_code = 304
 
     def __init__(self, *args, **kwargs):
