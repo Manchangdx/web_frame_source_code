@@ -151,7 +151,7 @@ def login(request, user, backend=None):
     if hasattr(request, 'user'):
         request.user = user
     # 给 request.META 换个新的 csrftoken 字段值
-    #rotate_token(request)
+    rotate_token(request)
     user_logged_in.send(sender=user.__class__, request=request, user=user)
 
 
