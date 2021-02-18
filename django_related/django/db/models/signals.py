@@ -12,15 +12,27 @@ class ModelSignal(Signal):
     of the `app_label.ModelName` form.
     """
     def _lazy_method(self, method, apps, receiver, sender, **kwargs):
+        """
+        参数说明：
+
+        method   : 父类中定义的 django.db.models.signals.ModelSignal.connect 方法
+        apps     : None
+        receiver : 信号接收者，通常是一个可调用对象
+        sender   : 信号发送者，可能是一个映射类
+        kwargs   : 字典 {'weak': True, 'dispatch_uid': None}
+        """
         from django.db.models.options import Options
 
-        # This partial takes a single optional argument named "sender".
+        # 下面这个偏函数是来自父类 django.dispatch.dispatcher.Signal 的 connect 方法
+        # 要调用此偏函数，只需要提供 sender 参数就行了
         partial_method = partial(method, receiver, **kwargs)
+
         if isinstance(sender, str):
             apps = apps or Options.default_apps
             apps.lazy_model_operation(partial_method, make_model_tuple(sender))
         else:
-            return partial_method(sender)
+            # 返回偏函数的调用，也就是调用父类的 connect 方法
+            partial_method(sender)
 
     def connect(self, receiver, sender=None, weak=True, dispatch_uid=None, apps=None):
         self._lazy_method(

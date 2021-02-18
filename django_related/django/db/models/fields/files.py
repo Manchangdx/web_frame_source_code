@@ -418,6 +418,8 @@ class ImageField(FileField):
         # after their corresponding image field don't stay cleared by
         # Model.__init__, see bug #11196.
         # Only run post-initialization dimension update on non-abstract models
+        if name == 'avatar':
+            print(f'\t【django.db.models.fields.files.ImageField.contribute_to_class】name:', name)
         if not cls._meta.abstract:
             signals.post_init.connect(self.update_dimension_fields, sender=cls)
 

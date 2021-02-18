@@ -155,9 +155,9 @@ class ModelBase(type):
         if is_proxy and base_meta and base_meta.swapped:
             raise TypeError("%s cannot proxy the swapped model '%s'." % (name, base_meta.swapped))
 
-        # Add remaining attributes (those with a contribute_to_class() method)
-        # to the class.
+        # 重要代码，向该映射类添加一些特别的属性
         for obj_name, obj in contributable_attrs.items():
+            # 此 add_to_class 方法是类方法，定义在当前元类中
             new_class.add_to_class(obj_name, obj)
 
         # All the fields of any type declared on this model
@@ -322,6 +322,9 @@ class ModelBase(type):
         return new_class
 
     def add_to_class(cls, name, value):
+        if value.__class__.__name__ =='ImageField':
+            print(f'\t【django.db.models.base.ModelBase.add_to_class】name: {name} ;',
+                  f'value 的类: {value.__class__.__name__}')
         if _has_contribute_to_class(value):
             value.contribute_to_class(cls, name)
         else:
