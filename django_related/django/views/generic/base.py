@@ -135,6 +135,7 @@ class TemplateResponseMixin:
         """
         # self 是视图类实例
         response_kwargs.setdefault('content_type', self.content_type)
+
         # 返回 django.template.response.TemplateResponse 类的实例，也就是「响应对象」
         # 该类的父类是 django.template.response.SimpleTemplateResponse 类
         # 后者的父类是 django.http.response.HttpResponse 类

@@ -11,23 +11,25 @@ class classonlymethod(classmethod):
 
 
 def _update_method_wrapper(_wrapper, decorator):
-    # _multi_decorate()'s bound_method isn't available in this scope. Cheat by
-    # using it on a dummy function.
+    # 参数说明：
+    # _wrapper: 被装饰的方法
+    # decorator: 装饰器
+
     @decorator
     def dummy(*args, **kwargs):
         pass
+
+    # 此 update_wrapper 函数定义在 Python 内置模块 functools 中
+    # 其作用是将 dummy 的全部属性值赋值给 _wrapper 的同名属性
     update_wrapper(_wrapper, dummy)
 
 
 def _multi_decorate(decorators, method):
+    """使用 decorators 中的装饰器装饰 method 方法并返回
     """
-    Decorate `method` with one or more function decorators. `decorators` can be
-    a single decorator or an iterable of decorators.
-    """
+    # 对 decorators 参数进行处理
+    # 如果它是列表，对其进行反向排列；如果它不是列表，将其构造成列表
     if hasattr(decorators, '__iter__'):
-        # Apply a list/tuple of decorators if 'decorators' is one. Decorator
-        # functions are applied so that the call order is the same as the
-        # order in which they appear in the iterable.
         decorators = decorators[::-1]
     else:
         decorators = [decorators]
@@ -51,13 +53,13 @@ def _multi_decorate(decorators, method):
 
 
 def method_decorator(decorator, name=''):
+    """此函数的返回值是装饰器，作用是将 decorator 列表中的函数作为名字为 name 方法的装饰器
+
+    参数说明：
+
+    decorator: 装饰器或装饰器列表
+    name: 被装饰的方法的名字
     """
-    Convert a function decorator into a method decorator
-    """
-    # 'obj' can be a class or a function. If 'obj' is a function at the time it
-    # is passed to _dec,  it will eventually be a method of the class it is
-    # defined on. If 'obj' is a class, the 'name' is required to be the name
-    # of the method that will be decorated.
     def _dec(obj):
         if not isinstance(obj, type):
             return _multi_decorate(decorator, obj)
@@ -66,7 +68,7 @@ def method_decorator(decorator, name=''):
                 "The keyword argument `name` must be the name of a method "
                 "of the decorated class: %s. Got '%s' instead." % (obj, name)
             )
-        method = getattr(obj, name)
+        method = getattr(obj, name)     # 被装饰的方法
         if not callable(method):
             raise TypeError(
                 "Cannot decorate '%s' as it isn't a callable attribute of "

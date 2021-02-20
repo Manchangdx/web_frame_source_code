@@ -220,7 +220,8 @@ class BaseUpdateView(ModelFormMixin, ProcessFormView):
     Using this base class requires subclassing to provide a response mixin.
     """
     def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
+        # 映射类实例
+        self.object = self.get_object() 
         return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):

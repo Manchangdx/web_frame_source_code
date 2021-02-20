@@ -18,19 +18,15 @@ from django.utils.translation import gettext as _, gettext_lazy
 
 def serve(request, path, document_root=None, show_indexes=False):
     """
-    Serve static files below a given point in the directory structure.
+    将静态文件放在指定目录结构中。
 
-    To use, put a URL pattern such as::
-
+    用法如下：
         from django.views.static import serve
-
         path('<path:path>', serve, {'document_root': '/path/to/my/files/'})
 
-    in your URLconf. You must provide the ``document_root`` param. You may
-    also set ``show_indexes`` to ``True`` if you'd like to serve a basic index
-    of the directory.  This index view will use the template hardcoded below,
-    but if you'd like to override it, you can create a template called
-    ``static/directory_index.html``.
+    在 path 方法中须提供 document_root 参数。
+    如果您想提供目录的基本索引，也可以将 show_indexes 设置为 True 。 
+    该索引视图将使用下面的硬编码模板，亦可创建一个名为 “static/directory_index.html” 的模板替代它。
     """
     path = posixpath.normpath(path).lstrip('/')
     fullpath = Path(safe_join(document_root, path))

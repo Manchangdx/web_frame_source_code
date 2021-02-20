@@ -74,11 +74,9 @@ class Template:
         return self.template.origin     
 
     def render(self, context=None, request=None):
-        # self 是「最终模板对象」
-        # 参数 context 是字典对象：{'form': 表单类实例, 'view': 视图类实例}
-        # 参数 request 是「请求对象」，django.core.handlers.wsgi.WSGIRequest 类的实例
+        # self 是「最终模板对象」，context 是字典对象，request 是「请求对象」
 
-        # django.template.context.RequestContext 类的实例，叫做「请求上下文对象」
+        # 下面的 context 是 django.template.context.RequestContext 类的实例，叫做「请求上下文对象」
         context = make_context(context, request, autoescape=self.backend.engine.autoescape)
         try:
             # 此处调用「模板对象」的 render 方法返回携带渲染完毕的模板文件内容字符串的「响应体字符串对象」

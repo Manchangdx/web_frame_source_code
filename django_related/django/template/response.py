@@ -16,6 +16,7 @@ class SimpleTemplateResponse(HttpResponse):
         # 定义在项目中的视图类中的 template_name 属性值，字符串类型
         self.template_name = template
         # context 是字典对象：{'form': 表单类实例, 'view': 视图类实例，也就是 self}
+        print('ccc', list(context.keys()))
         self.context_data = context
 
         self.using = using
@@ -81,13 +82,15 @@ class SimpleTemplateResponse(HttpResponse):
         要设置响应内容，必须调用 render 或使用此属性的值显式设置内容。
         """
         # self 是「响应对象」
-        # 该对象是 django.template.backends.django.Template 类的实例，叫做「最终模板对象」
+        # 该 template 对象是 django.template.backends.django.Template 类的实例，叫做「最终模板对象」
         template = self.resolve_template(self.template_name)
-        # self.context_data 是字典对象：{'form': 表单类实例, 'view': 视图类实例}
+        # self.context_data 是字典对象
         # self.resolve_context 的返回值就是参数 self.context_data
         context = self.resolve_context(self.context_data)
         
         # self._request 是「请求对象」，django.core.handlers.wsgi.WSGIRequest 类的实例
+        # template 是「最终模板对象」
+        # template.render 定义在 django.template.backends.django.Template 类中
         # 返回值是携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
         # 该对象是 django.utils.safestring.SafeString 类的实例
         return template.render(context, self._request)
@@ -164,6 +167,13 @@ class TemplateResponse(SimpleTemplateResponse):
 
     def __init__(self, request, template, context=None, content_type=None,
                  status=None, charset=None, using=None):
+        """
+        关键参数说明：
+
+        request  : 请求对象
+        template : 字符串，前端模板文件名
+        context  : 上下文字典对象
+        """
         #print('【django.template.response.TemplateResponse.__init__】')
         super().__init__(template, context, content_type, status, charset, using)
         # 把「请求对象」赋值给「响应对象」的 _request 属性

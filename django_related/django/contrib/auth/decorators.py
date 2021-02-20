@@ -36,10 +36,9 @@ def user_passes_test(test_func, login_url=None, redirect_field_name=REDIRECT_FIE
 
 
 def login_required(function=None, redirect_field_name=REDIRECT_FIELD_NAME, login_url=None):
-    """
-    Decorator for views that checks that the user is logged in, redirecting
-    to the log-in page if necessary.
-    """
+    # 这个 user_passes_test 定义在当前模块中，返回值是装饰器
+    # 该装饰器用于判断用户是否处于登录状态，判断的依据就是 request.user.is_authenticated 属性
+    # 如果没有处于登录状态，就重定向到登录页面
     actual_decorator = user_passes_test(
         lambda u: u.is_authenticated,
         login_url=login_url,
