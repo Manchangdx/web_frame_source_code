@@ -53,8 +53,6 @@ def _clean_credentials(credentials):
 
 
 def _get_user_session_key(request):
-    # This value in the session is always serialized to a string, so we need
-    # to convert it back to Python whenever we access it.
     # get_user_model 函数定义在当前模块中，返回值是用户映射类
     # 该映射类的 _meta.pk.to_python 的返回值是实例自身的 id 属性值
     return get_user_model()._meta.pk.to_python(request.session[SESSION_KEY])

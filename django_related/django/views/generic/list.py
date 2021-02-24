@@ -19,17 +19,17 @@ class MultipleObjectMixin(ContextMixin):
     ordering = None
 
     def get_queryset(self):
-        """
-        Return the list of items for this view.
-
-        The return value must be an iterable and may be an instance of
-        `QuerySet` in which case `QuerySet` specific behavior will be enabled.
+        """此方法所在类是 ListView 类的 Mixin 类，此方法的作用是提供被展示的映射类实例的列表。
         """
         if self.queryset is not None:
+            # 此属性可能定义在项目中的视图类中
             queryset = self.queryset
             if isinstance(queryset, QuerySet):
                 queryset = queryset.all()
         elif self.model is not None:
+            # 如果项目中的视图类里没有定义 queryset 属性
+            # 则调用项目中的视图类里的 model 属性作为映射类查询相应数据表中的全部数据
+            # 并返回「查询集对象」（QuerySet 类的实例）
             queryset = self.model._default_manager.all()
         else:
             raise ImproperlyConfigured(
@@ -39,12 +39,15 @@ class MultipleObjectMixin(ContextMixin):
                     'cls': self.__class__.__name__
                 }
             )
+        # 定义在项目中的视图类里的 ordering 属性，属性值通常是元组，里面是排序属性字符串
         ordering = self.get_ordering()
+        # 调用「查询集对象」的 order_by 方法对查询结果进行排序
         if ordering:
             if isinstance(ordering, str):
                 ordering = (ordering,)
             queryset = queryset.order_by(*ordering)
 
+        # 返回「查询集对象」
         return queryset
 
     def get_ordering(self):
@@ -111,11 +114,16 @@ class MultipleObjectMixin(ContextMixin):
             return None
 
     def get_context_data(self, *, object_list=None, **kwargs):
-        """Get the context for this view."""
+        """获取 context 字典对象并返回
+        """
+        # 映射类查询数据表返回的「查询集对象」（QuerySet 类的实例）
         queryset = object_list if object_list is not None else self.object_list
+        # 定义在项目的视图类中的 paginate_by 属性值，每页展示对象的数量
         page_size = self.get_paginate_by(queryset)
+        # 定义在项目的视图类中的 context_object_name 属性值
         context_object_name = self.get_context_object_name(queryset)
         if page_size:
+            # 四个变量分别是：分页对象，页数，当前页的查询集对象，是否有下一页
             paginator, page, queryset, is_paginated = self.paginate_queryset(queryset, page_size)
             context = {
                 'paginator': paginator,
@@ -131,6 +139,7 @@ class MultipleObjectMixin(ContextMixin):
                 'object_list': queryset
             }
         if context_object_name is not None:
+            # 添加一组键值对 {'questions': 完整的查询集对象}
             context[context_object_name] = queryset
         context.update(kwargs)
         return super().get_context_data(**context)
@@ -139,7 +148,9 @@ class MultipleObjectMixin(ContextMixin):
 class BaseListView(MultipleObjectMixin, View):
     """A base view for displaying a list of objects."""
     def get(self, request, *args, **kwargs):
+        # 查询数据表的结果「查询集对象」
         self.object_list = self.get_queryset()
+        # 定义在当前模块中的 MultipleObjectMixin 类中的属性，布尔值，默认是 True
         allow_empty = self.get_allow_empty()
 
         if not allow_empty:

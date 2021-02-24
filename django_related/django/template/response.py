@@ -16,7 +16,6 @@ class SimpleTemplateResponse(HttpResponse):
         # 定义在项目中的视图类中的 template_name 属性值，字符串类型
         self.template_name = template
         # context 是字典对象：{'form': 表单类实例, 'view': 视图类实例，也就是 self}
-        print('ccc', list(context.keys()))
         self.context_data = context
 
         self.using = using
