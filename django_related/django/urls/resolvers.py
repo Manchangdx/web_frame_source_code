@@ -624,6 +624,7 @@ class URLResolver:
                             self._join_route(current_route, sub_match.route),   # path 函数的第一个位置参数
                         )
                     tried.append([pattern])
+            # 如果没有匹配到路径对应的视图函数，抛出 Resolver404 异常
             raise Resolver404({'tried': tried, 'path': new_path})
         raise Resolver404({'path': path})
 

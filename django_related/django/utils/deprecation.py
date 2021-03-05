@@ -120,7 +120,7 @@ class MiddlewareMixin:
         # 中间件对象处理请求
         print(f'\t【djang.utils.deprecation.MiddlewareMixin.__call__】{str(self.__class__):<70s}', end='')
         if hasattr(self, 'process_request'):
-            print('process_request')
+            print('process_request', self.get_response.__name__)
             response = self.process_request(request)
         else:
             print()

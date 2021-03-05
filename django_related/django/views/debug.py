@@ -483,6 +483,8 @@ def technical_404_response(request, exception):
     if isinstance(urlconf, types.ModuleType):
         urlconf = urlconf.__name__
 
+    print('【django.views.debug.technical_404_response】urlconf:', urlconf)
+
     caller = ''
     try:
         resolver_match = resolve(request.path)

@@ -41,8 +41,11 @@ def convert_exception_to_response(get_response):
             try:
                 # get_response 可能是中间件对象
                 # 或者 django.core.handler.base.BaseHandler._get_response 方法
+                # 如果没有匹配到路径对应的视图函数，会抛出 Resolver404 异常
                 response = get_response(request)
             except Exception as exc:
+                # 这块儿处理异常，此函数定义在当前模块，就在下面
+                # request 是请求对象，exc 是异常类的实例
                 response = response_for_exception(request, exc)
             return response
         inner.get_response = get_response
@@ -50,10 +53,14 @@ def convert_exception_to_response(get_response):
 
 
 def response_for_exception(request, exc):
+    print('【django.core.handlers.exception.response_for_exception】exc:', exc.__class__)
+    # 如果没有匹配到路径对应的视图函数，会抛出 Resolver404 异常，它是 Http404 的子类
     if isinstance(exc, Http404):
         if settings.DEBUG:
             response = debug.technical_404_response(request, exc)
         else:
+            # 此函数定义在当前模块中，就在下面
+            # 参数分别是：请求对象，路由处理对象，响应码，异常对象
             response = get_exception_response(request, get_resolver(get_urlconf()), 404, exc)
 
     elif isinstance(exc, PermissionDenied):
@@ -114,7 +121,10 @@ def response_for_exception(request, exc):
 
 
 def get_exception_response(request, resolver, status_code, exception):
+    # 参数分别是：请求对象，路由处理对象，状态码，异常对象
     try:
+        # 此方法定义在 django.urls.resolvers.URLResolver 类中
+        # 返回值是二元元组，处理异常的视图函数和字典参数
         callback, param_dict = resolver.resolve_error_handler(status_code)
         response = callback(request, **{**param_dict, 'exception': exception})
     except Exception:
