@@ -460,7 +460,7 @@ class BaseCommand:
 
         if any(e.is_serious(fail_level) and not e.is_silenced() for e in all_issues):
             msg = self.style.ERROR("SystemCheckError: %s" % header) + body + footer
-            print('6666')
+            print('6666 出现异常啦')
             raise SystemCheckError(msg)
         else:
             msg = header + body + footer

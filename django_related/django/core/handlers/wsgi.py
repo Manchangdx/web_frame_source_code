@@ -123,7 +123,7 @@ class WSGIRequest(HttpRequest):
 
     # 下面这行代码的作用是处理请求体中的表单信息生成一个类字典对象赋值给 self._post 属性，其实也就是 self.POST 属性
     # 初始化「请求对象」时并不执行下面这一行代码，调用「请求对象」的 POST 属性时才会执行这行代码
-    # 在中间件处理请求对象的过程中会调用「请求对象」的 POST 属性
+    # 中间件处理请求对象时 django.middleware.csrf.CsrfViewMiddleware.process_view 方法会调用「请求对象」的 POST 属性
     POST = property(_get_post, _set_post)
 
 

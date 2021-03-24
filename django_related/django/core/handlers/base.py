@@ -210,7 +210,7 @@ class BaseHandler:
         #print('【django.core.handlers.base.BaseHandler._get_response】callback_args:', callback_args)
         #print('【django.core.handlers.base.BaseHandler._get_response】callback_kwargs:', callback_kwargs)
 
-        # 这里可能有一个 django.middleware.csrf.CsrfViewMiddleware.process_request 中间件验证函数
+        # 这里可能有一个 django.middleware.csrf.CsrfViewMiddleware.process_view 中间件验证函数
         for middleware_method in self._view_middleware:
             response = middleware_method(request, callback, callback_args, callback_kwargs)
             if response:

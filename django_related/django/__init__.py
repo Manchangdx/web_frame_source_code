@@ -25,9 +25,8 @@ def setup(set_prefix=True):
         set_script_prefix(
             '/' if settings.FORCE_SCRIPT_NAME is None else settings.FORCE_SCRIPT_NAME
         )
-    # 这个 apps 是 django.apps.registry.Apps 类的实例
-    # 这里调用 populate 方法将项目的配置文件中的 INSTALLED_APPS 中的
-    # 应用程序都放到实例自身的 app_configs 属性字典中
+    # 这个 apps 是 django.apps.registry.Apps 类的实例，叫做「应用收集对象」
+    # 这里调用 populate 方法将项目的配置项 INSTALLED_APPS 中的应用都放到实例自身的 app_configs 属性字典中
     # key 就是 INSTALLED_APPS 列表里的字符串
     # value 是 django.apps.config.AppConfig 类的实例，此实例就是应用对象
     apps.populate(settings.INSTALLED_APPS)

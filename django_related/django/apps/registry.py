@@ -64,11 +64,8 @@ class Apps:
 
     def populate(self, installed_apps=None):
         """
-        Load application configurations and models.
-
-        Import each application module and then each model module.
-
-        It is thread-safe and idempotent, but not reentrant.
+        将项目配置项 INSTALLED_APPS 中的应用条件到 self.app_configs 字典中。
+        它是线程安全和幂等的，但不可重复执行。
         """
         if self.ready:
             return
@@ -96,8 +93,7 @@ class Apps:
                 if isinstance(entry, AppConfig):
                     app_config = entry
                 else:
-                    # app_config 就是 django.apps.config.AppConfig 类或其子类的实例
-                    # 称之为「应用对象」，它其实就相当于 Flask 框架中的应用对象类 Flask
+                    # app_config 就是 django.apps.config.AppConfig 类或其子类的实例，称之为「应用对象」
                     app_config = AppConfig.create(entry)
                     #print('【django.apps.registry.Apps.populate】app_config.module:\n\t', app_config.module)
                     #print('\t app_config.name:', app_config.name, type(app_config.name))

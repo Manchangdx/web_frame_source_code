@@ -344,8 +344,10 @@ class HttpRequest:
         self._files = MultiValueDict()
 
     def _load_post_and_files(self):
-        """Populate self._post and self._files if the content-type is a form type"""
+        """处理请求体
+        """
         # self 是「请求对象」
+        print('【django.http.request._load_post_and_files】处理请求体')
         if self.method != 'POST':
             self._post, self._files = QueryDict(encoding=self._encoding), MultiValueDict()
             return
@@ -375,6 +377,9 @@ class HttpRequest:
                 # attempts to parse POST data again.
                 self._mark_post_parse_error()
                 raise
+        # 请求方式是 POST 且 CONTENT_TYPE 是 'application/x-www-form-urlencoded'
+        # 这是一种常见的 POST 请求提交数据的方式，浏览器原生 <form> 表单如果不设置 enctype 属性
+        # Content-Type 就是这种类型
         elif self.content_type == 'application/x-www-form-urlencoded':
             self._post, self._files = QueryDict(self.body, encoding=self._encoding), MultiValueDict()
         else:

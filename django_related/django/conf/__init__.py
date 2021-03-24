@@ -47,11 +47,12 @@ class SettingsReference(str):
 
 
 class LazySettings(LazyObject):
+    """全局惰性配置代理类
+
+    该类的实例的 _wrapped 属性值就是当前模块中定义的 Settings 类的实例
+    该实例拥有 django.conf.global_settings 模块和项目的配置文件中的全部配置项
     """
-    A lazy proxy for either global Django settings or a custom settings object.
-    The user can manually configure settings prior to using them. Otherwise,
-    Django uses the settings module pointed to by DJANGO_SETTINGS_MODULE.
-    """
+
     def _setup(self, name=None):
         """
         Load the settings module pointed to by the environment variable. This
@@ -285,5 +286,6 @@ class UserSettingsHolder:
         }
 
 
-# 这个实例的属性均从项目的 settings.py 文件中获取，该实例叫做「全局配置对象」
+# 这就是「全局配置对象」
+# 该对象的属性均从 django.conf.global_settings 模块和项目的配置文件中获取
 settings = LazySettings()

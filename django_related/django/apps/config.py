@@ -7,7 +7,7 @@ from django.utils.module_loading import module_has_submodule
 MODELS_MODULE_NAME = 'models'
 
 
-# 此类的实例就是应用对象，此类就相当于 flask.app 模块中的 Flask 类
+# 此类的实例就是「应用对象」，注意此类并不相当于 flask.app 模块中的 Flask 类
 class AppConfig:
     """Class representing a Django application and its configuration."""
 
