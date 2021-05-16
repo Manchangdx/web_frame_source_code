@@ -423,9 +423,12 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
             return
 
     def handle(self):
-        """Handle multiple requests if necessary."""
+        # self 是「请求处理对象」，werkzeug.serving.WSGIRequestHandler 类的实例
+        # 此时请求连接已创建，开始处理写事件了，也就是读取客户端发送的数据
+        print('【http.server.BaseHTTPRequestHandler.handle】读取客户端发送的数据')
         self.close_connection = True
 
+        # 此方法定义在 werkzeug.serving.WSGIRequestHandler 类中
         self.handle_one_request()
         while not self.close_connection:
             self.handle_one_request()

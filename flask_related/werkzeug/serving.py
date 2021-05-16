@@ -257,6 +257,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
         if self.headers.get("Expect", "").lower().strip() == "100-continue":
             self.wfile.write(b"HTTP/1.1 100 Continue\r\n\r\n")
 
+        # 这块儿读取请求头信息
         self.environ = environ = self.make_environ()
         headers_set = []
         headers_sent = []
@@ -309,6 +310,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
             return write
 
         def execute(app):
+            # 调用应用对象的 __call__ 方法获取响应数据
             application_iter = app(environ, start_response)
             try:
                 for data in application_iter:
@@ -320,6 +322,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
                     application_iter.close()
 
         try:
+            print('【werkzeug.serving.WSGIRequestHandler.run_wsgi】准备调用应用对象')
             execute(self.server.app)
         except (_ConnectionError, socket.timeout) as e:
             self.connection_dropped(e, environ)
@@ -371,11 +374,19 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
         """
 
     def handle_one_request(self):
-        """Handle a single HTTP request."""
+        """处理客户端发送的数据
+        """
+        # self 是「请求处理对象」
         self.raw_requestline = self.rfile.readline()
+        if self.raw_requestline:
+            print(('【werkzeug.serving.WSGIRequestHandler.handle_one_request】'
+                    '请求信息的第一行: {}'.format(self.raw_requestline)))
         if not self.raw_requestline:
             self.close_connection = 1
+        # 这块儿 self.parse_request 定义在 http.server.BaseHTTPRequestHandler 类中
+        # 其作用是获取客户端发来的请求数据并解析，返回值是布尔值，解析顺利返回 True
         elif self.parse_request():
+            # 此方法定义在当前类中，调用 Flask 应用对象的 __call__ 方法继续处理请求
             return self.run_wsgi()
 
     def send_response(self, code, message=None):
@@ -723,6 +734,7 @@ class BaseWSGIServer(HTTPServer, object):
         ssl_context=None,
         fd=None,
     ):
+        print('【werkzeug.serving.BaseWSGIServer.__init__】服务器对象初始化')
         if handler is None:
             handler = WSGIRequestHandler
 
@@ -838,12 +850,15 @@ def make_server(
     ssl_context=None,
     fd=None,
 ):
-    """Create a new server instance that is either threaded, or forks
-    or just processes one request after another.
+    """新建服务器对象
+
+    不支持「多进程 + 多线程」服务
+    只支持「单进程 + 多线程」或「多进程 + 单线程」服务
     """
     if threaded and processes > 1:
         raise ValueError("cannot have a multithreaded and multi process server.")
     elif threaded:
+        # 默认会创建这种服务器，单进程 + 多线程
         return ThreadedWSGIServer(
             host, port, app, request_handler, passthrough_errors, ssl_context, fd=fd
         )
@@ -899,6 +914,7 @@ def run_simple(
     if use_debugger:
         from .debug import DebuggedApplication
 
+        # 此类定义在 werkzeug.debug.__init__ 模块中，此类实例化时会打印两行 Debugger 信息到屏幕上
         application = DebuggedApplication(application, use_evalex)
     if static_files:
         from .middleware.shared_data import SharedDataMiddleware
@@ -928,6 +944,10 @@ def run_simple(
             fd = int(os.environ["WERKZEUG_SERVER_FD"])
         except (LookupError, ValueError):
             fd = None
+        # 创建多线程「服务器对象」，该对象属于当前模块中 ThreadedWSGIServer 类
+        # 后者的父类是 http.server.HTTPServer 类
+        # 后者的父类是 socketserver.TCPServer 类
+        # 后者的父类是 socketserver.BaseServer 类
         srv = make_server(
             hostname,
             port,
@@ -941,6 +961,7 @@ def run_simple(
         )
         if fd is None:
             log_startup(srv.socket)
+        # 调用终极父类 socketserver.BaseServer 类的 server_forever 方法创建多线程套接字并启动监听
         srv.serve_forever()
 
     if use_reloader:

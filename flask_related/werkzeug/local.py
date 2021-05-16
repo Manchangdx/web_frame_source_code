@@ -75,8 +75,8 @@ class Local(object):
         return LocalProxy(self, proxy)
 
     def __release_local__(self):
-        print('【werkzeug.local.Local.__release_local__】self.__ident_func__():', 
-                self.__ident_func__())
+        #print('【werkzeug.local.Local.__release_local__】self.__ident_func__():', 
+        #        self.__ident_func__())
         self.__storage__.pop(self.__ident_func__(), None)
 
     def __getattr__(self, name):
@@ -133,7 +133,7 @@ class LocalStack(object):
     def push(self, obj):
         '''将当前线程中的上下文对象压入栈中'''
         import threading
-        print('【werkzeug.local.Localstack.push】将上下文对象压入栈中：', obj)
+        #print('【werkzeug.local.Localstack.push】将上下文对象压入栈中：', obj)
         # 服务器收到请求后，LocalStack 实例执行 push 方法
         # 将当前协程对象作为 key ，{'stack': [obj]} 这样一个字典作为 value 
         # 存入 __storage__ 属性中，其中列表里的 obj 就是 push 方法的参数
@@ -143,13 +143,13 @@ class LocalStack(object):
         if rv is None:
             self._local.stack = rv = []
         rv.append(obj)
-        print("【werkzeug.local.Localstack.push】上下文栈.__storage__[当前协程]['stack']：", rv)
+        #print("【werkzeug.local.Localstack.push】上下文栈.__storage__[当前协程]['stack']：", rv)
         return rv
 
     def pop(self):
         '''将当前线程的主协程对应的键值对从栈中移除'''
         import threading
-        print('【werkzeug.local.Localstack.pop 】当前线程：', threading.current_thread().getName())
+        #print('【werkzeug.local.Localstack.pop 】当前线程：', threading.current_thread().getName())
         stack = getattr(self._local, "stack", None)
         if stack is None:
             return None

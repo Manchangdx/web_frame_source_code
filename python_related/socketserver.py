@@ -311,11 +311,7 @@ class BaseServer:
                             return self.handle_timeout()
 
     def _handle_request_noblock(self):
-        """Handle one request, without blocking.
-
-        I assume that selector.select() has returned that the socket is
-        readable before this function was called, so there should be no risk of
-        blocking in get_request().
+        """当连接请求进入套接字服务器，读事件就绪，调用此方法处理，处理过程是非阻塞的
         """
 
         try:
@@ -328,7 +324,8 @@ class BaseServer:
         import threading
         ct = threading.current_thread()
         print('【socketserver.BaseServer._handle_request_noblock】请求进入:', client_address)
-        print('【socketserver.BaseServer._handle_request_noblock】当前线程:', ct.name, ct.ident)
+        print('【socketserver.BaseServer._handle_request_noblock】当前线程（应用主线程）:', 
+                ct.name, ct.ident)
 
         # 下面这个方法默认情况下什么也不做，只返回 True
         if self.verify_request(request, client_address):
@@ -361,10 +358,9 @@ class BaseServer:
         return True
 
     def process_request(self, request, client_address):
-        """Call finish_request.
+        """调用自身的 finish_request 方法处理请求
 
-        Overridden by ForkingMixIn and ThreadingMixIn.
-
+        当前方法可能被 ForkingMixIn and ThreadingMixIn 类重写
         """
         self.finish_request(request, client_address)
         self.shutdown_request(request)
@@ -380,8 +376,10 @@ class BaseServer:
     # 服务器收到连接请求后，创建一个子线程处理请求
     # 子线程内执行下面这个方法，把临时套接字和客户端地址元组作为参数
     def finish_request(self, request, client_address):
-        # self 是「服务器对象」，它定义在 django.core.servers.basehttp.run 函数中
-        # 下面这个属性值是定义在 django.core.servers.basehttp 模块中的 WSGIRequestHandler 类
+        # [Flask]  self 是「服务器对象」，它定义在 werkzeug.serving.run_simple 函数中
+        # [Django] self 是「服务器对象」，它定义在 django.core.servers.basehttp.run 函数中
+        # [Flask]  下面这个属性值是 werkzeug.serving.WSGIRequestHandler 类
+        # [Django] 下面这个属性值是 django.core.servers.basehttp.WSGIRequestHandler 类
         # 该类是当前模块下的 BaseRequestHandler 类的子类
         # 这里对其进行实例化，执行的是当前模块下的 BaseRequestHandler.__init__ 方法
         self.RequestHandlerClass(request, client_address, self)
@@ -675,7 +673,8 @@ class ThreadingMixIn:
         """
         import threading
         ct = threading.current_thread()
-        print('【socketserver.ThreadingMixIn.process_request_thread】当前处于子线程中:', ct.name, ct.ident)
+        print('【socketserver.ThreadingMixIn.process_request_thread】当前线程为子线程:', 
+                ct.name, ct.ident)
         try:
             # 此方法定义在当前模块中的 BaseServer 类中
             self.finish_request(request, client_address)
@@ -734,7 +733,7 @@ if hasattr(socket, 'AF_UNIX'):
 class BaseRequestHandler:
 
     def __init__(self, request, client_address, server):
-        # 该类的实例 self 我们称之为「请求处理对象」
+        # self 我们称之为「请求处理对象」
         print('【socketserver.BaseRequestHandler.__init__】「请求处理对象」初始化')
         self.request = request                  # 临时套接字
         self.client_address = client_address    # 客户端地址元组
@@ -745,7 +744,9 @@ class BaseRequestHandler:
         # 处理一下套接字的设置，包括阻塞超时时间和设置套接字的读写关联对象
         self.setup()
         try:
-            # 此方法定义在 django.core.servers.basehttp.WSGIRequestHandler 类中
+            # 调用自身的 handle 方法处理客户端发送的数据
+            # [Flask]  此方法定义在 http.server.BaseHTTPRequestHandler 类中
+            # [Django] 此方法定义在 django.core.servers.basehttp.WSGIRequestHandler 类中
             self.handle()
         finally:
             # 此方法定义在当前模块中的 StreamRequestHandler 类中
@@ -791,13 +792,12 @@ class StreamRequestHandler(BaseRequestHandler):
 
     def setup(self):
         # 将临时套接字对象赋值给 connection 属性
-        # 处理一下套接字的设置，包括阻塞超时时间和设置套接字的读写关联对象
+        # 处理一下套接字的设置，包括设置阻塞超时时间和设置套接字的读写关联对象
         self.connection = self.request
         if self.timeout is not None:
             self.connection.settimeout(self.timeout)
         if self.disable_nagle_algorithm:
-            self.connection.setsockopt(socket.IPPROTO_TCP,
-                                       socket.TCP_NODELAY, True)
+            self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         # 套接字对象的 makefile 方法返回一个与套接字相关联的文件对象
         # 在这之后，你就可以像操作一个文件一样去操作 socket 连接
         self.rfile = self.connection.makefile('rb', self.rbufsize)

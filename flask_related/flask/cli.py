@@ -334,6 +334,7 @@ class DispatchingApp(object):
     def __call__(self, environ, start_response):
         __traceback_hide__ = True  # noqa: F841
         if self._app is not None:
+            # self._app 是 flask.app.Flask 类的实例
             return self._app(environ, start_response)
         self._flush_bg_loading_exception()
         with self._lock:

@@ -301,6 +301,8 @@ class DebuggedApplication(object):
         """Run the application and conserve the traceback frames."""
         app_iter = None
         try:
+            # self.app 是 flask.cli.DispatchingApp 类的实例，此处调用其 __call__ 方法
+            # 返回值是响应数据的可迭代对象
             app_iter = self.app(environ, start_response)
             for item in app_iter:
                 yield item
@@ -465,6 +467,7 @@ class DebuggedApplication(object):
         # important: don't ever access a function here that reads the incoming
         # form data!  Otherwise the application won't have access to that data
         # any more!
+        #print('【werkzeug.debug.__init__.DebuggedApplication.__call__】')
         request = Request(environ)
         response = self.debug_application
         if request.args.get("__debugger__") == "yes":

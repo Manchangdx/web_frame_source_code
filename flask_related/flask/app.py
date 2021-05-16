@@ -2318,7 +2318,7 @@ class Flask(_PackageBoundObject):
         其它代码都是由这个方法内部调用
         """
         import threading, time
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        #print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
         # 以下代码打印当前请求上下文栈中数据和全部线程
         # from .globals import _request_ctx_stack
         # print('********************************', 
@@ -2326,7 +2326,8 @@ class Flask(_PackageBoundObject):
         # print('【flask.app.Flask().wsgi_app】打印全部线程：')
         # for i in threading.enumerate():
         #    print(i)
-        print('【flask.app.Flask.wsgi_app】当前线程：', threading.current_thread().getName())
+        ct = threading.current_thread()
+        print('【flask.app.Flask.wsgi_app】Flask 开始处理请求，当前线程:', ct.getName(), ct.ident)
         #print('【flask.app.Flask.wsgi_app】HTTP_COOKIE：', environ.get('HTTP_COOKIE'))
 
         # 此方法返回 flask.ctx.RequestContext 的实例，称为「请求上下文对象」
@@ -2340,8 +2341,8 @@ class Flask(_PackageBoundObject):
                 # print('-------------------------------------------')
                 # 获取响应对象并赋值给 response 变量
                 response = self.full_dispatch_request()
-                print('【flask.app.Flask.wsgi_app】得到响应对象，线程：', 
-                        threading.current_thread().getName())
+                ct = threading.current_thread()
+                print('【flask.app.Flask.wsgi_app】得到响应对象，当前线程:', ct.name, ct.ident)
             except Exception as e:
                 error = e
                 response = self.handle_exception(e)
