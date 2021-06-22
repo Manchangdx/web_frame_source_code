@@ -385,8 +385,12 @@ def run(app: typing.Union[ASGIApplication, str], **kwargs: typing.Any) -> None:
         sys.exit(1)
 
     if config.should_reload:
-        # 创建 TCP 套接字
+        # 此方法定义在 uvicorn.config.Config 类中，创建 TCP 套接字并返回
         sock = config.bind_socket()
+        # 此类其实是 uvicorn.supervisors.statreload.StatReload 类
+        # 其实例的 run 方法定义在父类 uvicorn.supervisors.basereload.BaseReload 类中
+        # 此方法的作用是调用实例的 uvicorn.supervisors.basereload.startup 方法创建子进程并启动
+        # 在子进程中调用 server.run 方法，也就是实例化时的 target 参数值
         ChangeReload(config, target=server.run, sockets=[sock]).run()
     elif config.workers > 1:
         sock = config.bind_socket()

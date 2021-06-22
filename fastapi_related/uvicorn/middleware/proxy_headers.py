@@ -59,4 +59,5 @@ class ProxyHeadersMiddleware:
                     scope["client"] = (host, port)
 
         print('【uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware.__call__】self.app:', self.app)
+        # self.app 是 uvicorn.middleware.debug.DebugMiddleware 类的实例
         return await self.app(scope, receive, send)

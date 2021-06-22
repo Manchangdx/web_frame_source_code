@@ -56,6 +56,8 @@ class ExceptionMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         print('【starlette.exceptions.ExceptionMiddleware.__call__】self.app:', self.app)
         if scope["type"] != "http":
+            # self.app 是 fastapi.routing.APIRouter 类的实例
+            # 此处调用的是其父类 starlette.routing.Router 的 __call__ 方法
             await self.app(scope, receive, send)
             return
 

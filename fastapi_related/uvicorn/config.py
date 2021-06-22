@@ -321,9 +321,10 @@ class Config:
             logger.error("Error loading ASGI app. %s" % exc)
             sys.exit(1)
 
+        # 下面的 try except 代码块可以略过
         try:
+            # 下面这行代码会抛出异常
             self.loaded_app = self.loaded_app()
-            print('【uvicorn.config.Config.load】调用应用对象，结果是:', self.loaded_app)
         except TypeError as exc:
             if self.factory:
                 logger.error("Error loading ASGI app factory: %s", exc)
@@ -335,6 +336,7 @@ class Config:
                     "but please consider setting the --factory flag explicitly."
                 )
 
+        # 这段 if 语句块可以忽略
         if self.interface == "auto":
             if inspect.isclass(self.loaded_app):
                 use_asgi_3 = hasattr(self.loaded_app, "__await__")
@@ -345,17 +347,21 @@ class Config:
                 use_asgi_3 = asyncio.iscoroutinefunction(call)
             self.interface = "asgi3" if use_asgi_3 else "asgi2"
 
+        # 这段 if 语句块可以忽略
         if self.interface == "wsgi":
             self.loaded_app = WSGIMiddleware(self.loaded_app)
             self.ws_protocol_class = None
         elif self.interface == "asgi2":
             self.loaded_app = ASGI2Middleware(self.loaded_app)
 
+        # 此时 self.loaded_app 是 fastapi.applications.FastAPI 类的实例
         if self.debug:
+            # 执行下面一行代码后 self.loaded_app 是 uvicorn.middleware.debug.DebugMiddleware 类的实例
             self.loaded_app = DebugMiddleware(self.loaded_app)
         if logger.level <= TRACE_LOG_LEVEL:
             self.loaded_app = MessageLoggerMiddleware(self.loaded_app)
         if self.proxy_headers:
+            # 执行下面三行代码后 self.loaded_app 是 uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware 类的实例
             self.loaded_app = ProxyHeadersMiddleware(
                 self.loaded_app, trusted_hosts=self.forwarded_allow_ips
             )
@@ -387,7 +393,8 @@ class Config:
             sys.exit(1)
         sock.set_inheritable(True)
 
-        print(f'【uvicorn.config.Config.bind_socket】创建 TCP 套接字:', sock)
+        cs = click.style('创建 TCP 套接字', fg='yellow')
+        print(f'【uvicorn.config.Config.bind_socket】{cs}', sock)
 
         message = f"Uvicorn running on {addr_format} (Press CTRL+C to quit)"
         color_message = (
@@ -406,7 +413,7 @@ class Config:
 
         cs = click.style('{}://{}:{}'.format(protocol_name, self.host, self.port), bold=True)
         cm = f"Uvicorn running on {cs} (Press CTRL + C to quit.)"
-        print(f'【(logger.info) uvicorn.config.Config.bind_socket】{cm}')
+        print(f'【uvicorn.config.Config.bind_socket】{cm}')
 
         return sock
 

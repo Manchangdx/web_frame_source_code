@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import click
 from asyncio import Queue
 from typing import Union
 
@@ -42,22 +43,28 @@ class LifespanOn:
         self.should_exit = False
 
     async def startup(self) -> None:
+        """启动程序
+        """
         #self.logger.info("Waiting for application startup.")
-        print('【(logger.info) uvicorn.lifespan.on.LifespanOn.startup】启动应用对象 ...')
+        cs = click.style('>>>>>> 开始准备工作 <<<<<<', fg='black')
+        print(f'【uvicorn.lifespan.on.LifespanOn.startup】{cs}')
 
         loop = asyncio.get_event_loop()
+        # 给事件循环添加任务
         main_lifespan_task = loop.create_task(self.main())  # noqa: F841
         # Keep a hard reference to prevent garbage collection
         # See https://github.com/encode/uvicorn/pull/972
         startup_event: LifespanStartupEvent = {"type": "lifespan.startup"}
         await self.receive_queue.put(startup_event)
+        # 启动事件循环，也就是执行 self.main() 这个协程
         await self.startup_event.wait()
 
         if self.startup_failed or (self.error_occured and self.config.lifespan == "on"):
             self.logger.error("Application startup failed. Exiting.")
             self.should_exit = True
         else:
-            print('【(logger.info) uvicorn.lifespan.on.LifespanOn.startup】应用对象启动完成\n')
+            cs = click.style('>>>>>> 准备工作完毕 <<<<<<', fg='black')
+            print(f'【uvicorn.lifespan.on.LifespanOn.startup】{cs}')
             #self.logger.info("Application startup complete.")
 
     async def shutdown(self) -> None:

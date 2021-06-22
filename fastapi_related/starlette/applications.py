@@ -111,6 +111,7 @@ class Starlette:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         scope["app"] = self
         print('【starlette.applications.Starlette.__call__】self.middelware_stack:', self.middleware_stack)
+        # self.middleware_stack 是 starlette.middleware.errors.ServerErrorMiddleware 类的实例
         await self.middleware_stack(scope, receive, send)
 
     # The following usages are now discouraged in favour of configuration

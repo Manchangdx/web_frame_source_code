@@ -35,6 +35,9 @@ class ServerState:
 
 
 class Server:
+    """服务器类，此类的实例被称为「服务器对象」
+    """
+
     def __init__(self, config):
         self.config = config
         self.server_state = ServerState()
@@ -45,9 +48,11 @@ class Server:
         self.last_notified = 0
 
     def run(self, sockets=None):
+        """此方法运行在子进程中，获取事件循环对象并运行
+        """
         process_id = os.getpid()
         cs = click.style(f'[{process_id}]', fg='cyan')
-        print(f'【uvicorn.server.Server.run】子进程调用服务对象的 run 方法，当前进程 ID : {cs}')
+        print(f'【uvicorn.server.Server.run】子进程调用服务对象的 run 方法获取事件循环对象并启动，当前进程 ID : {cs}')
         # 设置协程的事件循环规则
         self.config.setup_event_loop()
         # 获取事件循环对象
@@ -56,22 +61,27 @@ class Server:
         loop.run_until_complete(self.serve(sockets=sockets))
 
     async def serve(self, sockets=None):
+        """协程函数，调用嵌套协程启动套接字服务
+        """
         process_id = os.getpid()
         cs = click.style(f'[{process_id}]', fg='cyan')
-        print(f'【(logger.info) uvicorn.server.Server.serve】子进程内调用协程函数启动套接字服务，进程 ID : {cs}')
+        print(f'【uvicorn.server.Server.serve】当前所在是事件循环中的协程，当前进程 ID : {cs}')
 
         config = self.config
         if not config.loaded:
+            # 获取应用对象，也就是 fastapi.applications.FastAPI 类的实例
+            # 将该实例赋值给 config.loaded_app 属性
             config.load()
 
-        self.lifespan = config.lifespan_class(config)
+        # uvicorn.lifespan.on.LifespanOn 类的实例
+        self.lifespan = config.lifespan_class(config)   
 
         self.install_signal_handlers()
 
         message = "Started server process [%d]"
         color_message = "Started server process [" + click.style("%d", fg="cyan") + "]"
-        #logger.info(message, process_id, extra={"color_message": color_message})
 
+        # 进入嵌套子协程，做一些准备工作，利用「套接字对象」创建协程可用的「套接字服务对象」
         await self.startup(sockets=sockets)
         if self.should_exit:
             return
@@ -88,12 +98,14 @@ class Server:
 
     async def startup(self, sockets: list = None) -> None:
         print('【uvicorn.server.Server.startup】即将启动的套接字的列表:', sockets)
+        # 进入嵌套子协程，启动应用对象
         await self.lifespan.startup()
         if self.lifespan.should_exit:
             self.should_exit = True
             return
 
         config = self.config
+        import time
 
         async def handler(
             reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -114,12 +126,29 @@ class Server:
                 from socket import fromshare  # type: ignore
 
                 sock_data = sock.share(os.getpid())  # type: ignore
+                print('【uvicorn.server.Server.startup】sock_data:', sock_data)
                 return fromshare(sock_data)
 
             self.servers = []
             for sock in sockets:
                 if config.workers > 1 and platform.system() == "Windows":
                     sock = _share_socket(sock)
+
+                print('【uvicorn.server.Server.startup】调用 asyncio.start_server 创建协程可用的套接字服务对象')
+                # 利用「套接字对象」创建协程可用的「套接字服务对象」
+                # 该对象是 asyncio.base_events.Server 类的实例
+                # 
+                # asyncio.start_server 方法的源码注释如下：
+                # 
+                # 启动一个 socket 服务器，为每个连接的客户端回调。
+                #
+                # 第一个参数 client_connected_cb 函数有两个参数：client_reader，client_writer。 
+                # client_reader 是一个 StreamReader 对象，而 client_writer 是一个 StreamWriter 对象。 
+                # 这参数可以是普通的回调函数或协程；如果是协程，会自动转成协程任务。其余参数都是常规参数。
+                #
+                # 附加的可选关键字参数是 loop（事件循环对象）和 limit（设置传递给 StreamReader 的缓冲区限制）。
+                # 
+                # 返回值与 loop.create_server() 相同，即可用于停止服务的 Server 对象。
                 server = await asyncio.start_server(
                     handler, sock=sock, ssl=config.ssl, backlog=config.backlog
                 )
@@ -219,9 +248,13 @@ class Server:
             )
 
     async def main_loop(self):
+        process_id = os.getpid()
+        cs = click.style(f'[{process_id}]', fg='cyan')
+        print(f'【uvicorn.server.Server.main_loop】当前进程 ID: {cs}')
         counter = 0
         should_exit = await self.on_tick(counter)
         while not should_exit:
+            #print('【uvicorn.server.Server.main_loop】counter:', counter)
             counter += 1
             counter = counter % 864000
             await asyncio.sleep(0.1)

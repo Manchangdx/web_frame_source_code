@@ -144,6 +144,7 @@ class ServerErrorMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         print('【starlette.middleware.errors.ServerErrorMiddleware.__call__】self.app:', self.app)
         if scope["type"] != "http":
+            # self.app 是 starlette.exceptions.ExceptionMiddleware 类的实例
             await self.app(scope, receive, send)
             return
 

@@ -12,6 +12,7 @@ from typing import Callable, List, Optional
 from uvicorn.config import Config
 
 multiprocessing.allow_connection_pickling()
+# 这是一个用于启动子进程的上下文对象，详见 https://docs.python.org/zh-cn/3/library/multiprocessing.html
 spawn = multiprocessing.get_context("spawn")
 
 
@@ -45,6 +46,8 @@ def get_subprocess(
         "stdin_fileno": stdin_fileno,
     }
 
+    # spawn 是启动子进程的上下文对象，它设置了 multiprocessing.Process 的启动方式为 spawn
+    # 这种方式会创建一个新的 Python 解释器运行在子进程中，该上下文对象拥有与 multiprocessing 完全相同的 API
     return spawn.Process(target=subprocess_started, kwargs=kwargs)
 
 
@@ -73,4 +76,5 @@ def subprocess_started(
     config.configure_logging()
 
     # Now we can call into `Server.run(sockets=sockets)`
+    print('【uvicorn.subprocess.subprocess_started】在子线程中执行的函数:', target)
     target(sockets=sockets)

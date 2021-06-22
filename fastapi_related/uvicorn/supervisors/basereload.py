@@ -55,12 +55,13 @@ class BaseReload:
         )
         # logger.info(message, extra={"color_message": color_message})
         cs = f'当前为主进程，进程 ID : {click.style(f"[{self.pid}]", fg="cyan")}'
-        print(f'【(logger.info) uvicorn.supervisors.basereload.BaseReload.startup】{cs}')
+        print(f'【uvicorn.supervisors.basereload.BaseReload.startup】{cs} ，创建子进程并启动')
 
         for sig in HANDLED_SIGNALS:
             signal.signal(sig, self.signal_handler)
 
         # 创建当前进程的子进程，三个参数分别是配置对象、服务对象的 run 方法、套接字
+        # 下面的 get_subprocess 方法定义在 uvicorn.subprocess 模块中，它会创建一个子进程
         self.process = get_subprocess(
             config=self.config, target=self.target, sockets=self.sockets
         )

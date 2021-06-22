@@ -513,6 +513,7 @@ class Router:
         """
         Run any `.on_startup` event handlers.
         """
+        #print('【starlette.routing.Router.lifespan】self.on_startup:', self.on_startup)
         for handler in self.on_startup:
             if asyncio.iscoroutinefunction(handler):
                 await handler()
@@ -537,10 +538,15 @@ class Router:
         first = True
         app = scope.get("app")
         print(f'【starlette.routing.Router.lifespan】app: {app}  receive: {receive}')
-        await receive()
+        x = await receive()
+        #print('【starlette.routing.Router.lifespan】receive():', x)
         try:
+            #print('【starlette.routing.Router.lifespan】self.lifespan_context:', self.lifespan_context)
             if inspect.isasyncgenfunction(self.lifespan_context):
+                # self.lifespan_context 是定义在 self.__init__ 方法内部的协程函数
+                # 此处将 fastapi.applications.FastAPI() 作为参数调用该协程函数 
                 async for item in self.lifespan_context(app):
+                    #print('【starlette.routing.Router.lifespan】item:', item)
                     assert first, "Lifespan context yielded multiple times."
                     first = False
                     await send({"type": "lifespan.startup.complete"})
@@ -563,7 +569,7 @@ class Router:
         """
         The main entry point to the Router class.
         """
-        print('【starlette.routing.Router.__call__】scope:', scope)
+        print("【starlette.routing.Router.__call__】scope['app']:", scope['app'])
         assert scope["type"] in ("http", "websocket", "lifespan")
 
         if "router" not in scope:
