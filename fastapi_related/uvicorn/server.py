@@ -85,7 +85,9 @@ class Server:
         await self.startup(sockets=sockets)
         if self.should_exit:
             return
+        # 准备工作完毕，执行此协程无限循环，等待请求接入
         await self.main_loop()
+        # 程序终止，调用此协程关闭程序
         await self.shutdown(sockets=sockets)
 
         message = "Finished server process [%d]"
@@ -107,14 +109,10 @@ class Server:
         config = self.config
         import time
 
-        async def handler(
-            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-        ) -> None:
-            print(1)
-            await handle_http(
-                reader, writer, server_state=self.server_state, config=config
-            )
-            print(2)
+        async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+            print('【uvicorn.server.Server.startup.handler】收到请求，调用 uvicorn._handlers.http.handle_http 方法处理')
+            await handle_http(reader, writer, server_state=self.server_state, config=config)
+            #print('【uvicorn.server.Server.startup.handler】本次请求处理完毕')
 
         if sockets is not None:
             # Explicitly passed a list of open sockets.
@@ -144,7 +142,7 @@ class Server:
                 #
                 # 第一个参数 client_connected_cb 函数有两个参数：client_reader，client_writer。 
                 # client_reader 是一个 StreamReader 对象，而 client_writer 是一个 StreamWriter 对象。 
-                # 这参数可以是普通的回调函数或协程；如果是协程，会自动转成协程任务。其余参数都是常规参数。
+                # 这个 client_connected_cb 参数可以是普通的回调函数或协程；如果是协程，会自动转成协程任务。
                 #
                 # 附加的可选关键字参数是 loop（事件循环对象）和 limit（设置传递给 StreamReader 的缓冲区限制）。
                 # 
@@ -250,7 +248,7 @@ class Server:
     async def main_loop(self):
         process_id = os.getpid()
         cs = click.style(f'[{process_id}]', fg='cyan')
-        print(f'【uvicorn.server.Server.main_loop】当前进程 ID: {cs}')
+        print(f'【uvicorn.server.Server.main_loop】当前进程 ID: {cs} 等待客户端连接\n')
         counter = 0
         should_exit = await self.on_tick(counter)
         while not should_exit:
@@ -283,7 +281,9 @@ class Server:
         return False
 
     async def shutdown(self, sockets=None):
-        logger.info("Shutting down")
+        #logger.info("Shutting down")
+        cs = click.style('Shutting down', fg='yellow')
+        print(f'\n【uvicorn.server.Server.shutdown】{cs}')
 
         # Stop accepting new connections.
         for server in self.servers:

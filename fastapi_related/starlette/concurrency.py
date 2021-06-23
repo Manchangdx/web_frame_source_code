@@ -35,8 +35,13 @@ async def run_in_threadpool(
         func = context.run
         args = (child,)
     elif kwargs:  # pragma: no cover
-        # loop.run_in_executor doesn't accept 'kwargs', so bind them in here
+        # loop.run_in_executor 不接受关键字参数，在这里使用偏函数绑定关键字参数
         func = functools.partial(func, **kwargs)
+
+    # 参考 https://segmentfault.com/q/1010000007863971
+    # 协程从属于线程，事件循环对象在运行时会阻塞当前线程
+    # 这里调用线程池中的另一个线程执行视图函数，并将执行结果返回给运行中的事件循环对象
+    # 视图函数 func 的返回值即为 loop.run_in_exector 协程的返回值
     return await loop.run_in_executor(None, func, *args)
 
 

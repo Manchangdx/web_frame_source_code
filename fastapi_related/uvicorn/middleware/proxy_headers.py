@@ -31,10 +31,11 @@ class ProxyHeadersMiddleware:
                 return host
 
     async def __call__(self, scope, receive, send):
-        print('【uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware.__call__】scope:', scope)
         if scope["type"] in ("http", "websocket"):
             client_addr = scope.get("client")
-            print('【uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware.__call__】client_addr:', client_addr)
+            import click
+            cs = click.style(client_addr, fg='yellow')
+            print('【uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware.__call__】客户端地址:', cs)
             client_host = client_addr[0] if client_addr else None
 
             if self.always_trust or client_host in self.trusted_hosts:

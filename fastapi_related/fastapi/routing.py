@@ -1,4 +1,5 @@
 import asyncio
+import click
 import email.message
 import enum
 import inspect
@@ -138,16 +139,23 @@ async def serialize_response(
         return jsonable_encoder(response_content)
 
 
-async def run_endpoint_function(
-    *, dependant: Dependant, values: Dict[str, Any], is_coroutine: bool
-) -> Any:
+async def run_endpoint_function(*, dependant: Dependant, values: Dict[str, Any], is_coroutine: bool) -> Any:
+    """调用视图函数，返回视图函数的返回值
+    """
     # Only called by get_request_handler. Has been split into its own function to
     # facilitate profiling endpoints, since inner functions are harder to profile.
     assert dependant.call is not None, "dependant.call must be a function"
+    cs = click.style('调用视图函数', fg='yellow')
 
+    # dependant 是 fastapi.dependencies.models.Dependant 类的实例，其 call 属性值就是视图函数
+    # 根据视图函数是否是协程函数来进一步处理
     if is_coroutine:
+        print(f'【fastapi.routing.run_endpoint_function】{cs}（视图函数是协程函数，直接调用）')
+        # 视图函数是协程函数，直接调用
         return await dependant.call(**values)
     else:
+        print(f'【fastapi.routing.run_endpoint_function】{cs}（视图函数不是协程函数，在另一个线程中调用）')
+        # 如果不是协程函数，将视图函数作为参数调用下面这个协程函数
         return await run_in_threadpool(dependant.call, **values)
 
 
@@ -174,8 +182,11 @@ def get_request_handler(
         actual_response_class = response_class
 
     async def app(request: Request) -> Response:
+        # 参数 request 是 starlette.requests.Request 类的实例，请求对象
+        # 返回值 response 是 starlette.requests.Request 类的实例，响应对象
         try:
             body: Any = None
+            # 这个 if 语句通常不执行
             if body_field:
                 if is_body_form:
                     body = await request.form()
@@ -201,19 +212,32 @@ def get_request_handler(
             raise HTTPException(
                 status_code=400, detail="There was an error parsing the body"
             ) from e
+
         solved_result = await solve_dependencies(
             request=request,
             dependant=dependant,
             body=body,
             dependency_overrides_provider=dependency_overrides_provider,
         )
+
+        # 当我们说路径参数时，指的就是 URL 中 ? 后面的以 = 连接以 & 分隔的一组一组的参数
+        # 在 FastAPI 的视图函数里，参数分为三类，以 /users/<user_id>/?name=Tony 来说
+        # user_id 叫做「路径参数」，name 叫做「查询参数」，第三种就是「请求体」
+        # 下面这个 values 是字典对象，包含了路径参数、查询参数和请求体
         values, errors, background_tasks, sub_response, _ = solved_result
+        print('【fastapi.routing.get_request_handler.app】视图函数的参数 values:', values)
+        print('【fastapi.routing.get_request_handler.app】视图函数 dependant.call:', dependant.call)
+
         if errors:
             raise RequestValidationError(errors, body=body)
         else:
+            # run_endpoint_function 是定义在当前模块中的协程函数
+            # dependant 是 fastapi.dependencies.models.Dependant 类的实例，其 call 属性值就是视图函数
+            # 在这个协程函数内部调用视图函数
             raw_response = await run_endpoint_function(
                 dependant=dependant, values=values, is_coroutine=is_coroutine
             )
+            print(f'【fastapi.routing.get_request_handler.app】视图函数的返回值: {raw_response}')
 
             if isinstance(raw_response, Response):
                 if raw_response.background is None:
@@ -230,11 +254,16 @@ def get_request_handler(
                 exclude_none=response_model_exclude_none,
                 is_coroutine=is_coroutine,
             )
+            print(f'【fastapi.routing.get_request_handler.app】处理完毕的视图函数返回值: {response_data}')
+
+            # actual_response_class 是当前模块中的 APIRouter 类的实例的 response_class 属性值
+            # 该属性的默认值是 starlette.responses.JSONResponse 类
             response = actual_response_class(
                 content=response_data,
                 status_code=status_code,
                 background=background_tasks,  # type: ignore # in Starlette
             )
+            print(f'【fastapi.routing.get_request_handler.app】响应对象: {response}')
             response.headers.raw.extend(sub_response.headers.raw)
             if sub_response.status_code:
                 response.status_code = sub_response.status_code

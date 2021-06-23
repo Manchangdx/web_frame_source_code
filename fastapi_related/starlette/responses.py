@@ -133,6 +133,10 @@ class Response:
         self.set_cookie(key, expires=0, max_age=0, path=path, domain=domain)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        print('【starlette.responses.Response.__call__】调用响应对象返回响应头和响应体')
+        # 此处调用的 send 函数是 starlette.exceptions.ExceptionMiddleware.__call__.sender 协程函数
+        # 该协程函数是一个套娃函数
+        # 最终调用 uvicorn.protocols.http.h11_impl.RequestResponseCycle.send 协程函数
         await send(
             {
                 "type": "http.response.start",

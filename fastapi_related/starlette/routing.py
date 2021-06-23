@@ -44,14 +44,32 @@ def request_response(func: typing.Callable) -> ASGIApp:
     Takes a function or coroutine `func(request) -> response`,
     and returns an ASGI application.
     """
+
+    #print('【starlette.routing.request_response】参数 func:', func)
     is_coroutine = iscoroutinefunction_or_partial(func)
 
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        """核心协程函数，构建请求对象并返回响应对象
+        """
+        #print('【starlette.routing.request_response.app】scope:')
+        #for k, v in scope.items():
+        #    if k != 'headers':
+        #        print(f'\t{k:<22}{v}')
+        #print('【starlette.routing.request_response.app】参数 receive:', receive)
+        #print('【starlette.routing.request_response.app】参数 send:', send)
+
+        # 请求对象，starlette.requests.Request 类的实例
+        # 该对象中包含全部请求信息，包括视图函数、请求路径、请求体等
         request = Request(scope, receive=receive, send=send)
+        print('【starlette.routing.request_response.app】请求对象 request:', request)
         if is_coroutine:
+            print('【starlette.routing.request_response】参数 func:', func)
+            # 下面的 func 是协程函数 fastapi.routing.get_request_handler.app
+            # 此处调用该协程函数生成协程对象并运行之，返回的是响应对象，即 starlette.responses 模块中的响应类的实例
             response = await func(request)
         else:
             response = await run_in_threadpool(func, request)
+        # 调用响应对象，即调用 starlette.responses.Response.__call__ 方法，这是一个协程函数
         await response(scope, receive, send)
 
     return app
@@ -240,6 +258,8 @@ class Route(BaseRoute):
                 response = PlainTextResponse("Method Not Allowed", status_code=405)
             await response(scope, receive, send)
         else:
+            # 这个 self.app 是当前模块中的 request_response.app 协程函数
+            # 此处会调用协程函数创建协程对象并运行此对象
             await self.app(scope, receive, send)
 
     def __eq__(self, other: typing.Any) -> bool:
@@ -581,10 +601,15 @@ class Router:
 
         partial = None
 
+        #print("【starlette.routing.Router.__call__】self.routes:")
+
         for route in self.routes:
+            #print(f'\t{route.name:<22}{route.path:22} {route.endpoint}')
             # Determine if any route matches the incoming scope,
             # and hand over to the matching route if found.
             match, child_scope = route.matches(scope)
+            #print(f'\tmatch: {match}  child_scope: {child_scope}')
+            # 如果请求路径与路由对象匹配成功，调用当前模块下的 Route.handle 方法
             if match == Match.FULL:
                 scope.update(child_scope)
                 await route.handle(scope, receive, send)

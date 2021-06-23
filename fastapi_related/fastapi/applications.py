@@ -64,6 +64,11 @@ class FastAPI(Starlette):
         include_in_schema: bool = True,
         **extra: Any,
     ) -> None:
+
+        import click
+        cs = click.style('应用对象初始化', fg='yellow')
+        print(f'【fastapi.application.FastAPI.__init__】{cs}')
+
         self._debug: bool = debug
         self.state: State = State()
         self.router: routing.APIRouter = routing.APIRouter(

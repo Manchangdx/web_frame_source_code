@@ -4,6 +4,8 @@ import logging
 from typing import Callable
 from urllib.parse import unquote
 
+import click
+
 import h11
 
 from uvicorn.protocols.http.flow_control import (
@@ -289,6 +291,7 @@ class H11Protocol(asyncio.Protocol):
         # Unblock any pipelined events.
         if self.conn.our_state is h11.DONE and self.conn.their_state is h11.DONE:
             self.conn.start_next_cycle()
+            #print('【uvicorn.protocols.http.h11_impl.H11Protocol.on_response_complete】self.handle_events:', self.handle_events)
             self.handle_events()
 
     def shutdown(self):
@@ -366,6 +369,7 @@ class RequestResponseCycle:
     # ASGI exception wrapper
     async def run_asgi(self, app):
         try:
+            print(f'【uvicorn.protocols.http.h11_impl.RequestResponseCycle.run_asgi】app: {app}  send: {self.send.__qualname__}')
             result = await app(self.scope, self.receive, self.send)
         except BaseException as exc:
             msg = "Exception in ASGI application\n"
@@ -415,7 +419,11 @@ class RequestResponseCycle:
         if self.disconnected:
             return
 
+        # 处理响应数据分两步：
+        #   if   语句块处理响应头
+        #   elif 语句块处理响应体
         if not self.response_started:
+            print('【uvicorn.protocols.http.h11_impl.RequestResponseCycle.send】处理响应数据')
             # Sending response status line and headers
             if message_type != "http.response.start":
                 msg = "Expected ASGI message 'http.response.start', but got '%s'."
@@ -430,6 +438,7 @@ class RequestResponseCycle:
             if CLOSE_HEADER in self.scope["headers"] and CLOSE_HEADER not in headers:
                 headers = headers + [CLOSE_HEADER]
 
+            '''
             if self.access_log:
                 self.access_logger.info(
                     '%s - "%s %s HTTP/%s" %d',
@@ -439,16 +448,26 @@ class RequestResponseCycle:
                     self.scope["http_version"],
                     status_code,
                 )
+            '''
+            cs1 = click.style(get_client_addr(self.scope), fg='black')
+            cs2 = click.style(f"{self.scope['method']}", bold=True)
+            cs3 = click.style(f"{get_path_with_query_string(self.scope)}", bold=True)
+            cs45 = click.style(f"HTTP/{self.scope['http_version']} [{status_code}]", fg='magenta')
+            cs = f"{cs1}  {cs2} {cs3}  {cs45}"
+            print(f'【uvicorn.protocols.http.h11_impl.RequestResponseCycle.send】{cs}\n')
 
             # Write response status line and headers
             reason = STATUS_PHRASES[status_code]
-            event = h11.Response(
-                status_code=status_code, headers=headers, reason=reason
-            )
+            # 重新构造响应对象 h11._events.Response 类的实例
+            event = h11.Response(status_code=status_code, headers=headers, reason=reason)
+            # self.conn 是 h11._connection.Connection 类的实例，调用其 send 方法返回响应头数据的二进制字符串
             output = self.conn.send(event)
+            # self.transport 是 asyncio.selector_events._SelectorSocketTransport 类的实例
+            # 此处调用其 write 方法向缓存区写入二进制数据，以备向客户端发送
             self.transport.write(output)
 
         elif not self.response_complete:
+            #print('【uvicorn.protocols.http.h11_impl.RequestResponseCycle.send】处理响应体数据')
             # Sending response body
             if message_type != "http.response.body":
                 msg = "Expected ASGI message 'http.response.body', but got '%s'."
@@ -478,11 +497,14 @@ class RequestResponseCycle:
             msg = "Unexpected ASGI message '%s' sent, after response already completed."
             raise RuntimeError(msg % message_type)
 
+        # 响应数据处理完毕，调用
         if self.response_complete:
+            # 这个 if 语句块通常不会执行
             if self.conn.our_state is h11.MUST_CLOSE or not self.keep_alive:
                 event = h11.ConnectionClosed()
                 self.conn.send(event)
                 self.transport.close()
+            # 当前模块下的 H11Protocol.on_response_complete 方法，作用待研究
             self.on_response()
 
     async def receive(self):

@@ -70,7 +70,8 @@ class LifespanOn:
     async def shutdown(self) -> None:
         if self.error_occured:
             return
-        self.logger.info("Waiting for application shutdown.")
+        #self.logger.info("Waiting for application shutdown.")
+        print('【uvicorn.lifespan.on.LifespanOn.shutdown】Shutting down application')
         shutdown_event: LifespanShutdownEvent = {"type": "lifespan.shutdown"}
         await self.receive_queue.put(shutdown_event)
         await self.shutdown_event.wait()
@@ -110,6 +111,7 @@ class LifespanOn:
             self.shutdown_event.set()
 
     async def send(self, message: LifespanSendMessage) -> None:
+        print(f"【uvicorn.lifespan.on.LifespanOn.send】message['type']: {message['type']}")
         assert message["type"] in (
             "lifespan.startup.complete",
             "lifespan.startup.failed",
@@ -117,11 +119,13 @@ class LifespanOn:
             "lifespan.shutdown.failed",
         )
 
+        # 处理请求成功
         if message["type"] == "lifespan.startup.complete":
             assert not self.startup_event.is_set(), STATE_TRANSITION_ERROR
             assert not self.shutdown_event.is_set(), STATE_TRANSITION_ERROR
             self.startup_event.set()
 
+        # 处理请求失败
         elif message["type"] == "lifespan.startup.failed":
             assert not self.startup_event.is_set(), STATE_TRANSITION_ERROR
             assert not self.shutdown_event.is_set(), STATE_TRANSITION_ERROR
@@ -130,11 +134,14 @@ class LifespanOn:
             if message.get("message"):
                 self.logger.error(message["message"])
 
+        # 处理响应成功
         elif message["type"] == "lifespan.shutdown.complete":
+            print('okk')
             assert self.startup_event.is_set(), STATE_TRANSITION_ERROR
             assert not self.shutdown_event.is_set(), STATE_TRANSITION_ERROR
             self.shutdown_event.set()
 
+        # 处理响应失败
         elif message["type"] == "lifespan.shutdown.failed":
             assert self.startup_event.is_set(), STATE_TRANSITION_ERROR
             assert not self.shutdown_event.is_set(), STATE_TRANSITION_ERROR

@@ -32,6 +32,10 @@ async def handle_http(
 
     # Use a future to coordinate between the protocol and this handler task.
     # https://docs.python.org/3/library/asyncio-protocol.html#connecting-existing-sockets
+    #print('【uvicorn._handlers.http.handle_http】reader:', reader)
+    #print('【uvicorn._handlers.http.handle_http】writer:', writer)
+    #print('【uvicorn._handlers.http.handle_http】server_state:', server_state)
+    #print('【uvicorn._handlers.http.handle_http】config:', config)
     loop = asyncio.get_event_loop()
     connection_lost = loop.create_future()
 
@@ -42,6 +46,7 @@ async def handle_http(
         on_connection_lost=lambda: connection_lost.set_result(True),
     )
     transport = writer.transport
+    #print('【uvicorn._handlers.http.handle_http】transport:', transport)
     transport.set_protocol(protocol)
 
     # Asyncio stream servers don't `await` handler tasks (like the one we're currently
@@ -71,6 +76,8 @@ async def handle_http(
         # Hang up the connection so the client doesn't wait forever.
         transport.close()
 
+    print('【uvicorn._handlers.http.handle_http】protocol:', protocol)
+
     # Kick off the HTTP protocol.
     protocol.connection_made(transport)
 
@@ -81,6 +88,8 @@ async def handle_http(
     data = reader._buffer  # type: ignore
     if data:
         protocol.data_received(data)
+
+    #print('【uvicorn._handlers.http.handle_http】connection_lost:', connection_lost)
 
     # Let the transport run in the background. When closed, this future will complete
     # and we'll exit here.
@@ -93,6 +102,8 @@ def _get_current_task() -> asyncio.Task:
     except AttributeError:  # pragma: no cover
         # Python 3.6.
         current_task = asyncio.Task.current_task  # type: ignore
+
+    print('【uvicorn._handlers.http._get_current_task】current_task:', current_task)
 
     task = current_task()
     assert task is not None
