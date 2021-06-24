@@ -77,8 +77,8 @@ class DebugMiddleware:
     async def __call__(
         self, scope: WWWScope, receive: ASGIReceiveCallable, send: ASGISendCallable
     ) -> None:
-        print(f'【uvicorn.middleware.debug.DebugMiddleware.__init__】self.app: {self.app}  send: {send.__qualname__}')
         if scope["type"] != "http":
+            print(f'【uvicorn.middleware.debug.DebugMiddleware.__init__】self.app: {self.app}  send: {send.__qualname__}')
             # 调用应用对象 fastapi.applications.FastAPI 类的实例的 __call__ 方法
             return await self.app(scope, receive, send)
 
@@ -92,6 +92,8 @@ class DebugMiddleware:
             await send(message)
 
         try:
+            print(f'【uvicorn.middleware.debug.DebugMiddleware.__init__】self.app: {self.app}  send: {send.__qualname__}')
+            # 调用应用对象 fastapi.applications.FastAPI 类的实例的 __call__ 方法
             await self.app(scope, receive, inner_send)
         except BaseException as exc:
             if response_started:

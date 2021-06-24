@@ -186,9 +186,9 @@ def get_request_handler(
         # 返回值 response 是 starlette.requests.Request 类的实例，响应对象
         try:
             body: Any = None
-            # 这个 if 语句通常不执行
             if body_field:
                 if is_body_form:
+                    # 请求体
                     body = await request.form()
                 else:
                     body_bytes = await request.body()
@@ -225,10 +225,13 @@ def get_request_handler(
         # user_id 叫做「路径参数」，name 叫做「查询参数」，第三种就是「请求体」
         # 下面这个 values 是字典对象，包含了路径参数、查询参数和请求体
         values, errors, background_tasks, sub_response, _ = solved_result
-        print('【fastapi.routing.get_request_handler.app】视图函数的参数 values:', values)
-        print('【fastapi.routing.get_request_handler.app】视图函数 dependant.call:', dependant.call)
+        print('【fastapi.routing.get_request_handler.app】视图函数:', dependant.call)
+        print('【fastapi.routing.get_request_handler.app】视图函数的参数:', values)
 
         if errors:
+            cs = click.style('解析路径参数或请求体时出现错误', fg='red')
+            print(f'【fastapi.routing.get_request_handler.app】{cs}:', errors)
+            # errors 是错误列表，body 是请求体
             raise RequestValidationError(errors, body=body)
         else:
             # run_endpoint_function 是定义在当前模块中的协程函数

@@ -90,6 +90,7 @@ class FastAPI(Starlette):
             {} if exception_handlers is None else dict(exception_handlers)
         )
         self.exception_handlers.setdefault(HTTPException, http_exception_handler)
+        # 请求路径参数或请求体解析异常
         self.exception_handlers.setdefault(
             RequestValidationError, request_validation_exception_handler
         )
