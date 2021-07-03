@@ -557,7 +557,7 @@ class Router:
         """
         first = True
         app = scope.get("app")
-        print(f'【starlette.routing.Router.lifespan】app: {app}  receive: {receive}')
+        print(f'【starlette.routing.Router.lifespan】app: {app}')
         x = await receive()
         #print('【starlette.routing.Router.lifespan】receive():', x)
         try:

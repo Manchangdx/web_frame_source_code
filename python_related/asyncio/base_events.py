@@ -1487,7 +1487,8 @@ class BaseEventLoop(events.AbstractEventLoop):
         # 此处创建当前模块中的 Server 类的实例，即为协程中的「套接字服务对象」
         server = Server(self, sockets, protocol_factory,
                         ssl, backlog, ssl_handshake_timeout)
-        print('【asyncio.base_events.BaseEventLoop.create_server】创建套接字服务对象:', server)
+        server_str = ' '.join(i for i in str(server).split() if not 'family' in i)
+        print('【asyncio.base_events.BaseEventLoop.create_server】创建套接字服务对象:', server_str)
         if start_serving:
             server._start_serving()
             # Skip one loop iteration so that all 'loop.add_reader'
