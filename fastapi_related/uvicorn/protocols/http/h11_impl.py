@@ -3,6 +3,7 @@ import http
 import logging
 from typing import Callable
 from urllib.parse import unquote
+from datetime import datetime
 
 import click
 
@@ -452,9 +453,10 @@ class RequestResponseCycle:
             cs1 = click.style(get_client_addr(self.scope), fg='black')
             cs2 = click.style(f"{self.scope['method']}", bold=True)
             cs3 = click.style(f"{get_path_with_query_string(self.scope)}", bold=True)
-            cs45 = click.style(f"HTTP/{self.scope['http_version']} [{status_code}]", fg='magenta')
-            cs = f"{cs1}  {cs2} {cs3}  {cs45}"
-            print(f'【uvicorn.protocols.http.h11_impl.RequestResponseCycle.send】{cs}\n')
+            cs4 = click.style(f"HTTP/{self.scope['http_version']} [{status_code}]", fg='magenta')
+            cs5 = click.style(f"  {datetime.now().strftime('%m-%d %H:%M:%S')}", fg='cyan')
+            cs = f"{cs1}  {cs2} {cs3}  {cs4} {cs5}"
+            print(f'【uvicorn.protocols.http.h11_impl...send】{cs}\n')
 
             # Write response status line and headers
             reason = STATUS_PHRASES[status_code]
