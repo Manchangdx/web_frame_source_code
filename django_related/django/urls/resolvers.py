@@ -21,7 +21,7 @@ from django.core.exceptions import ImproperlyConfigured, ViewDoesNotExist
 from django.utils.datastructures import MultiValueDict
 from django.utils.functional import cached_property
 from django.utils.http import RFC3986_SUBDELIMS, escape_leading_slashes
-from django.utils.regex_helper import _lazy_re_compile, normalize
+from django.utils.regex_helper import normalize
 from django.utils.translation import get_language
 
 from .converters import get_converter
@@ -30,14 +30,12 @@ from .utils import get_callable
 
 
 class ResolverMatch:
-    """该类的实例叫做「路由匹配结果对象」
-    """
     def __init__(self, func, args, kwargs, url_name=None, app_names=None, namespaces=None, route=None):
-        self.func = func            # path 函数的第二个位置参数
+        self.func = func
         self.args = args
         self.kwargs = kwargs
-        self.url_name = url_name    # path 函数的 name 参数
-        self.route = route          # path 函数的第一个位置参数
+        self.url_name = url_name
+        self.route = route
 
         # If a URLRegexResolver doesn't have a namespace or app_name, it passes
         # in an empty value.
@@ -68,17 +66,12 @@ class ResolverMatch:
 
 def get_resolver(urlconf=None):
     if urlconf is None:
-        # 项目的路由适配模块的字符串，它默认定义在项目的 settings 配置模块中
-        # 例如项目 myweb 的 myweb.settings 模块中会有 ROOT_URLCONF 配置项
-        # 该配置项的值就是 'myweb.urls' ，指向 myweb/urls.py 文件，即路由适配文件
         urlconf = settings.ROOT_URLCONF
     return _get_cached_resolver(urlconf)
 
 
 @functools.lru_cache(maxsize=None)
 def _get_cached_resolver(urlconf=None):
-    #print('【django.urls.resolvers._get_cached_resolver】urlconf:', urlconf)
-    # 返回「路由处理对象」
     return URLResolver(RegexPattern(r'^/'), urlconf)
 
 
@@ -150,7 +143,6 @@ class CheckURLMixin:
 
 
 class RegexPattern(CheckURLMixin):
-    # 该类的实例是「正则模式对象」
     regex = LocaleRegexDescriptor('_regex')
 
     def __init__(self, regex, name=None, is_endpoint=False):
@@ -161,21 +153,14 @@ class RegexPattern(CheckURLMixin):
         self.converters = {}
 
     def match(self, path):
-        #print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-        #print('path:', path)
         match = self.regex.search(path)
-        #print('match:', match)
         if match:
             # If there are any named groups, use those as kwargs, ignoring
             # non-named groups. Otherwise, pass all non-named arguments as
             # positional arguments.
             kwargs = match.groupdict()
-            #print('kwargs:', kwargs)
             args = () if kwargs else match.groups()
-            #print('args:', args)
             kwargs = {k: v for k, v in kwargs.items() if v is not None}
-            #print('path[match.end():]', path[match.end():])
-            #print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
             return path[match.end():], args, kwargs
         return None
 
@@ -205,14 +190,14 @@ class RegexPattern(CheckURLMixin):
         except re.error as e:
             raise ImproperlyConfigured(
                 '"%s" is not a valid regular expression: %s' % (regex, e)
-            ) from e
+            )
 
     def __str__(self):
         return str(self._regex)
 
 
-_PATH_PARAMETER_COMPONENT_RE = _lazy_re_compile(
-    r'<(?:(?P<converter>[^>:]+):)?(?P<parameter>[^>]+)>'
+_PATH_PARAMETER_COMPONENT_RE = re.compile(
+    r'<(?:(?P<converter>[^>:]+):)?(?P<parameter>\w+)>'
 )
 
 
@@ -235,13 +220,13 @@ def _route_to_regex(route, is_endpoint=False):
             break
         parts.append(re.escape(route[:match.start()]))
         route = route[match.end():]
-        parameter = match['parameter']
+        parameter = match.group('parameter')
         if not parameter.isidentifier():
             raise ImproperlyConfigured(
                 "URL route '%s' uses parameter name %r which isn't a valid "
                 "Python identifier." % (original_route, parameter)
             )
-        raw_converter = match['converter']
+        raw_converter = match.group('converter')
         if raw_converter is None:
             # If a converter isn't specified, the default is `str`.
             raw_converter = 'str'
@@ -249,9 +234,8 @@ def _route_to_regex(route, is_endpoint=False):
             converter = get_converter(raw_converter)
         except KeyError as e:
             raise ImproperlyConfigured(
-                'URL route %r uses invalid converter %r.'
-                % (original_route, raw_converter)
-            ) from e
+                "URL route '%s' uses invalid converter %s." % (original_route, e)
+            )
         converters[parameter] = converter
         parts.append('(?P<' + parameter + '>' + converter.regex + ')')
     if is_endpoint:
@@ -260,11 +244,10 @@ def _route_to_regex(route, is_endpoint=False):
 
 
 class RoutePattern(CheckURLMixin):
-    # 该类的实例是「路径模式对象」
     regex = LocaleRegexDescriptor('_route')
 
     def __init__(self, route, name=None, is_endpoint=False):
-        self._route = route     # path 函数的第一个位置参数字符串
+        self._route = route
         self._regex_dict = {}
         self._is_endpoint = is_endpoint
         self.name = name
@@ -338,10 +321,9 @@ class LocalePrefixPattern:
 
 
 class URLPattern:
-    # 该类的实例是「路由模式对象」
     def __init__(self, pattern, callback, default_args=None, name=None):
-        self.pattern = pattern      # 路径模式对象，用于匹配路径
-        self.callback = callback    # 视图对象，视图类或者视图函数
+        self.pattern = pattern
+        self.callback = callback  # the view
         self.default_args = default_args or {}
         self.name = name
 
@@ -368,24 +350,12 @@ class URLPattern:
             return []
 
     def resolve(self, path):
-        # self 是「路由模式对象」
-        # 处理请求路径的最终一站就是这里
-        # 该方法返回一个「匹配对象」，该对象有如下属性：
-        # func ：视图函数
-        # url_name ：self.name
-        # route ：当前路由模式对象匹配的路径
         match = self.pattern.match(path)
         if match:
             new_path, args, kwargs = match
-            #print('【django.urls.resolvers.URLPattern.resolve】', 
-            #        f'new_path: {new_path} args: {args} kwargs: {kwargs}')
             # Pass any extra_kwargs as **kwargs.
             kwargs.update(self.default_args)
-            # 此类定义在当前模块下，其实例叫做「路由匹配结果对象」，参数说明：
-            # self.callback : path 函数的第二个位置参数
-            # self.name : path 函数的 name 参数
-            # route : path 函数的第一个位置参数
-            return ResolverMatch(self.callback, args, kwargs, self.name, route=str(self.pattern))
+            return ResolverMatch(self.callback, args, kwargs, self.pattern.name, route=str(self.pattern))
 
     @cached_property
     def lookup_str(self):
@@ -402,13 +372,11 @@ class URLPattern:
 
 
 class URLResolver:
-    # 此类的实例是「路由处理对象」
-    # 项目启动时在 django.urls.conf.path 函数中会自动创建一些
-    # 收到请求后在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建一个
     def __init__(self, pattern, urlconf_name, default_kwargs=None, app_name=None, namespace=None):
-        # 该属性值是当前模块中定义的 RoutePattern 类的实例，叫「正则模式对象」
         self.pattern = pattern
-        # 该属性值是字符串，它指向项目的路由配置模块 'xxx.urls' 
+        # urlconf_name is the dotted Python path to the module defining
+        # urlpatterns. It may also be an object with an urlpatterns attribute
+        # or urlpatterns itself.
         self.urlconf_name = urlconf_name
         self.callback = None
         self.default_kwargs = default_kwargs or {}
@@ -568,32 +536,13 @@ class URLResolver:
         return name in self._callback_strs
 
     def resolve(self, path):
-        # self 是「路由处理对象」
-        # 参数 path 是请求路径或路径的一部分
         path = str(path)  # path may be a reverse_lazy object
         tried = []
-        # 该类的实例，项目启动时在 django.urls.conf.path 函数中会自动创建一些
-        # 收到请求后在 django.core.handlers.base.BaseHandler.resolve_request 方法中被创建一个
-        # 以收到请求后创建的实例为例，这里去掉了绝对路径开头的斜线
-        # 因为 self.pattern 是当前模块中定义的 RegexPattern 类的实例
-        # 该实例的 _regex 属性值默认是 '^/' 
-        # 此处该实例的 match 方法返回一个三元元组，其中第一个元素是 path 开头去掉 _regex 属性后的字符串
-        # 例如 path 是 '/home/user/1'
-        # 去掉开头的斜线后，下面 if 语句块中的 new_path 就是 'home/user/1'
-        # 如果 path 开头不能匹配到 _regex 的话，match 方法返回的就是 None
         match = self.pattern.match(path)
         if match:
             new_path, args, kwargs = match
-            # 这里 self.url_patterns 属性是被装饰器装饰的方法，它定义在当前类中
-            # 其返回值是项目的总路由处理模块中的 urlpatterns 列表
             for pattern in self.url_patterns:
                 try:
-                    # pattern 有两种：
-                    # 1. URLResolver 的实例，叫做「路由处理对象」
-                    # 2. URLPattern 的实例，叫做「路由模式对象」
-                    # pattern 的类型不同，其 resolve 方法也不同
-                    # 当处理请求路径到最终一步时，pattern 就是「路由模式对象」
-                    # 其 resolve 方法就会返回当前模块中定义的 ResolverMatch 类的实例，也就是「路由匹配结果对象」
                     sub_match = pattern.resolve(new_path)
                 except Resolver404 as e:
                     sub_tried = e.args[0].get('tried')
@@ -613,26 +562,21 @@ class URLResolver:
                         if not sub_match_dict:
                             sub_match_args = args + sub_match.args
                         current_route = '' if isinstance(pattern, URLPattern) else str(pattern.pattern)
-                        # 最后再重新整理一下，创建一个新的 ResolverMatch 实例返回
                         return ResolverMatch(
-                            sub_match.func,     # path 函数的第二个位置参数
-                            sub_match_args,     
+                            sub_match.func,
+                            sub_match_args,
                             sub_match_dict,
-                            sub_match.url_name, # path 函数的 name 参数
+                            sub_match.url_name,
                             [self.app_name] + sub_match.app_names,
                             [self.namespace] + sub_match.namespaces,
-                            self._join_route(current_route, sub_match.route),   # path 函数的第一个位置参数
+                            self._join_route(current_route, sub_match.route),
                         )
                     tried.append([pattern])
-            # 如果没有匹配到路径对应的视图函数，抛出 Resolver404 异常
             raise Resolver404({'tried': tried, 'path': new_path})
         raise Resolver404({'path': path})
 
     @cached_property
     def urlconf_module(self):
-        # self 是「路由处理对象」
-        # 这里会判断 self.urlconf_name 的属性值类型
-        # 如果是字符串，返回对应的模块对象；如果不是字符串，就是列表，直接返回列表
         if isinstance(self.urlconf_name, str):
             return import_module(self.urlconf_name)
         else:
@@ -640,20 +584,17 @@ class URLResolver:
 
     @cached_property
     def url_patterns(self):
-        # self 是「路由处理对象」
-        # 这里 self.urlconf_module 是一个被 property 装饰器装饰的方法，就在上面
-        # 以 myweb 项目为例，self.urlconf_name 属性的值是应用项目的 myweb.urls 路由处理模块
-        # 下面的 patterns 变量就是模块里的 urlpatterns 列表
+        # urlconf_module might be a valid set of patterns, so we default to it
         patterns = getattr(self.urlconf_module, "urlpatterns", self.urlconf_module)
         try:
             iter(patterns)
-        except TypeError as e:
+        except TypeError:
             msg = (
                 "The included URLconf '{name}' does not appear to have any "
                 "patterns in it. If you see valid patterns in the file then "
                 "the issue is probably caused by a circular import."
             )
-            raise ImproperlyConfigured(msg.format(name=self.urlconf_name)) from e
+            raise ImproperlyConfigured(msg.format(name=self.urlconf_name))
         return patterns
 
     def resolve_error_handler(self, view_type):
@@ -691,18 +632,11 @@ class URLResolver:
                     candidate_subs = kwargs
                 # Convert the candidate subs to text using Converter.to_url().
                 text_candidate_subs = {}
-                match = True
                 for k, v in candidate_subs.items():
                     if k in converters:
-                        try:
-                            text_candidate_subs[k] = converters[k].to_url(v)
-                        except ValueError:
-                            match = False
-                            break
+                        text_candidate_subs[k] = converters[k].to_url(v)
                     else:
                         text_candidate_subs[k] = str(v)
-                if not match:
-                    continue
                 # WSGI provides decoded URLs, without %xx escapes, and the URL
                 # resolver operates on such URLs. First substitute arguments
                 # without quoting to build a decoded URL and look for a match.
@@ -728,7 +662,7 @@ class URLResolver:
             if args:
                 arg_msg = "arguments '%s'" % (args,)
             elif kwargs:
-                arg_msg = "keyword arguments '%s'" % kwargs
+                arg_msg = "keyword arguments '%s'" % (kwargs,)
             else:
                 arg_msg = "no arguments"
             msg = (

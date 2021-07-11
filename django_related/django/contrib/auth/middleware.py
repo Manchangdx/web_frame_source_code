@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth import load_backend
 from django.contrib.auth.backends import RemoteUserBackend
@@ -14,18 +15,13 @@ def get_user(request):
 
 class AuthenticationMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        """给 request 添加一个 user 属性，属性值就是用户映射类实例
-        """
-
         assert hasattr(request, 'session'), (
             "The Django authentication middleware requires session middleware "
-            "to be installed. Edit your MIDDLEWARE setting to insert "
+            "to be installed. Edit your MIDDLEWARE%s setting to insert "
             "'django.contrib.sessions.middleware.SessionMiddleware' before "
             "'django.contrib.auth.middleware.AuthenticationMiddleware'."
-        )
+        ) % ("_CLASSES" if settings.MIDDLEWARE is None else "")
         request.user = SimpleLazyObject(lambda: get_user(request))
-        #print('【django.contrib.auth.middleware.AuthenticationMiddleware.process_request】'
-        #        f'给 request 添加一个 user 属性 {request.user}')
 
 
 class RemoteUserMiddleware(MiddlewareMixin):
@@ -83,7 +79,6 @@ class RemoteUserMiddleware(MiddlewareMixin):
         if user:
             # User is valid.  Set request.user and persist user in the session
             # by logging the user in.
-            print('uuuuuuuuuuuuuuuuu', user)
             request.user = user
             auth.login(request, user)
 

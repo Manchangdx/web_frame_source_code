@@ -1,9 +1,6 @@
-import asyncio
 import logging
 import sys
 from functools import wraps
-
-from asgiref.sync import sync_to_async
 
 from django.conf import settings
 from django.core import signals
@@ -20,47 +17,32 @@ from django.views import debug
 
 def convert_exception_to_response(get_response):
     """
-    原注释翻译：
-    将给定的参数 get_response 函数包装在异常到响应转换中。所有异常将被转换。 
-    所有已知的 4xx 异常（Http404，PermissionDenied，MultiPartParserError，SuspiciousOperation）将转换为适当的响应。
-    而所有其它异常将转换为 5xx 响应。
-    该装饰器自动应用于所有中间件，以确保没有中间件泄漏异常，并且堆栈中的下一个中间件可以依赖于获取响应而不是异常。
+    Wrap the given get_response callable in exception-to-response conversion.
+
+    All exceptions will be converted. All known 4xx exceptions (Http404,
+    PermissionDenied, MultiPartParserError, SuspiciousOperation) will be
+    converted to the appropriate response, and all other exceptions will be
+    converted to 500 responses.
+
+    This decorator is automatically applied to all middleware to ensure that
+    no middleware leaks an exception and that the next middleware in the stack
+    can rely on getting a response instead of an exception.
     """
-    if asyncio.iscoroutinefunction(get_response):
-        @wraps(get_response)
-        async def inner(request):
-            try:
-                response = await get_response(request)
-            except Exception as exc:
-                response = await sync_to_async(response_for_exception, thread_sensitive=False)(request, exc)
-            return response
-        return inner
-    else:
-        @wraps(get_response)
-        def inner(request):
-            try:
-                # get_response 可能是中间件对象
-                # 或者 django.core.handler.base.BaseHandler._get_response 方法
-                # 如果没有匹配到路径对应的视图函数，会抛出 Resolver404 异常
-                response = get_response(request)
-            except Exception as exc:
-                # 这块儿处理异常，此函数定义在当前模块，就在下面
-                # request 是请求对象，exc 是异常类的实例
-                response = response_for_exception(request, exc)
-            return response
-        inner.get_response = get_response
-        return inner
+    @wraps(get_response)
+    def inner(request):
+        try:
+            response = get_response(request)
+        except Exception as exc:
+            response = response_for_exception(request, exc)
+        return response
+    return inner
 
 
 def response_for_exception(request, exc):
-    print('【django.core.handlers.exception.response_for_exception】exc:', exc.__class__)
-    # 如果没有匹配到路径对应的视图函数，会抛出 Resolver404 异常，它是 Http404 的子类
     if isinstance(exc, Http404):
         if settings.DEBUG:
             response = debug.technical_404_response(request, exc)
         else:
-            # 此函数定义在当前模块中，就在下面
-            # 参数分别是：请求对象，路由处理对象，响应码，异常对象
             response = get_exception_response(request, get_resolver(get_urlconf()), 404, exc)
 
     elif isinstance(exc, PermissionDenied):
@@ -121,10 +103,7 @@ def response_for_exception(request, exc):
 
 
 def get_exception_response(request, resolver, status_code, exception):
-    # 参数分别是：请求对象，路由处理对象，状态码，异常对象
     try:
-        # 此方法定义在 django.urls.resolvers.URLResolver 类中
-        # 返回值是二元元组，处理异常的视图函数和字典参数
         callback, param_dict = resolver.resolve_error_handler(status_code)
         response = callback(request, **{**param_dict, 'exception': exception})
     except Exception:

@@ -26,9 +26,7 @@ class CommandError(Exception):
     error) is the preferred way to indicate that something has gone
     wrong in the execution of a command.
     """
-    def __init__(self, *args, returncode=1, **kwargs):
-        self.returncode = returncode
-        super().__init__(*args, **kwargs)
+    pass
 
 
 class SystemCheckError(CommandError):
@@ -45,7 +43,6 @@ class CommandParser(ArgumentParser):
     command is called programmatically.
     """
     def __init__(self, *, missing_args_message=None, called_from_command_line=None, **kwargs):
-        #print('【django.core.management.base.CommandParser.__init__】kwargs:', kwargs)
         self.missing_args_message = missing_args_message
         self.called_from_command_line = called_from_command_line
         super().__init__(**kwargs)
@@ -55,7 +52,6 @@ class CommandParser(ArgumentParser):
         if (self.missing_args_message and
                 not (args or any(not arg.startswith('-') for arg in args))):
             self.error(self.missing_args_message)
-        # 此处调用父类的同名方法，该方法定义在 argparse.ArgumentParse 类中
         return super().parse_args(args, namespace)
 
     def error(self, message):
@@ -71,8 +67,6 @@ def handle_default_options(options):
     so that ManagementUtility can handle them before searching for
     user commands.
     """
-    #print('【django.core.management.base.handle_default_options】options.settings:', options.settings)
-    #print('【django.core.management.base.handle_default_options】options.pythonpath:', options.pythonpath)
     if options.settings:
         os.environ['DJANGO_SETTINGS_MODULE'] = options.settings
     if options.pythonpath:
@@ -87,7 +81,6 @@ def no_translations(handle_func):
         translation.deactivate_all()
         try:
             res = handle_func(*args, **kwargs)
-            #print('【django.core.management.base.no_transactions】res:', res)
         finally:
             if saved_locale is not None:
                 translation.activate(saved_locale)
@@ -144,7 +137,7 @@ class OutputWrapper(TextIOBase):
     def isatty(self):
         return hasattr(self._out, 'isatty') and self._out.isatty()
 
-    def write(self, msg='', style_func=None, ending=None):
+    def write(self, msg, style_func=None, ending=None):
         ending = self.ending if ending is None else ending
         if ending and not msg.endswith(ending):
             msg += ending
@@ -316,25 +309,25 @@ class BaseCommand:
         parser.print_help()
 
     def run_from_argv(self, argv):
-        # self 是「命令处理对象」
-        print('【django.core.management.base.BaseCommand.run_from_argv】argv:', argv)
+        """
+        Set up any environment changes requested (e.g., Python path
+        and Django settings), then run this command. If the
+        command raises a ``CommandError``, intercept it and print it sensibly
+        to stderr. If the ``--traceback`` option is present or the raised
+        ``Exception`` is not ``CommandError``, raise it.
+        """
         self._called_from_command_line = True
-        # 下面这个变量是「命令解析对象」，它是当前模块中定义的 CommandParser 类的实例
         parser = self.create_parser(argv[0], argv[1])
-        # 调用「命令解析对象」的 parse_args 方法，此方法定义在当前模块的 CommandParser 类中
-        # 此方法会处理子命令对应的全部选项，返回一个对象，这个对象的 __dict__ 属性值就是选项及其参数
+
         options = parser.parse_args(argv[2:])
-        # 内置函数 vars 返回对象的 __dict__ 属性值，也就是一个字典对象
         cmd_options = vars(options)
+        # Move positional args out of options to mimic legacy optparse
         args = cmd_options.pop('args', ())
-        #print('【django.core.management.base.BaseCommand.run_from_argv】cmd_options:', cmd_options)
-        #print('【django.core.management.base.BaseCommand.run_from_argv】args:', args)
         handle_default_options(options)
         try:
-            # 关键代码，此方法定义在当前类中，就在下面。参数分别是元组和字典对象
             self.execute(*args, **cmd_options)
-        except CommandError as e:
-            if options.traceback:
+        except Exception as e:
+            if options.traceback or not isinstance(e, CommandError):
                 raise
 
             # SystemCheckError takes care of its own formatting.
@@ -342,7 +335,7 @@ class BaseCommand:
                 self.stderr.write(str(e), lambda x: x)
             else:
                 self.stderr.write('%s: %s' % (e.__class__.__name__, e))
-            sys.exit(e.returncode)
+            sys.exit(1)
         finally:
             try:
                 connections.close_all()
@@ -352,8 +345,11 @@ class BaseCommand:
                 pass
 
     def execute(self, *args, **options):
-        # self 是「命令处理对象」
-        #print('【django.core.management.base.BaseCommand.execute】args:', args)
+        """
+        Try to execute this command, performing system checks if needed (as
+        controlled by the ``requires_system_checks`` attribute, except if
+        force-skipped).
+        """
         if options['force_color'] and options['no_color']:
             raise CommandError("The --no-color and --force-color options can't be used together.")
         if options['force_color']:
@@ -367,22 +363,9 @@ class BaseCommand:
             self.stderr = OutputWrapper(options['stderr'])
 
         if self.requires_system_checks and not options['skip_checks']:
-            # 通常会执行这个方法，检测整个项目
-            # 主要是各个应用对象的映射类是否有问题以及互相之间是否有冲突之类的
             self.check()
         if self.requires_migrations_checks:
             self.check_migrations()
-
-        # 下面这个 handle 方法是重要的
-        # 它定义在 django.core.management.commands.xxxx.Command 类中
-
-        # 以 python manage.py runserver 为例
-        # 它会调用 self 的 run 方法，此方法也在那个类中，self 就是「命令处理对象」
-        # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建线程并启动
-
-        # 以 python manage.py migrate 为例
-        # 它会处理数据库相关的事务，创建连接对象，操作数据库版本控制功能，将映射类转换成数据表
-        print('【django.core.management.base.BaseCommand.execute】args:', args)
         output = self.handle(*args, **options)
         if output:
             if self.output_transaction:
@@ -395,27 +378,22 @@ class BaseCommand:
             self.stdout.write(output)
         return output
 
+    def _run_checks(self, **kwargs):
+        return checks.run_checks(**kwargs)
+
     def check(self, app_configs=None, tags=None, display_num_errors=False,
-              include_deployment_checks=False, fail_level=checks.ERROR,
-              databases=None):
+              include_deployment_checks=False, fail_level=checks.ERROR):
         """
-        原注释翻译：
-        使用系统检查框架来验证整个 Django 项目。
-        对于任何严重的消息（错误或严重错误），请引发 CommandError。
-        如果只有少量消息（如警告），则将它们打印到 tderr 且不要引发异常。
+        Use the system check framework to validate entire Django project.
+        Raise CommandError for any serious message (error or critical errors).
+        If there are only light messages (like warnings), print them to stderr
+        and don't raise an exception.
         """
-        print('【django.core.management.base.BaseCommand.check】')
-        # checks 是 django.core.checks 包
-        # checks.run_checks 是 django.core.checks.registry 模块中定义的 CheckRegistry 类的实例的方法
-        # 这个类的实例叫做「“检查对象”收集器 registry」，它里面有很多检查对象，都是各个检查模块中的函数
-        # 这里面的 4 个参数差不多都是 None 或者是 False
-        all_issues = checks.run_checks(
+        all_issues = self._run_checks(
             app_configs=app_configs,
             tags=tags,
             include_deployment_checks=include_deployment_checks,
-            databases=databases,
         )
-        #print('【django.core.management.base.BaseCommand.check】all_issues:', all_issues)
 
         header, body, footer = "", "", ""
         visible_issue_count = 0  # excludes silenced warnings
@@ -446,7 +424,7 @@ class BaseCommand:
                     body += '\n%s:\n%s\n' % (group_name, formatted)
 
         if visible_issue_count:
-            header = "System check identified some issues:\n"
+            header = "【django.core.management.base.BaseCommand.check】系统检测出一些问题:"
 
         if display_num_errors:
             if visible_issue_count:
@@ -460,7 +438,6 @@ class BaseCommand:
 
         if any(e.is_serious(fail_level) and not e.is_silenced() for e in all_issues):
             msg = self.style.ERROR("SystemCheckError: %s" % header) + body + footer
-            print('6666 出现异常啦')
             raise SystemCheckError(msg)
         else:
             msg = header + body + footer
@@ -469,7 +446,7 @@ class BaseCommand:
             if visible_issue_count:
                 self.stderr.write(msg, lambda x: x)
             else:
-                self.stdout.write('【django.core.management.base.BaseCommand.check】' + msg)
+                self.stdout.write(msg)
 
     def check_migrations(self):
         """
@@ -488,7 +465,7 @@ class BaseCommand:
             apps_waiting_migration = sorted({migration.app_label for migration, backwards in plan})
             self.stdout.write(
                 self.style.NOTICE(
-                    "\nYou have %(unapplied_migration_count)s unapplied migration(s). "
+                    "\tYou have %(unapplied_migration_count)s unapplied migration(s). "
                     "Your project may not work properly until you apply the "
                     "migrations for app(s): %(apps_waiting_migration)s." % {
                         "unapplied_migration_count": len(plan),
@@ -496,7 +473,7 @@ class BaseCommand:
                     }
                 )
             )
-            self.stdout.write(self.style.NOTICE("Run 'python manage.py migrate' to apply them."))
+            self.stdout.write(self.style.NOTICE("\tRun 'python manage.py migrate' to apply them."))
 
     def handle(self, *args, **options):
         """

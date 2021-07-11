@@ -1,4 +1,3 @@
-import _thread
 import copy
 import threading
 import time
@@ -6,16 +5,17 @@ import warnings
 from collections import deque
 from contextlib import contextmanager
 
+import _thread
 import pytz
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.db import DEFAULT_DB_ALIAS, DatabaseError
+from django.db import DEFAULT_DB_ALIAS
 from django.db.backends import utils
 from django.db.backends.base.validation import BaseDatabaseValidation
 from django.db.backends.signals import connection_created
 from django.db.transaction import TransactionManagementError
-from django.db.utils import DatabaseErrorWrapper
+from django.db.utils import DatabaseError, DatabaseErrorWrapper
 from django.utils import timezone
 from django.utils.asyncio import async_unsafe
 from django.utils.functional import cached_property
@@ -102,10 +102,6 @@ class BaseDatabaseWrapper:
 
         self.client = self.client_class(self)
         self.creation = self.creation_class(self)
-        # self 是「数据库包装对象」
-        # features_class 属性值是 django.db.backends.mysql.features.DatabaseFeatures 类
-        # 对其进行实例化时，会将自身，也就是「数据库包装对象」赋值给该实例的 connection 属性
-        # 即 self.features.connection 就是 self
         self.features = self.features_class(self)
         self.introspection = self.introspection_class(self)
         self.ops = self.ops_class(self)
@@ -121,20 +117,17 @@ class BaseDatabaseWrapper:
     @cached_property
     def timezone(self):
         """
-        Return a tzinfo of the database connection time zone.
+        Time zone for datetimes stored as naive values in the database.
 
-        This is only used when time zone support is enabled. When a datetime is
-        read from the database, it is always returned in this time zone.
+        Return a tzinfo object or None.
 
-        When the database backend supports time zones, it doesn't matter which
-        time zone Django uses, as long as aware datetimes are used everywhere.
-        Other users connecting to the database can choose their own time zone.
-
-        When the database backend doesn't support time zones, the time zone
-        Django uses may be constrained by the requirements of other users of
-        the database.
+        This is only needed when time zone support is enabled and the database
+        doesn't support time zones. (When the database supports time zones,
+        the adapter handles aware datetimes so Django doesn't need to.)
         """
         if not settings.USE_TZ:
+            return None
+        elif self.features.supports_timezones:
             return None
         elif self.settings_dict['TIME_ZONE'] is None:
             return timezone.utc
@@ -188,7 +181,6 @@ class BaseDatabaseWrapper:
     @async_unsafe
     def connect(self):
         """Connect to the database. Assume that the connection is closed."""
-        # self 是「数据库包装对象」
         # Check for invalid configurations.
         self.check_settings()
         # In case the previous connection was closed while in an atomic block
@@ -202,9 +194,6 @@ class BaseDatabaseWrapper:
         self.errors_occurred = False
         # Establish the connection
         conn_params = self.get_connection_params()
-        # 下面这个方法定义在子类 django.db.backends.mysql.base.DatabaseWrapper 类中
-        # 参数 conn_params 是连接数据库所需的各种信息组成的字典对象
-        # 此处创建「数据库连接对象」，也就是 MySQLdb.connections.Connection 类的实例
         self.connection = self.get_new_connection(conn_params)
         self.set_autocommit(self.settings_dict['AUTOCOMMIT'])
         self.init_connection_state()
@@ -213,20 +202,21 @@ class BaseDatabaseWrapper:
         self.run_on_commit = []
 
     def check_settings(self):
-        if self.settings_dict['TIME_ZONE'] is not None and not settings.USE_TZ:
-            raise ImproperlyConfigured(
-                "Connection '%s' cannot set TIME_ZONE because USE_TZ is False."
-                % self.alias
-            )
+        if self.settings_dict['TIME_ZONE'] is not None:
+            if not settings.USE_TZ:
+                raise ImproperlyConfigured(
+                    "Connection '%s' cannot set TIME_ZONE because USE_TZ is "
+                    "False." % self.alias)
+            elif self.features.supports_timezones:
+                raise ImproperlyConfigured(
+                    "Connection '%s' cannot set TIME_ZONE because its engine "
+                    "handles time zones conversions natively." % self.alias)
 
     @async_unsafe
     def ensure_connection(self):
         """Guarantee that a connection to the database is established."""
-        # self 是「数据库包装对象」
-        #print('【django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection】')
         if self.connection is None:
             with self.wrap_database_errors:
-                # 此方法定义在当前类中
                 self.connect()
 
     # ##### Backend-specific wrappers for PEP-249 connection methods #####
@@ -243,8 +233,6 @@ class BaseDatabaseWrapper:
         return wrapped_cursor
 
     def _cursor(self, name=None):
-        # self 是「数据库包装对象」
-        # 此方法定义在当前类中
         self.ensure_connection()
         with self.wrap_database_errors:
             return self._prepare_cursor(self.create_cursor(name))
@@ -611,32 +599,24 @@ class BaseDatabaseWrapper:
 
         Provide a cursor: with self.temporary_connection() as cursor: ...
         """
-        # self 是「数据库包装对象」
-        #print('【django.db.backends.base.base.BaseDatabaseWrapper.temporary_connection】')
         must_close = self.connection is None
         try:
-            # 调用当前类中定义的 cursor 方法
             with self.cursor() as cursor:
                 yield cursor
         finally:
             if must_close:
                 self.close()
 
-    @contextmanager
-    def _nodb_cursor(self):
+    @property
+    def _nodb_connection(self):
         """
-        Return a cursor from an alternative connection to be used when there is
-        no need to access the main database, specifically for test db
-        creation/deletion. This also prevents the production database from
-        being exposed to potential child threads while (or after) the test
-        database is destroyed. Refs #10868, #17786, #16969.
+        Return an alternative connection to be used when there is no need to
+        access the main database, specifically for test db creation/deletion.
+        This also prevents the production database from being exposed to
+        potential child threads while (or after) the test database is destroyed.
+        Refs #10868, #17786, #16969.
         """
-        conn = self.__class__({**self.settings_dict, 'NAME': None}, alias=NO_DB_ALIAS)
-        try:
-            with conn.cursor() as cursor:
-                yield cursor
-        finally:
-            conn.close()
+        return self.__class__({**self.settings_dict, 'NAME': None}, alias=NO_DB_ALIAS)
 
     def schema_editor(self, *args, **kwargs):
         """
@@ -645,8 +625,6 @@ class BaseDatabaseWrapper:
         if self.SchemaEditorClass is None:
             raise NotImplementedError(
                 'The SchemaEditorClass attribute of this database wrapper is still None')
-        # 此属性值是 django.db.backends.mysql.schema.DatabaseSchemaEditor 类
-        # 此处对其进行实例化并返回，该实例是上下文对象
         return self.SchemaEditorClass(self, *args, **kwargs)
 
     def on_commit(self, func):

@@ -20,19 +20,8 @@ class DjangoTemplates(BaseEngine):
         options = params.pop('OPTIONS').copy()
         options.setdefault('autoescape', True)
         options.setdefault('debug', settings.DEBUG)
-        options.setdefault('file_charset', 'utf-8')
+        options.setdefault('file_charset', settings.FILE_CHARSET)
         libraries = options.get('libraries', {})
-        # 下面这个值是字典对象
-        # {'cache': 'django.templatetags.cache', 
-        #  'i18n': 'django.templatetags.i18n', 
-        #  'l10n': 'django.templatetags.l10n', 
-        #  'static': 'django.templatetags.static', 
-        #  'tz': 'django.templatetags.tz', 
-        #  'admin_list': 'django.contrib.admin.templatetags.admin_list', 
-        #  'admin_modify': 'django.contrib.admin.templatetags.admin_modify', 
-        #  'admin_urls': 'django.contrib.admin.templatetags.admin_urls', 
-        #  'log': 'django.contrib.admin.templatetags.log'
-        # }
         options['libraries'] = self.get_templatetag_libraries(libraries)
         super().__init__(params)
         self.engine = Engine(self.dirs, self.app_dirs, **options)
@@ -41,11 +30,7 @@ class DjangoTemplates(BaseEngine):
         return Template(self.engine.from_string(template_code), self)
 
     def get_template(self, template_name):
-        # self 是「模板引擎对象」
         try:
-            # self.engine 是 django.template.engine.Engine 类的实例，叫做「引擎对象」
-            # self.engine.get_template 的返回值是「模板对象」，django.template.base.Template 类的实例
-            # 下面这个 Template 是定义在当前模块中的类，该类的实例被称为「最终模板对象」
             return Template(self.engine.get_template(template_name), self)
         except TemplateDoesNotExist as exc:
             reraise(exc, self)
@@ -63,24 +48,16 @@ class DjangoTemplates(BaseEngine):
 class Template:
 
     def __init__(self, template, backend):
-        # self 是「最终模板对象」
-        # 参数 template 是「模板对象」，django.template.base.Template 类的实例
-        # 参数 backend 是「模板引擎对象」，当前模块中的 DjangoTemplates 类的实例
         self.template = template
         self.backend = backend
 
     @property
     def origin(self):
-        return self.template.origin     
+        return self.template.origin
 
     def render(self, context=None, request=None):
-        # self 是「最终模板对象」，context 是字典对象，request 是「请求对象」
-
-        # 下面的 context 是 django.template.context.RequestContext 类的实例，叫做「请求上下文对象」
         context = make_context(context, request, autoescape=self.backend.engine.autoescape)
         try:
-            # 此处调用「模板对象」的 render 方法返回携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
-            # 该对象是 django.utils.safestring.SafeString 类的实例
             return self.template.render(context)
         except TemplateDoesNotExist as exc:
             reraise(exc, self.backend)

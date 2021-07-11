@@ -1,7 +1,7 @@
 import cgi
 import codecs
 import copy
-import warnings
+import re
 from io import BytesIO
 from itertools import chain
 from urllib.parse import quote, urlencode, urljoin, urlsplit
@@ -16,16 +16,12 @@ from django.http.multipartparser import MultiPartParser, MultiPartParserError
 from django.utils.datastructures import (
     CaseInsensitiveMapping, ImmutableList, MultiValueDict,
 )
-from django.utils.deprecation import RemovedInDjango40Warning
 from django.utils.encoding import escape_uri_path, iri_to_uri
 from django.utils.functional import cached_property
 from django.utils.http import is_same_domain, limited_parse_qsl
-from django.utils.regex_helper import _lazy_re_compile
-
-from .multipartparser import parse_header
 
 RAISE_ERROR = object()
-host_validation_re = _lazy_re_compile(r"^([a-z0-9.-]+|\[[a-f0-9]*:[a-f0-9\.:]+\])(:\d+)?$")
+host_validation_re = re.compile(r"^([a-z0-9.-]+|\[[a-f0-9]*:[a-f0-9\.:]+\])(:\d+)?$")
 
 
 class UnreadablePostError(OSError):
@@ -75,17 +71,6 @@ class HttpRequest:
     def headers(self):
         return HttpHeaders(self.META)
 
-    @cached_property
-    def accepted_types(self):
-        """Return a list of MediaType instances."""
-        return parse_accept_header(self.headers.get('Accept', '*/*'))
-
-    def accepts(self, media_type):
-        return any(
-            accepted_type.match(media_type)
-            for accepted_type in self.accepted_types
-        )
-
     def _set_content_type_params(self, meta):
         """Set content_type, content_params, and encoding."""
         self.content_type, self.content_params = cgi.parse_header(meta.get('CONTENT_TYPE', ''))
@@ -123,7 +108,7 @@ class HttpRequest:
         # Allow variants of localhost if ALLOWED_HOSTS is empty and DEBUG=True.
         allowed_hosts = settings.ALLOWED_HOSTS
         if settings.DEBUG and not allowed_hosts:
-            allowed_hosts = ['.localhost', '127.0.0.1', '[::1]']
+            allowed_hosts = ['localhost', '127.0.0.1', '[::1]']
 
         domain, port = split_domain_port(host)
         if domain and validate_host(domain, allowed_hosts):
@@ -206,9 +191,6 @@ class HttpRequest:
             # Make it an absolute url (but schemeless and domainless) for the
             # edge case that the path starts with '//'.
             location = '//%s' % self.get_full_path()
-        else:
-            # Coerce lazy locations.
-            location = str(location)
         bits = urlsplit(location)
         if not (bits.scheme and bits.netloc):
             # Handle the simple, most common case. If the location is absolute
@@ -258,12 +240,6 @@ class HttpRequest:
         return self.scheme == 'https'
 
     def is_ajax(self):
-        warnings.warn(
-            'request.is_ajax() is deprecated. See Django 3.1 release notes '
-            'for more details about this deprecation.',
-            RemovedInDjango40Warning,
-            stacklevel=2,
-        )
         return self.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
 
     @property
@@ -302,22 +278,11 @@ class HttpRequest:
 
     def parse_file_upload(self, META, post_data):
         """Return a tuple of (POST QueryDict, FILES MultiValueDict)."""
-        # self 是「请求对象」
         self.upload_handlers = ImmutableList(
             self.upload_handlers,
             warning="You cannot alter upload handlers after the upload has been processed."
         )
-        print('【django.http.request.HttpRequest.parse_file_upload】'
-              '「请求对象」创建「请求表单解析对象」并调用其 parse 方法')
-
-        # 此类定义在 django.http.multipartparser 模块中，其实例被称为「请求表单解析对象」
-        # META 是包含请求头信息的字典对象
-        # post_data 是 self ，也就是「请求对象」
-        # self.upload_handlers 是元组，里面是一些文件上传相关的对象
-        # self.encoding 是字符串或 None TODO
         parser = MultiPartParser(META, post_data, self.upload_handlers, self.encoding)
-        # 调用「请求表单解析对象」的 parse 方法
-        # 处理请求体中的表单数据和文件数据，生成两个类字典对象并返回
         return parser.parse()
 
     @property
@@ -333,7 +298,6 @@ class HttpRequest:
 
             try:
                 self._body = self.read()
-                #print('--- 响应体：', self._body)
             except OSError as e:
                 raise UnreadablePostError(*e.args) from e
             self._stream = BytesIO(self._body)
@@ -344,10 +308,7 @@ class HttpRequest:
         self._files = MultiValueDict()
 
     def _load_post_and_files(self):
-        """处理请求体
-        """
-        # self 是「请求对象」
-        print('【django.http.request._load_post_and_files】处理请求体')
+        """Populate self._post and self._files if the content-type is a form type"""
         if self.method != 'POST':
             self._post, self._files = QueryDict(encoding=self._encoding), MultiValueDict()
             return
@@ -355,7 +316,6 @@ class HttpRequest:
             self._mark_post_parse_error()
             return
 
-        # 请求方式是 POST 且 CONTENT_TYPE 是 'multipart/form-data' 时，就是以表单的形式发送请求体
         if self.content_type == 'multipart/form-data':
             if hasattr(self, '_body'):
                 # Use already read data
@@ -363,12 +323,6 @@ class HttpRequest:
             else:
                 data = self
             try:
-                # self.parse_file_upload 方法定义在当前类中
-                # 此方法创建并调用「请求表单解析对象」的 parse 方法
-                # 处理请求体中的表单数据和文件数据，生成两个类字典对象并返回
-                # self.META 在实例初始化时定义，是包含请求头信息的字典
-                # data 是 self ，也就是「请求对象」
-                # self._post 和 self._files 分别对应请求体的表单数据和文件数据的字典对象
                 self._post, self._files = self.parse_file_upload(self.META, data)
             except MultiPartParserError:
                 # An error occurred while parsing POST data. Since when
@@ -377,9 +331,6 @@ class HttpRequest:
                 # attempts to parse POST data again.
                 self._mark_post_parse_error()
                 raise
-        # 请求方式是 POST 且 CONTENT_TYPE 是 'application/x-www-form-urlencoded'
-        # 这是一种常见的 POST 请求提交数据的方式，浏览器原生 <form> 表单如果不设置 enctype 属性
-        # Content-Type 就是这种类型
         elif self.content_type == 'application/x-www-form-urlencoded':
             self._post, self._files = QueryDict(self.body, encoding=self._encoding), MultiValueDict()
         else:
@@ -387,7 +338,7 @@ class HttpRequest:
 
     def close(self):
         if hasattr(self, '_files'):
-            for f in chain.from_iterable(list_[1] for list_ in self._files.lists()):
+            for f in chain.from_iterable(l[1] for l in self._files.lists()):
                 f.close()
 
     # File-like and iterator interface.
@@ -603,40 +554,6 @@ class QueryDict(MultiValueDict):
         return '&'.join(output)
 
 
-class MediaType:
-    def __init__(self, media_type_raw_line):
-        full_type, self.params = parse_header(
-            media_type_raw_line.encode('ascii') if media_type_raw_line else b''
-        )
-        self.main_type, _, self.sub_type = full_type.partition('/')
-
-    def __str__(self):
-        params_str = ''.join(
-            '; %s=%s' % (k, v.decode('ascii'))
-            for k, v in self.params.items()
-        )
-        return '%s%s%s' % (
-            self.main_type,
-            ('/%s' % self.sub_type) if self.sub_type else '',
-            params_str,
-        )
-
-    def __repr__(self):
-        return '<%s: %s>' % (self.__class__.__qualname__, self)
-
-    @property
-    def is_all_types(self):
-        return self.main_type == '*' and self.sub_type == '*'
-
-    def match(self, other):
-        if self.is_all_types:
-            return True
-        other = MediaType(other)
-        if self.main_type == other.main_type and self.sub_type in {'*', other.sub_type}:
-            return True
-        return False
-
-
 # It's neither necessary nor appropriate to use
 # django.utils.encoding.force_str() for parsing URLs and form inputs. Thus,
 # this slightly more restricted function, used by QueryDict.
@@ -692,7 +609,3 @@ def validate_host(host, allowed_hosts):
     Return ``True`` for a valid host, ``False`` otherwise.
     """
     return any(pattern == '*' or is_same_domain(host, pattern) for pattern in allowed_hosts)
-
-
-def parse_accept_header(header):
-    return [MediaType(token) for token in header.split(',') if token.strip()]

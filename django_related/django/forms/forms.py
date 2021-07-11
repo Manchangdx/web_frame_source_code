@@ -5,8 +5,11 @@ Form classes
 import copy
 
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
+# BoundField is imported for backwards compatibility in Django 1.9
+from django.forms.boundfield import BoundField  # NOQA
 from django.forms.fields import Field, FileField
-from django.forms.utils import ErrorDict, ErrorList
+# pretty_name is imported for backwards compatibility in Django 1.9
+from django.forms.utils import ErrorDict, ErrorList, pretty_name  # NOQA
 from django.forms.widgets import Media, MediaDefiningClass
 from django.utils.datastructures import MultiValueDict
 from django.utils.functional import cached_property
@@ -30,7 +33,7 @@ class DeclarativeFieldsMetaclass(MediaDefiningClass):
                 attrs.pop(key)
         attrs['declared_fields'] = dict(current_fields)
 
-        new_class = super().__new__(mcs, name, bases, attrs)
+        new_class = super(DeclarativeFieldsMetaclass, mcs).__new__(mcs, name, bases, attrs)
 
         # Walk through the MRO.
         declared_fields = {}
@@ -53,7 +56,6 @@ class DeclarativeFieldsMetaclass(MediaDefiningClass):
 @html_safe
 class BaseForm:
     """
-    表单类基类的父类
     The main implementation of all the Form logic. Note that this class is
     different than Form. See the comments by the Form class for more info. Any
     improvements to the form API should be made to this class, not to the Form
@@ -67,21 +69,7 @@ class BaseForm:
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  initial=None, error_class=ErrorList, label_suffix=None,
                  empty_permitted=False, field_order=None, use_required_attribute=None, renderer=None):
-        # self 是表单类实例
-        # 参数说明：
-        # data      从请求体中提取的表单数据生成的类字典对象
-        # files     从请求体中提取的文件数据生成的类字典对象
-        # instance  表单对应的映射类的实例
-        
-        # 布尔值，用于判断是否有数据要填充表单类实例
         self.is_bound = data is not None or files is not None
-        # 该属性值是这样的类字典对象：
-        # {'username': ['James'], 
-        #  'email': ['james@qq.com'], 
-        #  'password': ['shiyanlou'], 
-        #  'confirm_password': ['shiyanlou'], 
-        #  'csrfmiddlewaretoken': ['rrM3JPzBqQixXRl18B6zY4b88YWzrlakU5UqLiRYPjTv9aBk6KIMyOjGJOGaF2bO']
-        # }
         self.data = MultiValueDict() if data is None else data
         self.files = MultiValueDict() if files is None else files
         self.auto_id = auto_id
@@ -94,16 +82,11 @@ class BaseForm:
         self.empty_permitted = empty_permitted
         self._errors = None  # Stores the errors after clean() has been called.
 
-        # 原注释翻译：
-        # 因为表单对应的映射类实例可能想要修改表单的字段，但前者不应该修改表单的字段
-        # 所以这里我们创建一个表单字段的复制品，映射类实例可以对复制品进行修改和使用
-        #
-        # self.base_fields 是定义在元类里的类属性，属性值是字典对象，类似这样：
-        # {'username': <django.forms.fields.CharField object at 0x108124b50>, 
-        #  'email': <django.forms.fields.EmailField object at 0x108131040>, 
-        #  'password': <django.forms.fields.CharField object at 0x108124d30>, 
-        #  'confirm_password': <django.forms.fields.CharField object at 0x108124eb0>
-        # }
+        # The base_fields class attribute is the *class-wide* definition of
+        # fields. Because a particular *instance* of the class might want to
+        # alter self.fields, we create self.fields here by copying base_fields.
+        # Instances should always modify self.fields; they should not modify
+        # self.base_fields.
         self.fields = copy.deepcopy(self.base_fields)
         self._bound_fields_cache = {}
         self.order_fields(self.field_order if field_order is None else field_order)
@@ -126,7 +109,6 @@ class BaseForm:
                 renderer = self.default_renderer
                 if isinstance(self.default_renderer, type):
                     renderer = renderer()
-        # 该属性值是 django.forms.renderers.DjangoTemplates 类的实例
         self.renderer = renderer
 
     def order_fields(self, field_order):
@@ -190,16 +172,11 @@ class BaseForm:
     def errors(self):
         """Return an ErrorDict for the data provided for the form."""
         if self._errors is None:
-            # 验证表单并将通过验证的表单项填入映射类实例的相应字段
             self.full_clean()
         return self._errors
 
     def is_valid(self):
-        """如果 POST 请求携带的表单数据被顺利解析并且表单验证器验证全部通过，返回 True
-        """
-        # self 是表单类实例
-        # self.is_bound 是布尔值，POST 请求进来时，如果「请求对象」成功解析获取了请求表单数据，该属性为 True
-        # self.errors 是类字典对象，里面保存验证表单过程中各种验证器抛出的异常
+        """Return True if the form has no errors, or False otherwise."""
         return self.is_bound and not self.errors
 
     def add_prefix(self, field_name):
@@ -217,8 +194,7 @@ class BaseForm:
 
     def _html_output(self, normal_row, error_row, row_ender, help_text_html, errors_on_separate_row):
         "Output HTML. Used by as_table(), as_ul(), as_p()."
-        # Errors that should be displayed above all fields.
-        top_errors = self.non_field_errors().copy()
+        top_errors = self.non_field_errors()  # Errors that should be displayed above all fields.
         output, hidden_fields = [], []
 
         for name, field in self.fields.items():
@@ -385,10 +361,9 @@ class BaseForm:
         )
 
     def full_clean(self):
-        """验证表单并将通过验证的表单项填入映射类实例的相应字段
         """
-        # self 是表单类实例
-        print('【django.forms.forms.BaseForm.full_clean】表单类实例进行表单项验证')
+        Clean all of self.data and populate self._errors and self.cleaned_data.
+        """
         self._errors = ErrorDict()
         if not self.is_bound:  # Stop further processing.
             return
@@ -398,24 +373,15 @@ class BaseForm:
         if self.empty_permitted and not self.has_changed():
             return
 
-        self._clean_fields()    # 验证表单信息，此方法就在下面
+        self._clean_fields()
         self._clean_form()
-        self._post_clean()      # 把合适的数据填入映射类实例的相应字段
+        self._post_clean()
 
     def _clean_fields(self):
-        """处理表单数据
-
-        没问题的放到 self.cleaned_data 字典里 {'字段名': 字段值}
-        有问题的把异常信息放到 self._errors 字典里
-        """
-        # self.fields 属性值是字典对象，类似这样：
-        # {'username': <django.forms.fields.CharField object at 0x108124b50>, 
-        #  'email': <django.forms.fields.EmailField object at 0x108131040>, 
-        #  'password': <django.forms.fields.CharField object at 0x108124d30>, 
-        #  'confirm_password': <django.forms.fields.CharField object at 0x108124eb0>
-        # }
         for name, field in self.fields.items():
-            # value 就是用户在表单输入框中输入的内容
+            # value_from_datadict() gets the data from the data dictionaries.
+            # Each widget type knows how to retrieve its own data, because some
+            # widgets split data over several HTML fields.
             if field.disabled:
                 value = self.get_initial_for_field(field, name)
             else:

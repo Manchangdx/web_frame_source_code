@@ -39,20 +39,12 @@ class MigrationLoader:
     to disk, but this is probably fine. We're already not just operating
     in memory.
     """
-    # 该类通常会在 django.db.migrations.executor.MigrationExecutor.__init__ 方法中被实例化
-    # 该类的实例被称为「数据库版本迁移加载器」
 
-    def __init__(
-        self, connection, load=True, ignore_no_migrations=False,
-        replace_migrations=True,
-    ):
-        # 实例化时通常会提供一个 connection 参数，参数值通常是「命令处理对象」
+    def __init__(self, connection, load=True, ignore_no_migrations=False):
         self.connection = connection
         self.disk_migrations = None
         self.applied_migrations = None
         self.ignore_no_migrations = ignore_no_migrations
-        self.replace_migrations = replace_migrations
-        # 实例化时通常不会提供 load 参数，所以下面两行代码都会执行
         if load:
             self.build_graph()
 
@@ -63,8 +55,6 @@ class MigrationLoader:
         and a boolean indicating if the module is specified in
         settings.MIGRATION_MODULE.
         """
-        #print('【django.db.migrations.loader.MigrationLoader.migrations_module】settings.MIGRATION_MODULES:')
-        #print('\t', settings.MIGRATION_MODULES)
         if app_label in settings.MIGRATION_MODULES:
             return settings.MIGRATION_MODULES[app_label], True
         else:
@@ -85,11 +75,11 @@ class MigrationLoader:
             was_loaded = module_name in sys.modules
             try:
                 module = import_module(module_name)
-            except ModuleNotFoundError as e:
-                if (
-                    (explicit and self.ignore_no_migrations) or
-                    (not explicit and MIGRATIONS_MODULE_NAME in e.name.split('.'))
-                ):
+            except ImportError as e:
+                # I hate doing this, but I don't want to squash other import errors.
+                # Might be better to try a directory check directly.
+                if ((explicit and self.ignore_no_migrations) or (
+                        not explicit and "No module named" in str(e) and MIGRATIONS_MODULE_NAME in str(e))):
                     self.unmigrated_apps.add(app_config.label)
                     continue
                 raise
@@ -107,14 +97,11 @@ class MigrationLoader:
                 if was_loaded:
                     reload(module)
             self.migrated_apps.add(app_config.label)
-            # 在各个应用中的 migrations 子目录下的版本迁移文件的名字的字符串集合
             migration_names = {
                 name for _, name, is_pkg in pkgutil.iter_modules(module.__path__)
                 if not is_pkg and name[0] not in '_~'
             }
             # Load migrations
-            #print(f'【django.db.migrations.loader.MigrationLoader.load_disk】{module_name} {len(migration_names)}')
-
             for migration_name in migration_names:
                 migration_path = '%s.%s' % (module_name, migration_name)
                 try:
@@ -131,7 +118,6 @@ class MigrationLoader:
                     raise BadMigrationError(
                         "Migration %s in app %s has no Migration class" % (migration_name, app_config.label)
                     )
-                # 创建各应用中的版本迁移文件中的 Migration 类的实例，并存到 self.disk_migrations 属性字典中
                 self.disk_migrations[app_config.label, migration_name] = migration_module.Migration(
                     migration_name,
                     app_config.label,
@@ -216,16 +202,8 @@ class MigrationLoader:
         You'll need to rebuild the graph if you apply migrations. This isn't
         usually a problem as generally migration stuff runs in a one-shot process.
         """
-        # self 是「数据库版本迁移加载器」
-        # 下面这个方法用于从各个应用中的 migrations 子目录中找到版本迁移文件
-        # 创建各文件中的 Migration 类的实例并加入到 self.disk_migrations 属性字典中
-        # key 是元组 ('admin', '0001_initial')
-        # value 是 xxxx.Migration 类的实例
+        # Load disk data
         self.load_disk()
-        #print('【django.db.migrations.loader.MigrationLoader.build_graph】')
-        #for k, v in self.disk_migrations.items():
-        #    print(f'\t{k} {v}')
-        
         # Load database data
         if self.connection is None:
             self.applied_migrations = {}
@@ -237,47 +215,34 @@ class MigrationLoader:
         self.graph = MigrationGraph()
         self.replacements = {}
         for key, migration in self.disk_migrations.items():
-            # 此方法定义在 django.db.migrations.graph.MigrationGraph 类中
-            # 其作用是给 self.graph.nodes 字典添加键值对
             self.graph.add_node(key, migration)
             # Replacing migrations.
             if migration.replaces:
                 self.replacements[key] = migration
-
         for key, migration in self.disk_migrations.items():
             # Internal (same app) dependencies.
             self.add_internal_dependencies(key, migration)
         # Add external dependencies now that the internal ones have been resolved.
         for key, migration in self.disk_migrations.items():
             self.add_external_dependencies(key, migration)
-        # Carry out replacements where possible and if enabled.
-        
-        #print('>>>')
-        #for k, v in self.graph.node_map.items():
-        #    print(k)
-        #    print('\t', v.children)
-        #print('>>>')
-
-        if self.replace_migrations:
-            for key, migration in self.replacements.items():
-                # Get applied status of each of this migration's replacement
-                # targets.
-                applied_statuses = [(target in self.applied_migrations) for target in migration.replaces]
-                # The replacing migration is only marked as applied if all of
-                # its replacement targets are.
-                if all(applied_statuses):
-                    self.applied_migrations[key] = migration
-                else:
-                    self.applied_migrations.pop(key, None)
-                # A replacing migration can be used if either all or none of
-                # its replacement targets have been applied.
-                if all(applied_statuses) or (not any(applied_statuses)):
-                    self.graph.remove_replaced_nodes(key, migration.replaces)
-                else:
-                    # This replacing migration cannot be used because it is
-                    # partially applied. Remove it from the graph and remap
-                    # dependencies to it (#25945).
-                    self.graph.remove_replacement_node(key, migration.replaces)
+        # Carry out replacements where possible.
+        for key, migration in self.replacements.items():
+            # Get applied status of each of this migration's replacement targets.
+            applied_statuses = [(target in self.applied_migrations) for target in migration.replaces]
+            # Ensure the replacing migration is only marked as applied if all of
+            # its replacement targets are.
+            if all(applied_statuses):
+                self.applied_migrations[key] = migration
+            else:
+                self.applied_migrations.pop(key, None)
+            # A replacing migration can be used if either all or none of its
+            # replacement targets have been applied.
+            if all(applied_statuses) or (not any(applied_statuses)):
+                self.graph.remove_replaced_nodes(key, migration.replaces)
+            else:
+                # This replacing migration cannot be used because it is partially applied.
+                # Remove it from the graph and remap dependencies to it (#25945).
+                self.graph.remove_replacement_node(key, migration.replaces)
         # Ensure the graph is consistent.
         try:
             self.graph.validate_consistency()
@@ -306,7 +271,7 @@ class MigrationLoader:
                         ),
                         exc.node
                     ) from exc
-            raise
+            raise exc
         self.graph.ensure_not_cyclic()
 
     def check_consistent_history(self, connection):
@@ -357,21 +322,3 @@ class MigrationLoader:
         See graph.make_state() for the meaning of "nodes" and "at_end".
         """
         return self.graph.make_state(nodes=nodes, at_end=at_end, real_apps=list(self.unmigrated_apps))
-
-    def collect_sql(self, plan):
-        """
-        Take a migration plan and return a list of collected SQL statements
-        that represent the best-efforts version of that plan.
-        """
-        statements = []
-        state = None
-        for migration, backwards in plan:
-            with self.connection.schema_editor(collect_sql=True, atomic=migration.atomic) as schema_editor:
-                if state is None:
-                    state = self.project_state((migration.app_label, migration.name), at_end=False)
-                if not backwards:
-                    state = migration.apply(state, schema_editor, collect_sql=True)
-                else:
-                    state = migration.unapply(state, schema_editor, collect_sql=True)
-            statements.extend(schema_editor.collected_sql)
-        return statements

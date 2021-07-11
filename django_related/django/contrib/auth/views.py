@@ -63,7 +63,6 @@ class LoginView(SuccessURLAllowedHostsMixin, FormView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
-        # 返回重定向路由字符串，默认就是 settings.LOGIN_REDIRECT_URL ，即 '/'
         url = self.get_redirect_url()
         return url or resolve_url(settings.LOGIN_REDIRECT_URL)
 
@@ -89,14 +88,8 @@ class LoginView(SuccessURLAllowedHostsMixin, FormView):
         return kwargs
 
     def form_valid(self, form):
-        # 如果客户端发来的是 post 请求，会调用从父类继承的 post 方法处理
-        # 表单数据通过了全部验证后，会自动调用 form_valid 方法进行最后的处理
-        # 参数 form 是用于用户注册的表单类的实例
-
-        # 此方法是 django.contrib.auth.__init__.login 函数，将用户设为登录状态
-        # 也就是创建一个 django_session 数据表中的一条数据，然后准备把 sessionid 放到 response.cookies 中
+        """Security check complete. Log the user in."""
         auth_login(self.request, form.get_user())
-        # 参数 self.get_success_url 定义在当前类中，返回值是路径 '/'
         return HttpResponseRedirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
@@ -122,7 +115,6 @@ class LogoutView(SuccessURLAllowedHostsMixin, TemplateView):
 
     @method_decorator(never_cache)
     def dispatch(self, request, *args, **kwargs):
-        # 此方法就是定义在 django.contrib.auth.__init__ 模块中的 logout 函数
         auth_logout(request)
         next_page = self.get_next_page()
         if next_page:

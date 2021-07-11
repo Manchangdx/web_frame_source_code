@@ -18,15 +18,19 @@ from django.utils.translation import gettext as _, gettext_lazy
 
 def serve(request, path, document_root=None, show_indexes=False):
     """
-    将静态文件放在指定目录结构中。
+    Serve static files below a given point in the directory structure.
 
-    用法如下：
+    To use, put a URL pattern such as::
+
         from django.views.static import serve
+
         path('<path:path>', serve, {'document_root': '/path/to/my/files/'})
 
-    在 path 方法中须提供 document_root 参数。
-    如果您想提供目录的基本索引，也可以将 show_indexes 设置为 True 。 
-    该索引视图将使用下面的硬编码模板，亦可创建一个名为 “static/directory_index.html” 的模板替代它。
+    in your URLconf. You must provide the ``document_root`` param. You may
+    also set ``show_indexes`` to ``True`` if you'd like to serve a basic index
+    of the directory.  This index view will use the template hardcoded below,
+    but if you'd like to override it, you can create a template called
+    ``static/directory_index.html``.
     """
     path = posixpath.normpath(path).lstrip('/')
     fullpath = Path(safe_join(document_root, path))
@@ -58,10 +62,10 @@ DEFAULT_DIRECTORY_INDEX_TEMPLATE = """
     <meta http-equiv="Content-type" content="text/html; charset=utf-8">
     <meta http-equiv="Content-Language" content="en-us">
     <meta name="robots" content="NONE,NOARCHIVE">
-    <title>{% blocktranslate %}Index of {{ directory }}{% endblocktranslate %}</title>
+    <title>{% blocktrans %}Index of {{ directory }}{% endblocktrans %}</title>
   </head>
   <body>
-    <h1>{% blocktranslate %}Index of {{ directory }}{% endblocktranslate %}</h1>
+    <h1>{% blocktrans %}Index of {{ directory }}{% endblocktrans %}</h1>
     <ul>
       {% if directory != "/" %}
       <li><a href="../">../</a></li>
@@ -120,8 +124,8 @@ def was_modified_since(header=None, mtime=0, size=0):
             raise ValueError
         matches = re.match(r"^([^;]+)(; length=([0-9]+))?$", header,
                            re.IGNORECASE)
-        header_mtime = parse_http_date(matches[1])
-        header_len = matches[3]
+        header_mtime = parse_http_date(matches.group(1))
+        header_len = matches.group(3)
         if header_len and int(header_len) != size:
             raise ValueError
         if int(mtime) > header_mtime:

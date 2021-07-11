@@ -124,10 +124,12 @@ class BaseContext:
         """
         Compare two contexts by comparing theirs 'dicts' attributes.
         """
-        if not isinstance(other, BaseContext):
-            return NotImplemented
-        # flatten dictionaries because they can be put in a different order.
-        return self.flatten() == other.flatten()
+        return (
+            isinstance(other, BaseContext) and
+            # because dictionaries can be put in different order
+            # we have to flatten them like in templates
+            self.flatten() == other.flatten()
+        )
 
 
 class Context(BaseContext):
@@ -198,7 +200,6 @@ class RenderContext(BaseContext):
 
     @contextmanager
     def push_state(self, template, isolated_context=True):
-        # 参数 template 是「最终模板对象」，django.template.backends.django.Template 类的实例
         initial = self.template
         self.template = template
         if isolated_context:
@@ -273,7 +274,6 @@ def make_context(context, request=None, **kwargs):
         # The following pattern is required to ensure values from
         # context override those from template context processors.
         original_context = context
-        # 此类定义在当前模块中，叫做「请求上下文对象」
         context = RequestContext(request, **kwargs)
         if original_context:
             context.push(original_context)

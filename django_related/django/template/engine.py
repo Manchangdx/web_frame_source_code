@@ -4,8 +4,8 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 
-from .base import Template
-from .context import Context, _builtin_context_processors
+from .base import Context, Template
+from .context import _builtin_context_processors
 from .exceptions import TemplateDoesNotExist
 from .library import import_library
 
@@ -98,22 +98,14 @@ class Engine:
         return self.get_template_loaders(self.loaders)
 
     def get_template_loaders(self, template_loaders):
-        # self 是「引擎对象」
         loaders = []
-        # 参数 template_loaders 是列表：
-        # ['django.template.loaders.filesystem.Loader', 
-        #  'django.template.loaders.app_directories.Loader'
-        # ]
         for template_loader in template_loaders:
-            # 下面的 loader 是 ...Loader 类的实例，叫做「模板加载对象」
             loader = self.find_template_loader(template_loader)
             if loader is not None:
                 loaders.append(loader)
-        # 返回值是列表，里面是 django.template.loaders...Loader 类的实例
         return loaders
 
     def find_template_loader(self, loader):
-        # self 是「引擎对象」
         if isinstance(loader, (tuple, list)):
             loader, *args = loader
         else:
@@ -121,20 +113,15 @@ class Engine:
 
         if isinstance(loader, str):
             loader_class = import_string(loader)
-            # 把「引擎对象」作为参数实例化「模板加载对象」
             return loader_class(self, *args)
         else:
             raise ImproperlyConfigured(
                 "Invalid value in template loaders configuration: %r" % loader)
 
     def find_template(self, name, dirs=None, skip=None):
-        # self 是「引擎对象」
         tried = []
-        # self.template_loaders 是列表
-        # 里面是 django.template.loaders...Loader 类的实例，叫做「模板加载对象」
         for loader in self.template_loaders:
             try:
-                # 这个就是「模板对象」，它是 django.template.base.Template 类的实例
                 template = loader.get_template(name, skip=skip)
                 return template, template.origin
             except TemplateDoesNotExist as e:
@@ -152,13 +139,10 @@ class Engine:
         """
         Return a compiled Template object for the given template name,
         handling template inheritance recursively.
-        翻译：返回给定模板名称的已编译 Template 对象，以递归方式处理模板继承。
         """
-        # self 是「引擎对象」，参数 template_name 是视图函数提供的前端模板文件名字
-        # template: django.template.base.Template 类的实例，就是「模板对象」
-        # origin: django.template.base.Origin 类的实例
         template, origin = self.find_template(template_name)
         if not hasattr(template, 'render'):
+            # template needs to be compiled
             template = Template(template, origin, template_name, engine=self)
         return template
 

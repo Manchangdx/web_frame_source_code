@@ -11,12 +11,9 @@ class MigrationExecutor:
     """
     End-to-end migration execution - load migrations and run them up or down
     to a specified set of targets.
-    该类的实例叫做「数据库版本迁移执行器」
     """
 
     def __init__(self, connection, progress_callback=None):
-        # 下面的 connection 是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
-        # 叫做「数据库包装对象」
         self.connection = connection
         self.loader = MigrationLoader(self.connection)
         self.recorder = MigrationRecorder(self.connection)
@@ -91,11 +88,6 @@ class MigrationExecutor:
         """
         # The django_migrations table must be present to record applied
         # migrations.
-        #print('【django.db.migrations.executor.MigrationExecutor.migrate】targets:')
-        #for i in targets:
-        #    print('\t', i)
-        #print('【django.db.migrations.executor.MigrationExecutor.migrate】len(plan):', len(plan))
-
         self.recorder.ensure_schema()
 
         if plan is None:
@@ -122,7 +114,6 @@ class MigrationExecutor:
             if state is None:
                 # The resulting state should still include applied migrations.
                 state = self._create_project_state(with_applied_migrations=True)
-            # 这行代码被执行，此方法定义在当前类中，就在下面
             state = self._migrate_all_forwards(state, plan, full_plan, fake=fake, fake_initial=fake_initial)
         else:
             # No need to check for `elif all_backwards` here, as that condition
@@ -138,11 +129,7 @@ class MigrationExecutor:
         Take a list of 2-tuples of the form (migration instance, False) and
         apply them in the order they occur in the full_plan.
         """
-        # 该集合中存储了全部迁移文件中的迁移类的实例，也就是「迁移对象」的集合
         migrations_to_run = {m[0] for m in plan}
-        print('【django.db.migrations.executor.MigrationExecutor._migrate_all_forwards】')
-        # full_plan 是列表，根据名字可以看出里面是全部的二元元组 (迁移对象, 布尔值)
-        # migration 就是「迁移对象」
         for migration, _ in full_plan:
             if not migrations_to_run:
                 # We remove every migration that we applied from these sets so
@@ -150,7 +137,6 @@ class MigrationExecutor:
                 # and don't always run until the very end of the migration
                 # process.
                 break
-            # 这个判断几乎会全部通过
             if migration in migrations_to_run:
                 if 'apps' not in state.__dict__:
                     if self.progress_callback:
@@ -224,12 +210,26 @@ class MigrationExecutor:
 
         return state
 
+    def collect_sql(self, plan):
+        """
+        Take a migration plan and return a list of collected SQL statements
+        that represent the best-efforts version of that plan.
+        """
+        statements = []
+        state = None
+        for migration, backwards in plan:
+            with self.connection.schema_editor(collect_sql=True, atomic=migration.atomic) as schema_editor:
+                if state is None:
+                    state = self.loader.project_state((migration.app_label, migration.name), at_end=False)
+                if not backwards:
+                    state = migration.apply(state, schema_editor, collect_sql=True)
+                else:
+                    state = migration.unapply(state, schema_editor, collect_sql=True)
+            statements.extend(schema_editor.collected_sql)
+        return statements
+
     def apply_migration(self, state, migration, fake=False, fake_initial=False):
         """Run a migration forwards."""
-        # 参数 migration 是迁移文件中定义的 Migration 类的实例，叫做「迁移对象」
-        #print('【django.db.migrations.executor.MigrationExecutor.apply_migration】state:', state)
-        #print('【django.db.migrations.executor.MigrationExecutor.apply_migration】migration:')
-        #print('\t', migration.apply)
         migration_recorded = False
         if self.progress_callback:
             self.progress_callback("apply_start", migration, fake)
@@ -240,12 +240,7 @@ class MigrationExecutor:
                 if applied:
                     fake = True
             if not fake:
-                # 下面的 self.connection 是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
-                # 其 schema_editor 方法定义在其父类 django.db.backends.base.base.BaseDatabaseWrapper 中
-                # 该方法的返回值是 django.db.backends.mysql.schema.DatabaseSchemaEditor 类的实例
-                # 该实例是上下文对象，__enter__ 和 __exit__ 方法在 
-                # django.db.backends.base.schema.BaseDatabaseSchemaEditor 类中
-                # 其中包含了执行 SQL 语句的代码
+                # Alright, do it normally
                 with self.connection.schema_editor(atomic=migration.atomic) as schema_editor:
                     state = migration.apply(state, schema_editor)
                     self.record_migration(migration)
@@ -334,11 +329,8 @@ class MigrationExecutor:
         apps = after_state.apps
         found_create_model_migration = False
         found_add_field_migration = False
-        fold_identifier_case = self.connection.features.ignores_table_name_case
         with self.connection.cursor() as cursor:
-            existing_table_names = set(self.connection.introspection.table_names(cursor))
-            if fold_identifier_case:
-                existing_table_names = {name.casefold() for name in existing_table_names}
+            existing_table_names = self.connection.introspection.table_names(cursor)
         # Make sure all create model and add field operations are done
         for operation in migration.operations:
             if isinstance(operation, migrations.CreateModel):
@@ -349,10 +341,7 @@ class MigrationExecutor:
                     model = global_apps.get_model(model._meta.swapped)
                 if should_skip_detecting_model(migration, model):
                     continue
-                db_table = model._meta.db_table
-                if fold_identifier_case:
-                    db_table = db_table.casefold()
-                if db_table not in existing_table_names:
+                if model._meta.db_table not in existing_table_names:
                     return False, project_state
                 found_create_model_migration = True
             elif isinstance(operation, migrations.AddField):
@@ -369,27 +358,19 @@ class MigrationExecutor:
 
                 # Handle implicit many-to-many tables created by AddField.
                 if field.many_to_many:
-                    through_db_table = field.remote_field.through._meta.db_table
-                    if fold_identifier_case:
-                        through_db_table = through_db_table.casefold()
-                    if through_db_table not in existing_table_names:
+                    if field.remote_field.through._meta.db_table not in existing_table_names:
                         return False, project_state
                     else:
                         found_add_field_migration = True
                         continue
-                with self.connection.cursor() as cursor:
-                    columns = self.connection.introspection.get_table_description(cursor, table)
-                for column in columns:
-                    field_column = field.column
-                    column_name = column.name
-                    if fold_identifier_case:
-                        column_name = column_name.casefold()
-                        field_column = field_column.casefold()
-                    if column_name == field_column:
-                        found_add_field_migration = True
-                        break
-                else:
+
+                column_names = [
+                    column.name for column in
+                    self.connection.introspection.get_table_description(self.connection.cursor(), table)
+                ]
+                if field.column not in column_names:
                     return False, project_state
+                found_add_field_migration = True
         # If we get this far and we found at least one CreateModel or AddField migration,
         # the migration is considered implicitly applied.
         return (found_create_model_migration or found_add_field_migration), after_state

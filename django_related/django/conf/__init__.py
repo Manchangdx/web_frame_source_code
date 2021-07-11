@@ -15,22 +15,15 @@ from pathlib import Path
 
 import django
 from django.conf import global_settings
-from django.core.exceptions import ImproperlyConfigured, ValidationError
-from django.core.validators import URLValidator
-from django.utils.deprecation import RemovedInDjango40Warning
+from django.core.exceptions import ImproperlyConfigured
+from django.utils.deprecation import RemovedInDjango31Warning
 from django.utils.functional import LazyObject, empty
 
 ENVIRONMENT_VARIABLE = "DJANGO_SETTINGS_MODULE"
 
-PASSWORD_RESET_TIMEOUT_DAYS_DEPRECATED_MSG = (
-    'The PASSWORD_RESET_TIMEOUT_DAYS setting is deprecated. Use '
-    'PASSWORD_RESET_TIMEOUT instead.'
-)
-
-DEFAULT_HASHING_ALGORITHM_DEPRECATED_MSG = (
-    'The DEFAULT_HASHING_ALGORITHM transitional setting is deprecated. '
-    'Support for it and tokens, cookies, sessions, and signatures that use '
-    'SHA-1 hashing algorithm will be removed in Django 4.0.'
+FILE_CHARSET_DEPRECATED_MSG = (
+    'The FILE_CHARSET setting is deprecated. Starting with Django 3.1, all '
+    'files read from disk must be UTF-8 encoded.'
 )
 
 
@@ -47,21 +40,18 @@ class SettingsReference(str):
 
 
 class LazySettings(LazyObject):
-    """全局惰性配置代理类
-
-    该类的实例的 _wrapped 属性值就是当前模块中定义的 Settings 类的实例
-    该实例拥有 django.conf.global_settings 模块和项目的配置文件中的全部配置项
     """
-
+    A lazy proxy for either global Django settings or a custom settings object.
+    The user can manually configure settings prior to using them. Otherwise,
+    Django uses the settings module pointed to by DJANGO_SETTINGS_MODULE.
+    """
     def _setup(self, name=None):
         """
         Load the settings module pointed to by the environment variable. This
         is used the first time settings are needed, if the user hasn't
         configured settings manually.
         """
-        # 这个变量是一个字符串，指向项目的配置文件模块
         settings_module = os.environ.get(ENVIRONMENT_VARIABLE)
-
         if not settings_module:
             desc = ("setting %s" % name) if name else "settings"
             raise ImproperlyConfigured(
@@ -84,10 +74,7 @@ class LazySettings(LazyObject):
         """Return the value of a setting and cache it in self.__dict__."""
         if self._wrapped is empty:
             self._setup(name)
-        #print('【django.conf.__init__.LazySettings.__getattr__】name:', name)
         val = getattr(self._wrapped, name)
-        #print('【django.conf.__init__.LazySettings.__getattr__】val:', val)
-        #print('【django.conf.__init__.LazySettings.__getattr__】', self._wrapped)
         self.__dict__[name] = val
         return val
 
@@ -122,52 +109,24 @@ class LazySettings(LazyObject):
             setattr(holder, name, value)
         self._wrapped = holder
 
-    @staticmethod
-    def _add_script_prefix(value):
-        """
-        Add SCRIPT_NAME prefix to relative paths.
-
-        Useful when the app is being served at a subpath and manually prefixing
-        subpath to STATIC_URL and MEDIA_URL in settings is inconvenient.
-        """
-        # Don't apply prefix to valid URLs.
-        try:
-            URLValidator()(value)
-            return value
-        except (ValidationError, AttributeError):
-            pass
-        # Don't apply prefix to absolute paths.
-        if value.startswith('/'):
-            return value
-        from django.urls import get_script_prefix
-        return '%s%s' % (get_script_prefix(), value)
-
     @property
     def configured(self):
         """Return True if the settings have already been configured."""
         return self._wrapped is not empty
 
     @property
-    def PASSWORD_RESET_TIMEOUT_DAYS(self):
+    def FILE_CHARSET(self):
         stack = traceback.extract_stack()
         # Show a warning if the setting is used outside of Django.
         # Stack index: -1 this line, -2 the caller.
-        filename, _, _, _ = stack[-2]
+        filename, _line_number, _function_name, _text = stack[-2]
         if not filename.startswith(os.path.dirname(django.__file__)):
             warnings.warn(
-                PASSWORD_RESET_TIMEOUT_DAYS_DEPRECATED_MSG,
-                RemovedInDjango40Warning,
+                FILE_CHARSET_DEPRECATED_MSG,
+                RemovedInDjango31Warning,
                 stacklevel=2,
             )
-        return self.__getattr__('PASSWORD_RESET_TIMEOUT_DAYS')
-
-    @property
-    def STATIC_URL(self):
-        return self._add_script_prefix(self.__getattr__('STATIC_URL'))
-
-    @property
-    def MEDIA_URL(self):
-        return self._add_script_prefix(self.__getattr__('MEDIA_URL'))
+        return self.__getattr__('FILE_CHARSET')
 
 
 class Settings:
@@ -201,17 +160,8 @@ class Settings:
         if not self.SECRET_KEY:
             raise ImproperlyConfigured("The SECRET_KEY setting must not be empty.")
 
-        if self.is_overridden('PASSWORD_RESET_TIMEOUT_DAYS'):
-            if self.is_overridden('PASSWORD_RESET_TIMEOUT'):
-                raise ImproperlyConfigured(
-                    'PASSWORD_RESET_TIMEOUT_DAYS/PASSWORD_RESET_TIMEOUT are '
-                    'mutually exclusive.'
-                )
-            setattr(self, 'PASSWORD_RESET_TIMEOUT', self.PASSWORD_RESET_TIMEOUT_DAYS * 60 * 60 * 24)
-            warnings.warn(PASSWORD_RESET_TIMEOUT_DAYS_DEPRECATED_MSG, RemovedInDjango40Warning)
-
-        if self.is_overridden('DEFAULT_HASHING_ALGORITHM'):
-            warnings.warn(DEFAULT_HASHING_ALGORITHM_DEPRECATED_MSG, RemovedInDjango40Warning)
+        if self.is_overridden('FILE_CHARSET'):
+            warnings.warn(FILE_CHARSET_DEPRECATED_MSG, RemovedInDjango31Warning)
 
         if hasattr(time, 'tzset') and self.TIME_ZONE:
             # When we can, attempt to validate the timezone. If we can't find
@@ -256,11 +206,8 @@ class UserSettingsHolder:
 
     def __setattr__(self, name, value):
         self._deleted.discard(name)
-        if name == 'PASSWORD_RESET_TIMEOUT_DAYS':
-            setattr(self, 'PASSWORD_RESET_TIMEOUT', value * 60 * 60 * 24)
-            warnings.warn(PASSWORD_RESET_TIMEOUT_DAYS_DEPRECATED_MSG, RemovedInDjango40Warning)
-        if name == 'DEFAULT_HASHING_ALGORITHM':
-            warnings.warn(DEFAULT_HASHING_ALGORITHM_DEPRECATED_MSG, RemovedInDjango40Warning)
+        if name == 'FILE_CHARSET':
+            warnings.warn(FILE_CHARSET_DEPRECATED_MSG, RemovedInDjango31Warning)
         super().__setattr__(name, value)
 
     def __delattr__(self, name):
@@ -286,6 +233,4 @@ class UserSettingsHolder:
         }
 
 
-# 这就是「全局配置对象」
-# 该对象的属性均从 django.conf.global_settings 模块和项目的配置文件中获取
 settings = LazySettings()

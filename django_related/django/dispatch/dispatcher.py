@@ -1,8 +1,6 @@
 import threading
-import warnings
 import weakref
 
-from django.utils.deprecation import RemovedInDjango40Warning
 from django.utils.inspect import func_accepts_kwargs
 
 
@@ -30,16 +28,14 @@ class Signal:
     def __init__(self, providing_args=None, use_caching=False):
         """
         Create a new signal.
+
+        providing_args
+            A list of the arguments this signal can pass along in a send() call.
         """
         self.receivers = []
-        if providing_args is not None:
-            warnings.warn(
-                'The providing_args argument is deprecated. As it is purely '
-                'documentational, it has no replacement. If you rely on this '
-                'argument as documentation, you can move the text to a code '
-                'comment or docstring.',
-                RemovedInDjango40Warning, stacklevel=2,
-            )
+        if providing_args is None:
+            providing_args = []
+        self.providing_args = set(providing_args)
         self.lock = threading.Lock()
         self.use_caching = use_caching
         # For convenience we create empty caches even if they are not used.
@@ -52,12 +48,36 @@ class Signal:
 
     def connect(self, receiver, sender=None, weak=True, dispatch_uid=None):
         """
-        参数说明：
+        Connect receiver to sender for signal.
 
-        receiver     : 信号接收者，通常是一个可调用对象
-        sender       : 信号发送者，可能是某个映射类实例
-        weak         : TODO 布尔值，默认是 True 
-        dispatch_uid : None
+        Arguments:
+
+            receiver
+                A function or an instance method which is to receive signals.
+                Receivers must be hashable objects.
+
+                If weak is True, then receiver must be weak referenceable.
+
+                Receivers must be able to accept keyword arguments.
+
+                If a receiver is connected with a dispatch_uid argument, it
+                will not be added if another receiver was already connected
+                with that dispatch_uid.
+
+            sender
+                The sender to which the receiver should respond. Must either be
+                a Python object, or None to receive events from any sender.
+
+            weak
+                Whether to use weak references to the receiver. By default, the
+                module will attempt to use weak references to the receiver
+                objects. If this parameter is false, then strong references will
+                be used.
+
+            dispatch_uid
+                An identifier used to uniquely identify a particular instance of
+                a receiver. This will usually be a string, though it may be
+                anything hashable.
         """
         from django.conf import settings
 
@@ -72,39 +92,22 @@ class Signal:
         if dispatch_uid:
             lookup_key = (dispatch_uid, _make_id(sender))
         else:
-            # 下面的 _make_id 方法定义在当前模块中，返回值是参数的内存地址
             lookup_key = (_make_id(receiver), _make_id(sender))
 
         if weak:
-            # 这个 weafref 是 Python 内置模块，其作用是创建弱引用对象
             ref = weakref.ref
-            # 把普通对象赋值给一个新的变量
             receiver_object = receiver
-            # 通常 receiver 就是一函数，它没有这俩属性
+            # Check for bound methods
             if hasattr(receiver, '__self__') and hasattr(receiver, '__func__'):
                 ref = weakref.WeakMethod
                 receiver_object = receiver.__self__
-            # 创建一个弱引用对象赋值给原变量
             receiver = ref(receiver)
-            # 这里 weakref.finalize 是一个类对象，该类的实例叫做「垃圾回收终结器」
-            # 这步操作使得第一个参数被当做垃圾回收时，顺便调用第二个参数
-            # 据说这种用法比设置回调函数好在垃圾被回收前「垃圾回收终结器」一直存在
             weakref.finalize(receiver_object, self._remove_receiver)
 
         with self.lock:
             self._clear_dead_receivers()
             if not any(r_key == lookup_key for r_key, _ in self.receivers):
-                # self 初始化时，self.receivers 是一个空列表
-                # lookup_key 是一个元组，里面是参数 receiver 和 sender 的内存地址
-                # 此时的 receiver 通常是一个函数的弱引用对象
                 self.receivers.append((lookup_key, receiver))
-                # 此时的 self.receive 是这样的：
-                # [
-                #  (
-                #   (信号接收者的内存地址, 信号发出者的内存地址),
-                #   信号接收函数
-                #  ),
-                # ]
             self.sender_receivers_cache.clear()
 
     def disconnect(self, receiver=None, sender=None, dispatch_uid=None):
@@ -129,7 +132,6 @@ class Signal:
         if dispatch_uid:
             lookup_key = (dispatch_uid, _make_id(sender))
         else:
-            # 下面的 _make_id 方法定义在当前模块中，返回值是参数的内存地址
             lookup_key = (_make_id(receiver), _make_id(sender))
 
         disconnected = False
@@ -168,12 +170,6 @@ class Signal:
         if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
             return []
 
-        # self._live_receivers 的返回值是列表，列表里面是信号接收者
-        # 这里调用信号接收者，参数说明如下:
-        #     signal : 就是信号对象自身，没啥用
-        #     sender : 信号发送者
-        #     named  : 这个关键字参数由调用当前方法者提供
-        #              举个例子说，映射类实例的 save 方法会调用当前方法，那么调用时会提供相应的数据
         return [
             (receiver, receiver(signal=self, sender=sender, **named))
             for receiver in self._live_receivers(sender)
@@ -191,7 +187,9 @@ class Signal:
                 occur).
 
             named
-                Named arguments which will be passed to receivers.
+                Named arguments which will be passed to receivers. These
+                arguments must be a subset of the argument names defined in
+                providing_args.
 
         Return a list of tuple pairs [(receiver, response), ... ].
 
@@ -243,12 +241,6 @@ class Signal:
                 receivers = []
                 for (receiverkey, r_senderkey), receiver in self.receivers:
                     if r_senderkey == NONE_ID or r_senderkey == senderkey:
-                        # self.receivers 是列表，列表中每个元素都是元组，类似这样：
-                        # (
-                        #  (信号接收者的内存地址, 信号发出者的内存地址),
-                        #  信号接收函数
-                        # )
-                        # 把 “信号接收函数” 添加到 receivers 列表里
                         receivers.append(receiver)
                 if self.use_caching:
                     if not receivers:
@@ -260,7 +252,6 @@ class Signal:
         for receiver in receivers:
             if isinstance(receiver, weakref.ReferenceType):
                 # Dereference the weak reference.
-                # 返回值就是信号接收者
                 receiver = receiver()
                 if receiver is not None:
                     non_weak_receivers.append(receiver)

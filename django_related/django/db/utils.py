@@ -149,9 +149,6 @@ class ConnectionHandler:
 
     @cached_property
     def databases(self):
-        # self 是「数据库连接处理对象」
-        # 这里通过配置对象获取项目的配置文件中的 DATABASES 变量值
-        # 并赋值给自身的 _databases 属性
         if self._databases is None:
             self._databases = settings.DATABASES
         if self._databases == {}:
@@ -160,7 +157,6 @@ class ConnectionHandler:
                     'ENGINE': 'django.db.backends.dummy',
                 },
             }
-        # self._databases 是字典对象，如果里面没有 'default' 键，抛出异常
         if DEFAULT_DB_ALIAS not in self._databases:
             raise ImproperlyConfigured("You must define a '%s' database." % DEFAULT_DB_ALIAS)
         if self._databases[DEFAULT_DB_ALIAS] == {}:
@@ -168,9 +164,10 @@ class ConnectionHandler:
         return self._databases
 
     def ensure_defaults(self, alias):
-        # self 是「数据库连接处理对象」
-        # 参数 alias 是连接的数据库，默认值是 'default'
-        # 这里得到的 conn 是项目配置文件中的 DATABASES 字典中对应的 value 
+        """
+        Put the defaults into the settings dictionary for a given connection
+        where no settings is provided.
+        """
         try:
             conn = self.databases[alias]
         except KeyError:
@@ -197,34 +194,17 @@ class ConnectionHandler:
             raise ConnectionDoesNotExist("The connection %s doesn't exist" % alias)
 
         test_settings = conn.setdefault('TEST', {})
-        default_test_settings = [
-            ('CHARSET', None),
-            ('COLLATION', None),
-            ('MIGRATE', True),
-            ('MIRROR', None),
-            ('NAME', None),
-        ]
-        for key, value in default_test_settings:
-            test_settings.setdefault(key, value)
+        for key in ['CHARSET', 'COLLATION', 'NAME', 'MIRROR']:
+            test_settings.setdefault(key, None)
 
     def __getitem__(self, alias):
-        # self 是「数据库连接处理对象」，参数 alias 是使用哪一组配置
-        # self._connections 是 asgiref.local.Local 类的实例
         if hasattr(self._connections, alias):
             return getattr(self._connections, alias)
 
-        # self.databases 属性值是项目配置模块中的 DATABASES 配置项
-        # 它是一个嵌套字典对象，其 value 也是字典对象
-        # 下面的方法定义在当前类中，作用是给 self.databases 中某一组键值对的 value 添加一些缺省键值对
         self.ensure_defaults(alias)
         self.prepare_test_settings(alias)
-        # 项目配置模块中的 DATABASES 字典中的 alias 对应的值也是一个字典
         db = self.databases[alias]
-        # 这个函数定义在当前模块，返回的是 db['ENGINE'] + '.base' 对应的模块对象
         backend = load_backend(db['ENGINE'])
-        # 下面这个类定义在上面的模块中，参数是配置相关的字典对象和一个配置名称字符串（默认是 default)
-        # 此处对 DatabaseWrapper 类实例化，返回的是「数据库包装对象」
-        # 其初始化方法定义在 django.db.backends.base.base.BaseDatabaseWrapper 类中
         conn = backend.DatabaseWrapper(db, alias)
         setattr(self._connections, alias, conn)
         return conn

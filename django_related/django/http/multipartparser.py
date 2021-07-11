@@ -9,7 +9,6 @@ import binascii
 import cgi
 import collections
 import html
-import os
 from urllib.parse import unquote
 
 from django.conf import settings
@@ -49,27 +48,26 @@ class MultiPartParser:
     and returns a tuple of ``(MultiValueDict(POST), MultiValueDict(FILES))``.
     """
     def __init__(self, META, input_data, upload_handlers, encoding=None):
-        """初始化「请求表单解析对象」
-
-        :META:              包含请求头信息的字典对象
-        :input_data:        可能是「请求对象」
-        :upload_handlers:   是个元组，里面是一些文件上传相关的对象
-        :encoding:          编码格式字符串，通常是 None
         """
+        Initialize the MultiPartParser object.
 
-        # 这个字段应该包含请求体类型和边界信息，也就是 multipart 和 boundary 
+        :META:
+            The standard ``META`` dictionary in Django request objects.
+        :input_data:
+            The raw post data, as a file-like object.
+        :upload_handlers:
+            A list of UploadHandler instances that perform operations on the
+            uploaded data.
+        :encoding:
+            The encoding with which to treat the incoming data.
+        """
+        # Content-Type should contain multipart and the boundary information.
         content_type = META.get('CONTENT_TYPE', '')
         if not content_type.startswith('multipart/'):
             raise MultiPartParserError('Invalid Content-Type: %s' % content_type)
 
         # Parse the header to get the boundary to split the parts.
         try:
-            # content_type 是
-            # 字符串 'multipart/form-data; boundary=--------------------------905755429684175259879454\r\n' 
-            # ctypes 是
-            # 字符串 'multipart/form-data'
-            # opts 是
-            # 字典 {'boundary': b'--------------------------905755429684175259879454'}
             ctypes, opts = parse_header(content_type.encode('ascii'))
         except UnicodeEncodeError:
             raise MultiPartParserError('Invalid non-ASCII Content-Type in multipart: %s' % force_str(content_type))
@@ -90,10 +88,11 @@ class MultiPartParser:
 
         if isinstance(boundary, str):
             boundary = boundary.encode('ascii')
-        self._boundary = boundary       # 边界字符串
-        self._input_data = input_data   #「请求对象」
+        self._boundary = boundary
+        self._input_data = input_data
 
-        # 原注释翻译：为了与低级网络 API（具有 32 位整数）兼容，块大小应小于 2 ^ 31，但仍可被 4 整除。
+        # For compatibility with low-level network APIs (with 32-bit integers),
+        # the chunk size should be < 2^31, but still divisible by 4.
         possible_sizes = [x.chunk_size for x in upload_handlers if x.chunk_size]
         self._chunk_size = min([2 ** 31 - 4] + possible_sizes)
 
@@ -103,9 +102,12 @@ class MultiPartParser:
         self._upload_handlers = upload_handlers
 
     def parse(self):
-        """处理请求体中的表单数据和文件数据，生成两个类字典对象并返回它们
         """
-        # self 是「请求表单解析对象」
+        Parse the POST data and break it into a FILES MultiValueDict and a POST
+        MultiValueDict.
+
+        Return a tuple containing the POST and FILES dictionary, respectively.
+        """
         from django.http import QueryDict
 
         encoding = self._encoding
@@ -130,13 +132,11 @@ class MultiPartParser:
             if result is not None:
                 return result[0], result[1]
 
-        # QueryDict 类定义在 django.http.request 模块中
-        # 其父类是 django.utils.datastructures.MultiValueDict ，该类是 dict 的子类
+        # Create the data structures to be used later.
         self._post = QueryDict(mutable=True)
         self._files = MultiValueDict()
 
-        # ChunkIter 定义在当前模块中，参数分别是「请求对象」和数值 2 ** 16 
-        # LazyStream 也定义在当前模块中，该类的实例我们称之为「缓存数据流对象」
+        # Instantiate the parser and stream:
         stream = LazyStream(ChunkIter(self._input_data, self._chunk_size))
 
         # Whether or not to signal a file-completion at the beginning of the loop.
@@ -150,10 +150,7 @@ class MultiPartParser:
         # To limit the amount of data read from the request.
         read_size = None
 
-        print('【django.http.multipartparser.MultiPartParser.parse】「请求表单解析对象」解析请求体，处理表单数据')
-
         try:
-            # Parser 类定义在当前模块中，参数是「缓存数据流对象」和二进制边界字符串
             for item_type, meta_data, field_stream in Parser(stream, self._boundary):
                 if old_field_name:
                     # We run this at the beginning of the next loop
@@ -211,7 +208,6 @@ class MultiPartParser:
                     # This is a file, use the handler...
                     file_name = disposition.get('filename')
                     if file_name:
-                        file_name = os.path.basename(file_name)
                         file_name = force_str(file_name, encoding, errors='replace')
                         file_name = self.IE_sanitize(html.unescape(file_name))
                     if not file_name:
@@ -457,8 +453,8 @@ class InterBoundaryIter:
     A Producer that will iterate over boundaries.
     """
     def __init__(self, stream, boundary):
-        self._stream = stream       #「缓存数据流对象」
-        self._boundary = boundary   # 边界字符串
+        self._stream = stream
+        self._boundary = boundary
 
     def __iter__(self):
         return self
@@ -640,7 +636,6 @@ class Parser:
         self._separator = b'--' + boundary
 
     def __iter__(self):
-        # InterBoundaryIter 类定义在当前模块中，参数分别是「缓存数据流对象」和二进制边界字符串
         boundarystream = InterBoundaryIter(self._stream, self._separator)
         for sub_stream in boundarystream:
             # Iterate over each part
@@ -669,12 +664,12 @@ def parse_header(line):
                 if p.count(b"'") == 2:
                     has_encoding = True
             value = p[i + 1:].strip()
-            if len(value) >= 2 and value[:1] == value[-1:] == b'"':
-                value = value[1:-1]
-                value = value.replace(b'\\\\', b'\\').replace(b'\\"', b'"')
             if has_encoding:
                 encoding, lang, value = value.split(b"'")
                 value = unquote(value.decode(), encoding=encoding.decode())
+            if len(value) >= 2 and value[:1] == value[-1:] == b'"':
+                value = value[1:-1]
+                value = value.replace(b'\\\\', b'\\').replace(b'\\"', b'"')
             pdict[name] = value
     return key, pdict
 

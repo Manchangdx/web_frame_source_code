@@ -8,7 +8,6 @@ from difflib import get_close_matches
 from importlib import import_module
 
 import django
-# apps 是 django.apps.registry.Apps 类的实例
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -174,10 +173,8 @@ class ManagementUtility:
     Encapsulate the logic of the django-admin and manage.py utilities.
     """
     def __init__(self, argv=None):
-        self.argv = argv or sys.argv[:]      
-        # 终端命令是 python manage.py xxx xxx
-        # 下面这个属性的值是文件名字符串 'manage.py'
-        self.prog_name = os.path.basename(self.argv[0]) 
+        self.argv = argv or sys.argv[:]
+        self.prog_name = os.path.basename(self.argv[0])
         if self.prog_name == '__main__.py':
             self.prog_name = 'python -m django'
         self.settings_exception = None
@@ -216,12 +213,13 @@ class ManagementUtility:
         return '\n'.join(usage)
 
     def fetch_command(self, subcommand):
-        """根据命令行参数找到对应的模块中的 Command 类并返回
         """
-        # 这是一个字典对象，key 是命令字符串，value 是对应的模块或包的字符串
-        # 例如 {'runserver': 'django.contrib.staticfiles', 'migrate': 'django.core'}
+        Try to fetch the given subcommand, printing a message with the
+        appropriate command called from the command line (usually
+        "django-admin" or "manage.py") if it can't be found.
+        """
+        # Get commands outside of try block to prevent swallowing exceptions
         commands = get_commands()
-
         try:
             app_name = commands[subcommand]
         except KeyError:
@@ -231,7 +229,7 @@ class ManagementUtility:
                 # (get_commands() swallows the original one) so the user is
                 # informed about it.
                 settings.INSTALLED_APPS
-            elif not settings.configured:
+            else:
                 sys.stderr.write("No Django settings specified.\n")
             possible_matches = get_close_matches(subcommand, commands)
             sys.stderr.write('Unknown command: %r' % subcommand)
@@ -244,12 +242,6 @@ class ManagementUtility:
             klass = app_name
         else:
             klass = load_command_class(app_name, subcommand)
-
-        # 返回值可能是下列某个类的实例：
-        # django.contrib.staticfiles.management.commands.runserver.Command 
-        # django.core.management.commands.makemigrations.Command
-        # django.core.management.commands.migrate.Command
-        # django.contrib.auth.management.commands.createsuperuser.Command
         return klass
 
     def autocomplete(self):
@@ -330,19 +322,16 @@ class ManagementUtility:
         """
         Given the command-line arguments, figure out which subcommand is being
         run, create a parser appropriate to that command, and run it.
-        给定命令行参数后，找出正在运行的子命令，创建适合该命令的解析器，并运行它。
         """
         try:
-            # 子命令，例如 runserver 、migrate 
-            subcommand = self.argv[1]   
+            subcommand = self.argv[1]
         except IndexError:
-            subcommand = 'help'  
+            subcommand = 'help'  # Display help if no arguments were given.
 
         # Preprocess options to extract --settings and --pythonpath.
         # These options could affect the commands that are available, so they
         # must be processed early.
-        parser = CommandParser(usage='%(prog)s subcommand [options] [args]', 
-                add_help=False, allow_abbrev=False)
+        parser = CommandParser(usage='%(prog)s subcommand [options] [args]', add_help=False, allow_abbrev=False)
         parser.add_argument('--settings')
         parser.add_argument('--pythonpath')
         parser.add_argument('args', nargs='*')  # catch-all
@@ -353,8 +342,6 @@ class ManagementUtility:
             pass  # Ignore any option errors at this point.
 
         try:
-            # 此对象是 django.conf.__init__.LazySettings 类的实例
-            # 此对象的全部属性都来自应用对象的 settings.py 配置文件
             settings.INSTALLED_APPS
         except ImproperlyConfigured as exc:
             self.settings_exception = exc
@@ -362,15 +349,11 @@ class ManagementUtility:
             self.settings_exception = exc
 
         if settings.configured:
-            #print('【django.core.management.__init__.ManagementUtility.execute】subcommand:', subcommand)
-            #print('【django.core.management.__init__.ManagementUtility.execute】self.argv:', self.argv)
+            # Start the auto-reloading dev server even if the code is broken.
+            # The hardcoded condition is a code smell but we can't rely on a
+            # flag on the command class because we haven't located it yet.
             if subcommand == 'runserver' and '--noreload' not in self.argv:
                 try:
-                    # 参数 django.setup 是定义在 django.__init__ 模块中的函数
-                    # 而 check_errors 是作检测异常之用
-                    # 这里会调用 django.setup 函数
-                    # 将 settings.INSTALLED_APPS 列表中的应用程序放到 apps.app_configs 字典中
-                    # apps 对象可以看做一个应用对象收集器
                     autoreload.check_errors(django.setup)()
                 except Exception:
                     # The exception will be raised later in the child process
@@ -408,31 +391,11 @@ class ManagementUtility:
             sys.stdout.write(django.get_version() + '\n')
         elif self.argv[1:] in (['--help'], ['-h']):
             sys.stdout.write(self.main_help_text() + '\n')
-        else: 
-            # 下面的 fetch_command 方法根据命令行参数找到对应的模块中的 Command 类的实例并返回
-            # 它通过一个字典来找，每个命令都是字典中的一个 key 
-            # 根据命令找到对应的 value ，它是一个包的字符串，再据此找到包下面的 management/commands 子目录
-            # 然后在这个子目录下面找到与命令同名的文件
-            # 以 python manage.py makemigrate 命令为例
-            # 这个方法就会返回 .../management/commands/makemigrate.py 文件中的 Command 类的实例
-
-            # 下面的 cmd 我们称之为「命令处理对象」，以 runserver 命令为例
-            # 此对象的父类是 django.contrib.staticfiles.management.commands.runserver.Command 类
-            # 后者的父类是 django.core.management.commands.runserver.Command 类
-            # 后者的父类是 django.core.management.base.BaseCommand 类
-            cmd = self.fetch_command(subcommand)
-            # 不论终端命令是啥
-            # 下面这个方法都定义在 django.core.management.base.BaseCommand 父类中
-            # 参数 self.argv 是终端命令参数列表，等同于 sys.argv
-            # 这个方法会调用「命令处理对象」自身的 handle 方法控制其它对象启动线程和创建套接字啥的
-            cmd.run_from_argv(self.argv)
+        else:
+            self.fetch_command(subcommand).run_from_argv(self.argv)
 
 
 def execute_from_command_line(argv=None):
     """Run a ManagementUtility."""
-    #print('【django.core.management.__init__.execute_from_command_line】argv:', argv)
-    
-    # 初始化主要做了两件事：
-    # self.argv = argv ，self.prog_name = 第一个参数的字符串 'manage.py'
     utility = ManagementUtility(argv)
     utility.execute()

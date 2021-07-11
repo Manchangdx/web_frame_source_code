@@ -47,25 +47,21 @@ class View:
 
     @classonlymethod
     def as_view(cls, **initkwargs):
-        """当前方法返回「视图函数」
-        """
+        """Main entry point for a request-response process."""
         for key in initkwargs:
             if key in cls.http_method_names:
-                raise TypeError(
-                    'The method name %s is not accepted as a keyword argument '
-                    'to %s().' % (key, cls.__name__)
-                )
+                raise TypeError("You tried to pass in the %s method name as a "
+                                "keyword argument to %s(). Don't do that."
+                                % (key, cls.__name__))
             if not hasattr(cls, key):
                 raise TypeError("%s() received an invalid keyword %r. as_view "
                                 "only accepts arguments that are already "
                                 "attributes of the class." % (cls.__name__, key))
 
         def view(request, *args, **kwargs):
-            # self 是视图类的实例，当前函数就是「视图函数」
-            import threading
-            ct = threading.current_thread()
-            print('【django.views.generic.base.View.as_view.view】调用视图对象，当前线程：', ct.name, ct.ident)
             self = cls(**initkwargs)
+            if hasattr(self, 'get') and not hasattr(self, 'head'):
+                self.head = self.get
             self.setup(request, *args, **kwargs)
             if not hasattr(self, 'request'):
                 raise AttributeError(
@@ -86,21 +82,18 @@ class View:
 
     def setup(self, request, *args, **kwargs):
         """Initialize attributes shared by all view methods."""
-        # self 是视图类的实例
-        if hasattr(self, 'get') and not hasattr(self, 'head'):
-            self.head = self.get
         self.request = request
         self.args = args
         self.kwargs = kwargs
 
-    # 视图函数调用此方法
     def dispatch(self, request, *args, **kwargs):
-        # self 是视图类的实例
+        # Try to dispatch to the right method; if a method doesn't exist,
+        # defer to the error handler. Also defer to the error handler if the
+        # request method isn't on the approved list.
         if request.method.lower() in self.http_method_names:
             handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
         else:
             handler = self.http_method_not_allowed
-        # handle 就是请求方法的同名函数
         return handler(request, *args, **kwargs)
 
     def http_method_not_allowed(self, request, *args, **kwargs):
@@ -125,29 +118,21 @@ class TemplateResponseMixin:
     """A mixin that can be used to render a template."""
     template_name = None
     template_engine = None
-    # 通常响应对象是 django.http.response.HttpResponse 类的实例，该类我们称后者为「响应基类」
-    # 下面这个 django.template.response.TemplateResponse 类是「响应基类」的子类
     response_class = TemplateResponse
     content_type = None
 
     def render_to_response(self, context, **response_kwargs):
-        """创建响应对象并返回
         """
-        # self 是视图类实例
-        response_kwargs.setdefault('content_type', self.content_type)
+        Return a response, using the `response_class` for this view, with a
+        template rendered with the given context.
 
-        # 返回 django.template.response.TemplateResponse 类的实例，也就是「响应对象」
-        # 该类的父类是 django.template.response.SimpleTemplateResponse 类
-        # 后者的父类是 django.http.response.HttpResponse 类
-        # 后者的父类是 django.http.response.HttpResponseBase 类
+        Pass response_kwargs to the constructor of the response class.
+        """
+        response_kwargs.setdefault('content_type', self.content_type)
         return self.response_class(
-            # django.core.handlers.wsgi.WSGIRequest 类的实例，也就是「请求对象」
             request=self.request,
-            # 定义在项目中的视图类的 template_name 属性值，字符串类型
             template=self.get_template_names(),
-            # 参数，字典对象 {'form': 表单类实例, 'view': 视图类实例，也就是 self}
             context=context,
-            # 默认值是 None
             using=self.template_engine,
             **response_kwargs
         )

@@ -23,32 +23,23 @@ class FormMixin(ContextMixin):
         return self.prefix
 
     def get_form_class(self):
-        """获取并返回表单类
-        """
-        # self 是视图类的实例
-        # 该属性定义在项目中的视图类中，属性值是表单类
+        """Return the form class to use."""
         return self.form_class
 
     def get_form(self, form_class=None):
-        """创建并返回表单类的实例
-        """
+        """Return an instance of the form to be used in this view."""
         if form_class is None:
-            # 下面这个 get_form_class 调用的可能是当前模块在的 ModelFormMixin 类中的方法，返回值是表单类
             form_class = self.get_form_class()
-        # self.get_form_kwargs 方法定义在当前模块的 ModelFormMixin 类中，返回值是字典对象
-        # 表单类实例的初始化在 django.forms.models.BaseModelForm.__init__ 方法中完成
         return form_class(**self.get_form_kwargs())
 
     def get_form_kwargs(self):
-        """从「请求对象」的 POST 属性中获取请求表单数据并返回字典对象
-        """
+        """Return the keyword arguments for instantiating the form."""
         kwargs = {
             'initial': self.get_initial(),
             'prefix': self.get_prefix(),
         }
 
         if self.request.method in ('POST', 'PUT'):
-            print('【django.views.generic.edit.FormMixin.get_from_kwargs】从「请求对象」的 POST 属性中获取请求表单数据')
             kwargs.update({
                 'data': self.request.POST,
                 'files': self.request.FILES,
@@ -67,23 +58,13 @@ class FormMixin(ContextMixin):
 
     def form_invalid(self, form):
         """If the form is invalid, render the invalid form."""
-        # self 是视图类的实例，form 是表单类的实例
-        # self.get_context_data 就在下面，返回值是字典
-        # self.render_to_response 定义在 django.views.generic.base.TemplateResponseMixin 类中
-        # 此方法返回「响应对象」
         return self.render_to_response(self.get_context_data(form=form))
 
     def get_context_data(self, **kwargs):
         """Insert the form into the context dict."""
-        # self 是视图类的实例
         if 'form' not in kwargs:
-            # self.get_form 方法定义在当前类中，返回值是表单类的实例
             kwargs['form'] = self.get_form()
-        # 此父类方法返回字典对象，里面有两组键值对：
-        # 'form': 表单类实例
-        # 'view': 视图类实例
-        kw = super().get_context_data(**kwargs)
-        return kw
+        return super().get_context_data(**kwargs)
 
 
 class ModelFormMixin(FormMixin, SingleObjectMixin):
@@ -91,8 +72,7 @@ class ModelFormMixin(FormMixin, SingleObjectMixin):
     fields = None
 
     def get_form_class(self):
-        """返回表单类
-        """
+        """Return the form class to use in this view."""
         if self.fields is not None and self.form_class:
             raise ImproperlyConfigured(
                 "Specifying both 'fields' and 'form_class' is not permitted."
@@ -150,13 +130,6 @@ class ProcessFormView(View):
     """Render a form on GET and processes it on POST."""
     def get(self, request, *args, **kwargs):
         """Handle GET requests: instantiate a blank version of the form."""
-        # self 是视图类的实例
-        # self.get_context_data 定义在当前模块下的 FormMixin 类中
-        # 此方法返回字典对象，里面有两组键值对：
-        # 'form': 表单类实例
-        # 'view': 视图类实例，也就是 self
-        # self.render_to_response 定义在 django.views.generic.base.TemplateResponseMixin 类中
-        # 此方法返回「响应对象」
         return self.render_to_response(self.get_context_data())
 
     def post(self, request, *args, **kwargs):
@@ -164,17 +137,10 @@ class ProcessFormView(View):
         Handle POST requests: instantiate a form instance with the passed
         POST variables and then check if it's valid.
         """
-        # self 是视图类的实例
-        # 此方法定义在当前模块中的 FormMixin 类中，创建并返回表单类的实例
         form = self.get_form()
-        # 此方法定义在 django.forms.forms.BaseForm 类中
-        # 如果 POST 请求携带的表单数据被顺利解析并且表单验证器验证全部通过，返回 True
         if form.is_valid():
-            # 通常情况下 self.form_valid 方法定义在项目中的自定义视图类中
-            # 将调用表单类实例的某些方法创建映射类实例并将其存入数据库，最后返回的是「响应对象」
             return self.form_valid(form)
         else:
-            # 此方法定义在当前模块的 FormMixin 类中，返回值是「响应对象」
             return self.form_invalid(form)
 
     # PUT is a valid HTTP verb for creating (with a known URL) or editing an
@@ -220,8 +186,7 @@ class BaseUpdateView(ModelFormMixin, ProcessFormView):
     Using this base class requires subclassing to provide a response mixin.
     """
     def get(self, request, *args, **kwargs):
-        # 映射类实例
-        self.object = self.get_object() 
+        self.object = self.get_object()
         return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):

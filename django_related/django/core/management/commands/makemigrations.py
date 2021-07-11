@@ -59,7 +59,6 @@ class Command(BaseCommand):
 
     @no_translations
     def handle(self, *app_labels, **options):
-        print('【django.core.management.commands.makemigrations.Command.handle】app_labels:', app_labels)
         self.verbosity = options['verbosity']
         self.interactive = options['interactive']
         self.dry_run = options['dry_run']
@@ -88,7 +87,6 @@ class Command(BaseCommand):
         loader = MigrationLoader(None, ignore_no_migrations=True)
 
         # Raise an error if any migrations are applied before their dependencies.
-        # 翻译：如果在依赖项之前应用了任何迁移，则会引发错误。
         consistency_check_labels = {config.label for config in apps.get_app_configs()}
         # Non-default databases are only checked if database routers used.
         aliases_to_check = connections if settings.DATABASE_ROUTERS else [DEFAULT_DB_ALIAS]
@@ -192,7 +190,7 @@ class Command(BaseCommand):
         directory_created = {}
         for app_label, app_migrations in changes.items():
             if self.verbosity >= 1:
-                self.stdout.write(self.style.MIGRATE_HEADING("Migrations for '%s':" % app_label))
+                self.stdout.write(self.style.MIGRATE_HEADING("Migrations for '%s':" % app_label) + "\n")
             for migration in app_migrations:
                 # Describe the migration
                 writer = MigrationWriter(migration, self.include_header)
@@ -205,9 +203,9 @@ class Command(BaseCommand):
                         migration_string = writer.path
                     if migration_string.startswith('..'):
                         migration_string = writer.path
-                    self.stdout.write('  %s\n' % self.style.MIGRATE_LABEL(migration_string))
+                    self.stdout.write("  %s\n" % (self.style.MIGRATE_LABEL(migration_string),))
                     for operation in migration.operations:
-                        self.stdout.write('    - %s' % operation.describe())
+                        self.stdout.write("    - %s\n" % operation.describe())
                 if not self.dry_run:
                     # Write the migrations file to the disk.
                     migrations_directory = os.path.dirname(writer.path)
@@ -226,9 +224,9 @@ class Command(BaseCommand):
                     # will output the migrations to stdout rather than saving
                     # the file to the disk.
                     self.stdout.write(self.style.MIGRATE_HEADING(
-                        "Full migrations file '%s':" % writer.filename
-                    ))
-                    self.stdout.write(writer.as_string())
+                        "Full migrations file '%s':" % writer.filename) + "\n"
+                    )
+                    self.stdout.write("%s\n" % writer.as_string())
 
     def handle_merge(self, loader, conflicts):
         """
@@ -274,7 +272,7 @@ class Command(BaseCommand):
                 for migration in merge_migrations:
                     self.stdout.write(self.style.MIGRATE_LABEL("  Branch %s" % migration.name))
                     for operation in migration.merged_operations:
-                        self.stdout.write('    - %s' % operation.describe())
+                        self.stdout.write("    - %s\n" % operation.describe())
             if questioner.ask_merge(app_label):
                 # If they still want to merge it, then write out an empty
                 # file depending on the migrations needing merging.
@@ -307,6 +305,6 @@ class Command(BaseCommand):
                     # will output the merge migrations to stdout rather than saving
                     # the file to the disk.
                     self.stdout.write(self.style.MIGRATE_HEADING(
-                        "Full merge migrations file '%s':" % writer.filename
-                    ))
-                    self.stdout.write(writer.as_string())
+                        "Full merge migrations file '%s':" % writer.filename) + "\n"
+                    )
+                    self.stdout.write("%s\n" % writer.as_string())

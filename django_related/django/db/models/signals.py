@@ -3,7 +3,7 @@ from functools import partial
 from django.db.models.utils import make_model_tuple
 from django.dispatch import Signal
 
-class_prepared = Signal()
+class_prepared = Signal(providing_args=["class"])
 
 
 class ModelSignal(Signal):
@@ -12,27 +12,15 @@ class ModelSignal(Signal):
     of the `app_label.ModelName` form.
     """
     def _lazy_method(self, method, apps, receiver, sender, **kwargs):
-        """
-        参数说明：
-
-        method   : 父类中定义的 django.db.models.signals.ModelSignal.connect 方法
-        apps     : None
-        receiver : 信号接收者，通常是一个可调用对象
-        sender   : 信号发送者，可能是一个映射类
-        kwargs   : 字典 {'weak': True, 'dispatch_uid': None}
-        """
         from django.db.models.options import Options
 
-        # 下面这个偏函数是来自父类 django.dispatch.dispatcher.Signal 的 connect 方法
-        # 要调用此偏函数，只需要提供 sender 参数就行了
+        # This partial takes a single optional argument named "sender".
         partial_method = partial(method, receiver, **kwargs)
-
         if isinstance(sender, str):
             apps = apps or Options.default_apps
             apps.lazy_model_operation(partial_method, make_model_tuple(sender))
         else:
-            # 返回偏函数的调用，也就是调用父类的 connect 方法
-            partial_method(sender)
+            return partial_method(sender)
 
     def connect(self, receiver, sender=None, weak=True, dispatch_uid=None, apps=None):
         self._lazy_method(
@@ -46,16 +34,20 @@ class ModelSignal(Signal):
         )
 
 
-pre_init = ModelSignal(use_caching=True)
-post_init = ModelSignal(use_caching=True)
+pre_init = ModelSignal(providing_args=["instance", "args", "kwargs"], use_caching=True)
+post_init = ModelSignal(providing_args=["instance"], use_caching=True)
 
-pre_save = ModelSignal(use_caching=True)
-post_save = ModelSignal(use_caching=True)
+pre_save = ModelSignal(providing_args=["instance", "raw", "using", "update_fields"],
+                       use_caching=True)
+post_save = ModelSignal(providing_args=["instance", "raw", "created", "using", "update_fields"], use_caching=True)
 
-pre_delete = ModelSignal(use_caching=True)
-post_delete = ModelSignal(use_caching=True)
+pre_delete = ModelSignal(providing_args=["instance", "using"], use_caching=True)
+post_delete = ModelSignal(providing_args=["instance", "using"], use_caching=True)
 
-m2m_changed = ModelSignal(use_caching=True)
+m2m_changed = ModelSignal(
+    providing_args=["action", "instance", "reverse", "model", "pk_set", "using"],
+    use_caching=True,
+)
 
-pre_migrate = Signal()
-post_migrate = Signal()
+pre_migrate = Signal(providing_args=["app_config", "verbosity", "interactive", "using", "apps", "plan"])
+post_migrate = Signal(providing_args=["app_config", "verbosity", "interactive", "using", "apps", "plan"])

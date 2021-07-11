@@ -86,9 +86,6 @@ class MigrationGraph:
         self.nodes = {}
 
     def add_node(self, key, migration):
-        # 举个例子：
-        # key 是元组 ('admin', '0001_initial')
-        # migration 是 xxxx.Migration 类的实例
         assert key not in self.node_map
         node = Node(key)
         self.node_map[key] = node
@@ -254,18 +251,9 @@ class MigrationGraph:
         result of a VCS merge and needs some user input.
         """
         leaves = set()
-        #print('【django.db.migrations.graph.MigrationGraph.leaf_nodes】self.nodes:')
-        #for node in self.nodes:
-        #    print('\t', node)
-        # self.nodes 是字典对象
-        # key 是元组 ('admin', '0001_initial') ：应用名，版本迁移文件名
-        # value 是版本迁移文件里的 Migration 类的实例
         for node in self.nodes:
-
             if all(key[0] != node[0] for key in self.node_map[node].children) and (not app or app == node[0]):
                 leaves.add(node)
-        # leaves 里面是 self.nodes 中各个应用中最新的那个版本
-        # 例如 auth 中有 12 个版本迁移文件，它就会留下 ('auth', '0012_xxxx')
         return sorted(leaves)
 
     def ensure_not_cyclic(self):

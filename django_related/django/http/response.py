@@ -17,9 +17,8 @@ from django.http.cookie import SimpleCookie
 from django.utils import timezone
 from django.utils.encoding import iri_to_uri
 from django.utils.http import http_date
-from django.utils.regex_helper import _lazy_re_compile
 
-_charset_from_content_type_re = _lazy_re_compile(r';\s*charset=(?P<charset>[^\s;]+)', re.I)
+_charset_from_content_type_re = re.compile(r';\s*charset=(?P<charset>[^\s;]+)', re.I)
 
 
 class BadHeaderError(ValueError):
@@ -37,15 +36,11 @@ class HttpResponseBase:
     status_code = 200
 
     def __init__(self, content_type=None, status=None, reason=None, charset=None):
-        # self 是「响应对象」
-
-        print('【django.http.response.HttpResponseBase.__init__】「响应对象」最终的父类初始化')
-
-        # 原注释翻译：
-        # _headers 是小写名称到标头的原始大小写（与旧系统一起使用所必需）和标头值的映射。 
-        # 标头名称及其值均为 ASCII 字符串。
+        # _headers is a mapping of the lowercase name to the original case of
+        # the header (required for working with legacy systems) and the header
+        # value. Both the name of the header and its value are ASCII strings.
         self._headers = {}
-        self._resource_closers = []
+        self._closable_objects = []
         # This parameter is set by the handler. It's necessary to preserve the
         # historical behavior of request_finished.
         self._handler_class = None
@@ -62,9 +57,7 @@ class HttpResponseBase:
         self._reason_phrase = reason
         self._charset = charset
         if content_type is None:
-            # self.charset 的值是 'utf-8'
             content_type = 'text/html; charset=%s' % self.charset
-        # 当前类定义了 __setitem__ 方法，下面这行代码将键值对添加到 self._headers 字典中
         self['Content-Type'] = content_type
 
     @property
@@ -87,8 +80,7 @@ class HttpResponseBase:
         matched = _charset_from_content_type_re.search(content_type)
         if matched:
             # Extract the charset and strip its double quotes
-            return matched['charset'].replace('"', '')
-        # 下面的配置项定义在 django.conf.global_settings 模块中，值是 'utf-8'
+            return matched.group('charset').replace('"', '')
         return settings.DEFAULT_CHARSET
 
     @charset.setter
@@ -165,19 +157,14 @@ class HttpResponseBase:
     def set_cookie(self, key, value='', max_age=None, expires=None, path='/',
                    domain=None, secure=False, httponly=False, samesite=None):
         """
-        给响应对象的 cookies 属性添加一组键值对：{'csrftoken': xxx} 或 {'sessionid': xxx}
+        Set a cookie.
 
-        参数说明：
-        key: 固定值，字符串 'csrftoken' 或 'sessionid'
-        value: request.COOKIES['csrftoken'] 或 request.session.session_key 
-        max_age: 31449600 合 364 天 | 1209600 合 14 天
+        ``expires`` can be:
+        - a string in the correct format,
+        - a naive ``datetime.datetime`` object in UTC,
+        - an aware ``datetime.datetime`` object in any time zone.
+        If it is a ``datetime.datetime`` object then calculate ``max_age``.
         """
-        # self              是「响应对象」
-        # self.cookies      是 http.cookies.SimpleCookie 类的实例，是类字典对象
-        # self.cookies[key] 是 http.cookies.Morsel 类的实例，也是类字典对象
-        #
-        # 所以 self.cookies 中的每个 key 对应的 value 都是字典
-
         self.cookies[key] = value
         if expires is not None:
             if isinstance(expires, datetime.datetime):
@@ -209,8 +196,8 @@ class HttpResponseBase:
         if httponly:
             self.cookies[key]['httponly'] = True
         if samesite:
-            if samesite.lower() not in ('lax', 'none', 'strict'):
-                raise ValueError('samesite must be "lax", "none", or "strict".')
+            if samesite.lower() not in ('lax', 'strict'):
+                raise ValueError('samesite must be "lax" or "strict".')
             self.cookies[key]['samesite'] = samesite
 
     def setdefault(self, key, value):
@@ -222,18 +209,13 @@ class HttpResponseBase:
         value = signing.get_cookie_signer(salt=key + salt).sign(value)
         return self.set_cookie(key, value, **kwargs)
 
-    def delete_cookie(self, key, path='/', domain=None, samesite=None):
-        # Browsers can ignore the Set-Cookie header if the cookie doesn't use
-        # the secure flag and:
-        # - the cookie name starts with "__Host-" or "__Secure-", or
-        # - the samesite is "none".
-        secure = (
-            key.startswith(('__Secure-', '__Host-')) or
-            (samesite and samesite.lower() == 'none')
-        )
+    def delete_cookie(self, key, path='/', domain=None):
+        # Most browsers ignore the Set-Cookie header if the cookie name starts
+        # with __Host- or __Secure- and the cookie doesn't use the secure flag.
+        secure = key.startswith(('__Secure-', '__Host-'))
         self.set_cookie(
             key, max_age=0, path=path, domain=domain, secure=secure,
-            expires='Thu, 01 Jan 1970 00:00:00 GMT', samesite=samesite,
+            expires='Thu, 01 Jan 1970 00:00:00 GMT',
         )
 
     # Common methods used by subclasses
@@ -259,14 +241,15 @@ class HttpResponseBase:
 
     # The WSGI server must call this method upon completion of the request.
     # See http://blog.dscpl.com.au/2012/10/obligations-for-calling-close-on.html
+    # When wsgi.file_wrapper is used, the WSGI server instead calls close()
+    # on the file-like object. Django ensures this method is called in this
+    # case by replacing self.file_to_stream.close() with a wrapped version.
     def close(self):
-        for closer in self._resource_closers:
+        for closable in self._closable_objects:
             try:
-                closer()
+                closable.close()
             except Exception:
                 pass
-        # Free resources that were still referenced.
-        self._resource_closers.clear()
         self.closed = True
         signals.request_finished.send(sender=self._handler_class)
 
@@ -305,10 +288,8 @@ class HttpResponse(HttpResponseBase):
     streaming = False
 
     def __init__(self, content=b'', *args, **kwargs):
-        import threading
-        ct = threading.current_thread()
-        print('【django.http.response.HttpResponse.__init__】初始化「响应对象」，当前线程：', ct.name, ct.ident)
         super().__init__(*args, **kwargs)
+        # Content is a bytestring. See the `content` property methods.
         self.content = content
 
     def __repr__(self):
@@ -399,7 +380,7 @@ class StreamingHttpResponse(HttpResponseBase):
         # Ensure we can never iterate on "value" more than once.
         self._iterator = iter(value)
         if hasattr(value, 'close'):
-            self._resource_closers.append(value.close)
+            self._closable_objects.append(value)
 
     def __iter__(self):
         return self.streaming_content
@@ -419,14 +400,39 @@ class FileResponse(StreamingHttpResponse):
         self.filename = filename
         super().__init__(*args, **kwargs)
 
+    def _wrap_file_to_stream_close(self, filelike):
+        """
+        Wrap the file-like close() with a version that calls
+        FileResponse.close().
+        """
+        closing = False
+        filelike_close = getattr(filelike, 'close', lambda: None)
+
+        def file_wrapper_close():
+            nonlocal closing
+            # Prevent an infinite loop since FileResponse.close() tries to
+            # close the objects in self._closable_objects.
+            if closing:
+                return
+            closing = True
+            try:
+                filelike_close()
+            finally:
+                self.close()
+
+        filelike.close = file_wrapper_close
+
     def _set_streaming_content(self, value):
         if not hasattr(value, 'read'):
             self.file_to_stream = None
             return super()._set_streaming_content(value)
 
         self.file_to_stream = filelike = value
+        # Add to closable objects before wrapping close(), since the filelike
+        # might not have close().
         if hasattr(filelike, 'close'):
-            self._resource_closers.append(filelike.close)
+            self._closable_objects.append(filelike)
+        self._wrap_file_to_stream_close(filelike)
         value = iter(lambda: filelike.read(self.block_size), b'')
         self.set_headers(filelike)
         super()._set_streaming_content(value)
@@ -493,17 +499,14 @@ class HttpResponseRedirectBase(HttpResponse):
 
 
 class HttpResponseRedirect(HttpResponseRedirectBase):
-    # 临时重定向
     status_code = 302
 
 
 class HttpResponsePermanentRedirect(HttpResponseRedirectBase):
-    # 永久重定向（网站重构时使用）
     status_code = 301
 
 
 class HttpResponseNotModified(HttpResponse):
-    # 特殊重定向（发送用于重新验证的条件请求，表示缓存的响应仍然是新鲜的并且可以使用）
     status_code = 304
 
     def __init__(self, *args, **kwargs):

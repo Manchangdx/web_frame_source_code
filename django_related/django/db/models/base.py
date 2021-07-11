@@ -4,7 +4,6 @@ import warnings
 from functools import partialmethod
 from itertools import chain
 
-import django
 from django.apps import apps
 from django.conf import settings
 from django.core import checks
@@ -34,9 +33,9 @@ from django.db.models.signals import (
 )
 from django.db.models.utils import make_model_tuple
 from django.utils.encoding import force_str
-from django.utils.hashable import make_hashable
 from django.utils.text import capfirst, get_text_list
 from django.utils.translation import gettext_lazy as _
+from django.utils.version import get_version
 
 
 class Deferred:
@@ -155,9 +154,9 @@ class ModelBase(type):
         if is_proxy and base_meta and base_meta.swapped:
             raise TypeError("%s cannot proxy the swapped model '%s'." % (name, base_meta.swapped))
 
-        # 重要代码，向该映射类添加一些特别的属性
+        # Add remaining attributes (those with a contribute_to_class() method)
+        # to the class.
         for obj_name, obj in contributable_attrs.items():
-            # 此 add_to_class 方法是类方法，定义在当前元类中
             new_class.add_to_class(obj_name, obj)
 
         # All the fields of any type declared on this model
@@ -202,7 +201,7 @@ class ModelBase(type):
                 continue
             # Locate OneToOneField instances.
             for field in base._meta.local_fields:
-                if isinstance(field, OneToOneField) and field.remote_field.parent_link:
+                if isinstance(field, OneToOneField):
                     related = resolve_relation(new_class, field.remote_field.model)
                     parent_links[make_model_tuple(related)] = field
 
@@ -322,9 +321,6 @@ class ModelBase(type):
         return new_class
 
     def add_to_class(cls, name, value):
-        if value.__class__.__name__ =='ImageField':
-            print(f'\t【django.db.models.base.ModelBase.add_to_class】name: {name} ;',
-                  f'value 的类: {value.__class__.__name__}')
         if _has_contribute_to_class(value):
             value.contribute_to_class(cls, name)
         else:
@@ -526,7 +522,7 @@ class Model(metaclass=ModelBase):
 
     def __eq__(self, other):
         if not isinstance(other, Model):
-            return NotImplemented
+            return False
         if self._meta.concrete_model != other._meta.concrete_model:
             return False
         my_pk = self.pk
@@ -541,34 +537,30 @@ class Model(metaclass=ModelBase):
 
     def __reduce__(self):
         data = self.__getstate__()
-        data[DJANGO_VERSION_PICKLE_KEY] = django.__version__
+        data[DJANGO_VERSION_PICKLE_KEY] = get_version()
         class_id = self._meta.app_label, self._meta.object_name
         return model_unpickle, (class_id,), data
 
     def __getstate__(self):
         """Hook to allow choosing the attributes to pickle."""
-        state = self.__dict__.copy()
-        state['_state'] = copy.copy(state['_state'])
-        state['_state'].fields_cache = state['_state'].fields_cache.copy()
-        return state
+        return self.__dict__
 
     def __setstate__(self, state):
+        msg = None
         pickled_version = state.get(DJANGO_VERSION_PICKLE_KEY)
         if pickled_version:
-            if pickled_version != django.__version__:
-                warnings.warn(
-                    "Pickled model instance's Django version %s does not "
-                    "match the current version %s."
-                    % (pickled_version, django.__version__),
-                    RuntimeWarning,
-                    stacklevel=2,
+            current_version = get_version()
+            if current_version != pickled_version:
+                msg = (
+                    "Pickled model instance's Django version %s does not match "
+                    "the current version %s." % (pickled_version, current_version)
                 )
         else:
-            warnings.warn(
-                "Pickled model instance's Django version is not specified.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
+            msg = "Pickled model instance's Django version is not specified."
+
+        if msg:
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
+
         self.__dict__.update(state)
 
     def _get_pk_val(self, meta=None):
@@ -576,9 +568,6 @@ class Model(metaclass=ModelBase):
         return getattr(self, meta.pk.attname)
 
     def _set_pk_val(self, value):
-        for parent_link in self._meta.parents.values():
-            if parent_link and parent_link != self._meta.pk:
-                setattr(self, parent_link.target_field.attname, value)
         return setattr(self, self._meta.pk.attname, value)
 
     pk = property(_get_pk_val, _set_pk_val)
@@ -862,8 +851,8 @@ class Model(metaclass=ModelBase):
             not raw and
             not force_insert and
             self._state.adding and
-            meta.pk.default and
-            meta.pk.default is not NOT_PROVIDED
+            self._meta.pk.default and
+            self._meta.pk.default is not NOT_PROVIDED
         ):
             force_insert = True
         # If possible, try an UPDATE. If that doesn't update anything, do an INSERT.
@@ -896,9 +885,8 @@ class Model(metaclass=ModelBase):
 
             returning_fields = meta.db_returning_fields
             results = self._do_insert(cls._base_manager, using, fields, returning_fields, raw)
-            if results:
-                for value, field in zip(results[0], returning_fields):
-                    setattr(self, field.attname, value)
+            for result, field in zip(results, returning_fields):
+                setattr(self, field.attname, result)
         return updated
 
     def _do_update(self, base_qs, using, pk_val, values, update_fields, forced_update):
@@ -953,9 +941,8 @@ class Model(metaclass=ModelBase):
 
     def _get_FIELD_display(self, field):
         value = getattr(self, field.attname)
-        choices_dict = dict(make_hashable(field.flatchoices))
         # force_str() to coerce lazy strings.
-        return force_str(choices_dict.get(make_hashable(value), value), strings_only=True)
+        return force_str(dict(field.flatchoices).get(value, value), strings_only=True)
 
     def _get_next_or_previous_by_FIELD(self, field, is_next, **kwargs):
         if not self.pk:
@@ -1031,14 +1018,12 @@ class Model(metaclass=ModelBase):
         unique_checks = []
 
         unique_togethers = [(self.__class__, self._meta.unique_together)]
-        constraints = [(self.__class__, self._meta.total_unique_constraints)]
+        constraints = [(self.__class__, self._meta.constraints)]
         for parent_class in self._meta.get_parent_list():
             if parent_class._meta.unique_together:
                 unique_togethers.append((parent_class, parent_class._meta.unique_together))
-            if parent_class._meta.total_unique_constraints:
-                constraints.append(
-                    (parent_class, parent_class._meta.total_unique_constraints)
-                )
+            if parent_class._meta.constraints:
+                constraints.append((parent_class, parent_class._meta.constraints))
 
         for model_class, unique_together in unique_togethers:
             for check in unique_together:
@@ -1048,7 +1033,10 @@ class Model(metaclass=ModelBase):
 
         for model_class, model_constraints in constraints:
             for constraint in model_constraints:
-                if not any(name in exclude for name in constraint.fields):
+                if (isinstance(constraint, UniqueConstraint) and
+                        # Partial unique constraints can't be validated.
+                        constraint.condition is None and
+                        not any(name in exclude for name in constraint.fields)):
                     unique_checks.append((model_class, constraint.fields))
 
         # These are checks for the unique_for_<date/year/month>.
@@ -1262,11 +1250,10 @@ class Model(metaclass=ModelBase):
     def check(cls, **kwargs):
         errors = [*cls._check_swappable(), *cls._check_model(), *cls._check_managers(**kwargs)]
         if not cls._meta.swapped:
-            databases = kwargs.get('databases') or []
             errors += [
                 *cls._check_fields(**kwargs),
                 *cls._check_m2m_through_same_relationship(),
-                *cls._check_long_column_names(databases),
+                *cls._check_long_column_names(),
             ]
             clash_errors = (
                 *cls._check_id_field(),
@@ -1280,14 +1267,12 @@ class Model(metaclass=ModelBase):
             # clashes.
             if not clash_errors:
                 errors.extend(cls._check_column_name_clashes())
-            # 列表最后一个元素调用映射类自身的 _check_constraints 方法
-            # 此方法定义在当前类中，其作用是检查各种约束
             errors += [
                 *cls._check_index_together(),
                 *cls._check_unique_together(),
-                *cls._check_indexes(databases),
+                *cls._check_indexes(),
                 *cls._check_ordering(),
-                *cls._check_constraints(databases),
+                *cls._check_constraints(),
             ]
 
         return errors
@@ -1594,8 +1579,8 @@ class Model(metaclass=ModelBase):
             return errors
 
     @classmethod
-    def _check_indexes(cls, databases):
-        """Check fields, names, and conditions of indexes."""
+    def _check_indexes(cls):
+        """Check the fields and names of indexes."""
         errors = []
         for index in cls._meta.indexes:
             # Index name can't start with an underscore or a number, restricted
@@ -1617,28 +1602,6 @@ class Model(metaclass=ModelBase):
                         obj=cls,
                         id='models.E034',
                     ),
-                )
-        for db in databases:
-            if not router.allow_migrate_model(db, cls):
-                continue
-            connection = connections[db]
-            if (
-                connection.features.supports_partial_indexes or
-                'supports_partial_indexes' in cls._meta.required_db_features
-            ):
-                continue
-            if any(index.condition is not None for index in cls._meta.indexes):
-                errors.append(
-                    checks.Warning(
-                        '%s does not support indexes with conditions.'
-                        % connection.display_name,
-                        hint=(
-                            "Conditions will be ignored. Silence this warning "
-                            "if you don't care about it."
-                        ),
-                        obj=cls,
-                        id='models.W037',
-                    )
                 )
         fields = [field for index in cls._meta.indexes for field, _ in index.fields_orders]
         errors.extend(cls._check_local_fields(fields, 'indexes'))
@@ -1756,9 +1719,7 @@ class Model(metaclass=ModelBase):
                     else:
                         _cls = None
                 except (FieldDoesNotExist, AttributeError):
-                    if fld is None or (
-                        fld.get_transform(part) is None and fld.get_lookup(part) is None
-                    ):
+                    if fld is None or fld.get_transform(part) is None:
                         errors.append(
                             checks.Error(
                                 "'ordering' refers to the nonexistent field, "
@@ -1797,19 +1758,17 @@ class Model(metaclass=ModelBase):
         return errors
 
     @classmethod
-    def _check_long_column_names(cls, databases):
+    def _check_long_column_names(cls):
         """
         Check that any auto-generated column names are shorter than the limits
         for each database in which the model will be created.
         """
-        if not databases:
-            return []
         errors = []
         allowed_len = None
         db_alias = None
 
         # Find the minimum max allowed length among all specified db_aliases.
-        for db in databases:
+        for db in settings.DATABASES:
             # skip databases where the model won't be created
             if not router.allow_migrate_model(db, cls):
                 continue
@@ -1872,28 +1831,18 @@ class Model(metaclass=ModelBase):
         return errors
 
     @classmethod
-    def _check_constraints(cls, databases):
-        """检查各种约束
-        """
+    def _check_constraints(cls):
         errors = []
-        for db in databases:
+        for db in settings.DATABASES:
             if not router.allow_migrate_model(db, cls):
                 continue
-            # connections 是 django.db.utils.ConnectionHandler 类的实例，叫做「数据库连接处理对象」
-            # 此处调用其 __getitem__ 方法，返回的是「数据库包装对象」
-            # 以 MySQL 为例，其所属类定义在 django.db.backends.mysql.base 模块中
-            # 所以下面的 connection 是 django.db.backends.mysql.base.DatabaseWrapper 类的实例
             connection = connections[db]
-
-            if not (
-                # 此处判断数据库是否支持检查约束，这步会创建「数据库连接对象」
-                # 也就是 MySQLdb.connections.Connection 类的实例
+            if (
                 connection.features.supports_table_check_constraints or
                 'supports_table_check_constraints' in cls._meta.required_db_features
-            ) and any(
-                isinstance(constraint, CheckConstraint)
-                for constraint in cls._meta.constraints
             ):
+                continue
+            if any(isinstance(constraint, CheckConstraint) for constraint in cls._meta.constraints):
                 errors.append(
                     checks.Warning(
                         '%s does not support check constraints.' % connection.display_name,
@@ -1903,44 +1852,6 @@ class Model(metaclass=ModelBase):
                         ),
                         obj=cls,
                         id='models.W027',
-                    )
-                )
-            if not (
-                connection.features.supports_partial_indexes or
-                'supports_partial_indexes' in cls._meta.required_db_features
-            ) and any(
-                isinstance(constraint, UniqueConstraint) and constraint.condition is not None
-                for constraint in cls._meta.constraints
-            ):
-                errors.append(
-                    checks.Warning(
-                        '%s does not support unique constraints with '
-                        'conditions.' % connection.display_name,
-                        hint=(
-                            "A constraint won't be created. Silence this "
-                            "warning if you don't care about it."
-                        ),
-                        obj=cls,
-                        id='models.W036',
-                    )
-                )
-            if not (
-                connection.features.supports_deferrable_unique_constraints or
-                'supports_deferrable_unique_constraints' in cls._meta.required_db_features
-            ) and any(
-                isinstance(constraint, UniqueConstraint) and constraint.deferrable is not None
-                for constraint in cls._meta.constraints
-            ):
-                errors.append(
-                    checks.Warning(
-                        '%s does not support deferrable unique constraints.'
-                        % connection.display_name,
-                        hint=(
-                            "A constraint won't be created. Silence this "
-                            "warning if you don't care about it."
-                        ),
-                        obj=cls,
-                        id='models.W038',
                     )
                 )
         return errors

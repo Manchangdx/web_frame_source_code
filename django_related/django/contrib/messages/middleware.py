@@ -9,7 +9,6 @@ class MessageMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request):
-        #print('【django.contrib.messages.middleware.MessageMiddleware.process_request】request:', request)
         request._messages = default_storage(request)
 
     def process_response(self, request, response):

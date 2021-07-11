@@ -21,7 +21,7 @@ from django.utils.functional import cached_property
 from django.utils.version import get_version_tuple
 
 autoreload_started = Signal()
-file_changed = Signal()
+file_changed = Signal(providing_args=['file_path', 'kind'])
 
 DJANGO_AUTORELOAD_ENV = 'RUN_MAIN'
 
@@ -207,37 +207,20 @@ def get_child_arguments():
     on reloading.
     """
     import django.__main__
-    django_main_path = Path(django.__main__.__file__)
-    py_script = Path(sys.argv[0])
 
     args = [sys.executable] + ['-W%s' % o for o in sys.warnoptions]
-    if py_script == django_main_path:
+    if sys.argv[0] == django.__main__.__file__:
         # The server was started with `python -m django runserver`.
         args += ['-m', 'django']
         args += sys.argv[1:]
-    elif not py_script.exists():
-        # sys.argv[0] may not exist for several reasons on Windows.
-        # It may exist with a .exe extension or have a -script.py suffix.
-        exe_entrypoint = py_script.with_suffix('.exe')
-        if exe_entrypoint.exists():
-            # Should be executed directly, ignoring sys.executable.
-            # TODO: Remove str() when dropping support for PY37.
-            # args parameter accepts path-like on Windows from Python 3.8.
-            return [str(exe_entrypoint), *sys.argv[1:]]
-        script_entrypoint = py_script.with_name('%s-script.py' % py_script.name)
-        if script_entrypoint.exists():
-            # Should be executed as usual.
-            # TODO: Remove str() when dropping support for PY37.
-            # args parameter accepts path-like on Windows from Python 3.8.
-            return [*args, str(script_entrypoint), *sys.argv[1:]]
-        raise RuntimeError('Script %s does not exist.' % py_script)
     else:
         args += sys.argv
     return args
 
 
 def trigger_reload(filename):
-    logger.info('%s changed, reloading.', filename)
+    print(f'\n【django.utils.autoreload.trigger_reload】重载变更文件:', filename)
+    #logger.info('%s changed, reloading.', filename)
     sys.exit(3)
 
 
@@ -304,7 +287,6 @@ class BaseReloader:
         logger.debug('Waiting for apps ready_event.')
         self.wait_for_apps_ready(apps, django_main_thread)
         from django.urls import get_resolver
-
         # Prevent a race condition where URL modules aren't loaded when the
         # reloader starts by accessing the urlconf_module property.
         try:
@@ -590,20 +572,18 @@ def get_reloader():
     return WatchmanReloader()
 
 
-# 创建并启动子线程，这个子线程是 Django 项目的主线程，所以它的名字是 django-main-thread
+#「命令处理对象」是 django.core.management.commands.runserver.Command 类的实例
+# 下面函数的参数 main_func 是「命令处理对象」的 inner_run 方法
 def start_django(reloader, main_func, *args, **kwargs):
-    import threading
-    ct = threading.current_thread()
-    print('【django.utils.autoreload.start_django】当前线程：', ct.name, ct.ident)
-
     ensure_echo_on()
 
+    import threading
+    ct = threading.current_thread()
+    print('【django.utils.autoreload.start_django】当前为主线程:', ct.name, ct.ident)
+
     main_func = check_errors(main_func)
-    # 这是项目的主线程，它是当前进程的子线程
-    # 核心函数 main_func 是定义在 
-    # django.core.management.commands.runserver.Command 类中的 inner_run 方法
-    django_main_thread = threading.Thread(target=main_func, args=args, 
-            kwargs=kwargs, name='django-main-thread')
+    django_main_thread = threading.Thread(target=main_func, args=args, kwargs=kwargs, name='django-main-thread')
+    print('【django.utils.autoreload.start_django】创建子线程并启动，该子线程为 Django 应用的主线程:', django_main_thread)
     django_main_thread.setDaemon(True)
     django_main_thread.start()
 
@@ -615,19 +595,14 @@ def start_django(reloader, main_func, *args, **kwargs):
             # becomes unavailable. In that case, use the StatReloader.
             reloader = StatReloader()
             logger.error('Error connecting to Watchman: %s', ex)
-            logger.info('Watching for file changes with %s', reloader.__class__.__name__)
+            logger.info(f'【django.utils.autoreload.start_django】等待变更文件的重载')
 
 
-# 此函数会调用当前模块中的 start_django 函数创建关键线程并启动
 def run_with_reloader(main_func, *args, **kwargs):
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
     try:
         if os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true':
-            # 该对象是当前模块中定义的 StatReloader 类的实例
             reloader = get_reloader()
-            #logger.info(f'【django.utils.authreload.run_with_reloader】Watching'
-            #        ' for file changes with {reloader.__class__.__name__}')
-            # 此函数定义在当前模块中
             start_django(reloader, main_func, *args, **kwargs)
         else:
             exit_code = restart_with_reloader()

@@ -28,9 +28,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # 用户映射类
         self.UserModel = get_user_model()
-        # 映射类的 username 字段，通常是 django.db.models.fields.CharField 类的实例
         self.username_field = self.UserModel._meta.get_field(self.UserModel.USERNAME_FIELD)
 
     def add_arguments(self, parser):
@@ -81,30 +79,25 @@ class Command(BaseCommand):
         return super().execute(*args, **options)
 
     def handle(self, *args, **options):
-        username = options[self.UserModel.USERNAME_FIELD]   # None
-        database = options['database']                      # 'default'
+        username = options[self.UserModel.USERNAME_FIELD]
+        database = options['database']
         user_data = {}
         verbose_field_name = self.username_field.verbose_name
-
-        # 下面这个 try 语句块保证用户映射类中有 password 字段
         try:
-            # PASSWORD_FIELD 是当前模块中定义的字符串 'password'
             self.UserModel._meta.get_field(PASSWORD_FIELD)
         except exceptions.FieldDoesNotExist:
             pass
         else:
             # If not provided, create the user with an unusable password.
             user_data[PASSWORD_FIELD] = None
-
         try:
-            # 默认情况下这个语句的布尔值是 True
             if options['interactive']:
                 # Same as user_data but without many to many fields and with
                 # foreign keys as fake model instances instead of raw IDs.
                 fake_user_data = {}
                 if hasattr(self.stdin, 'isatty') and not self.stdin.isatty():
                     raise NotRunningInTTYException
-                default_username = get_default_username()   # 空字符串
+                default_username = get_default_username()
                 if username:
                     error_msg = self._validate_username(username, verbose_field_name, database)
                     if error_msg:
@@ -114,13 +107,8 @@ class Command(BaseCommand):
                     raise CommandError('%s cannot be blank.' % capfirst(verbose_field_name))
                 # Prompt for username.
                 while username is None:
-                    # 下面这个变量的值是字符串 'Username: '
                     message = self._get_input_message(self.username_field, default_username)
-                    # 下面三个参数分别是：映射类的 Field 字段、字符串 'Username: ' 和空字符串 ''
-                    # 此 get_input_data 定义在当前类中，让用户输入一个用户名，返回值是经过验证的用户名字符串
                     username = self.get_input_data(self.username_field, message, default_username)
-                    # 下面这个 if 语句再次进行一些验证
-                    # 这次验证需要查询数据表，如果用户名字段在数据表中有唯一约束，判断 username 是否已经存在
                     if username:
                         error_msg = self._validate_username(username, verbose_field_name, database)
                         if error_msg:
@@ -133,7 +121,6 @@ class Command(BaseCommand):
                     if self.username_field.remote_field else username
                 )
                 # Prompt for required fields.
-                # 这个 REQUIRED_FIELDS 属性通常定义在用户模型类中，属性值通常是列表
                 for field_name in self.UserModel.REQUIRED_FIELDS:
                     field = self.UserModel._meta.get_field(field_name)
                     user_data[field_name] = options[field_name]
@@ -223,7 +210,6 @@ class Command(BaseCommand):
         if default and raw_value == '':
             raw_value = default
         try:
-            # 验证输入的内容是否符合要求
             val = field.clean(raw_value, None)
         except exceptions.ValidationError as e:
             self.stderr.write("Error: %s" % '; '.join(e.messages))

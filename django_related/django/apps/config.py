@@ -7,7 +7,6 @@ from django.utils.module_loading import module_has_submodule
 MODELS_MODULE_NAME = 'models'
 
 
-# 此类的实例就是「应用对象」，注意此类并不相当于 flask.app 模块中的 Flask 类
 class AppConfig:
     """Class representing a Django application and its configuration."""
 
@@ -28,17 +27,15 @@ class AppConfig:
 
         # Last component of the Python path to the application e.g. 'admin'.
         # This value must be unique across a Django project.
-        # 标签就是以点号分隔的字符串的最后一项
-        # 以 'django.contrib.admin' 为例，此属性值就是 'admin'
         if not hasattr(self, 'label'):
             self.label = app_name.rpartition(".")[2]
 
-        # 以 'django.contrib.admin' 为例，此属性值就是首字母大写的 'Admin'
+        # Human-readable name for the application e.g. "Admin".
         if not hasattr(self, 'verbose_name'):
             self.verbose_name = self.label.title()
 
         # Filesystem path to the application directory e.g.
-        # 绝对路径 '/path/to/django/contrib/admin'.
+        # '/path/to/django/contrib/admin'.
         if not hasattr(self, 'path'):
             self.path = self._path_from_module(app_module)
 
@@ -78,7 +75,7 @@ class AppConfig:
             raise ImproperlyConfigured(
                 "The app module %r has no filesystem location, "
                 "you must configure this app with an AppConfig subclass "
-                "with a 'path' class attribute." % module)
+                "with a 'path' class attribute." % (module,))
         return paths[0]
 
     @classmethod
@@ -90,7 +87,6 @@ class AppConfig:
             # If import_module succeeds, entry is a path to an app module,
             # which may specify an app config class with default_app_config.
             # Otherwise, entry is a path to an app config class or an error.
-            # 模块
             module = import_module(entry)
 
         except ImportError:
@@ -111,7 +107,6 @@ class AppConfig:
                 entry = module.default_app_config
             except AttributeError:
                 # Otherwise, it simply uses the default app config class.
-                # 当 entry 指向项目中的应用时，执行下面这一行代码创建当前所在类的实例并返回
                 return cls(entry, module)
             else:
                 mod_path, _, cls_name = entry.rpartition('.')
@@ -198,13 +193,8 @@ class AppConfig:
         Set the corresponding keyword argument to True to include such models.
         Keyword arguments aren't documented; they're a private API.
         """
-        # self 是「应用对象」，相当于 Flask 框架的 Flask 类的实例
-        # self.apps 是「应用收集对象」，它定义在 django.apps.registry 模块中
         self.apps.check_models_ready()
-        # self.models.values() 是已注册的应用对象中的映射类的可迭代对象，model 就是映射类
-        #print('【django.apps.config.AppConfig.get_models】model:')
         for model in self.models.values():
-            #print('\t', model)
             if model._meta.auto_created and not include_auto_created:
                 continue
             if model._meta.swapped and not include_swapped:

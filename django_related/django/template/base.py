@@ -50,15 +50,16 @@ times with multiple contexts)
 '<html></html>'
 """
 
-import inspect
 import logging
 import re
 from enum import Enum
+from inspect import getcallargs, getfullargspec, unwrap
 
-from django.template.context import BaseContext
+from django.template.context import (  # NOQA: imported for backwards compatibility
+    BaseContext, Context, ContextPopException, RequestContext,
+)
 from django.utils.formats import localize
 from django.utils.html import conditional_escape, escape
-from django.utils.regex_helper import _lazy_re_compile
 from django.utils.safestring import SafeData, mark_safe
 from django.utils.text import (
     get_text_list, smart_split, unescape_string_literal,
@@ -88,7 +89,7 @@ UNKNOWN_SOURCE = '<unknown source>'
 
 # match a variable or block tag and capture the entire tag, including start/end
 # delimiters
-tag_re = (_lazy_re_compile('(%s.*?%s|%s.*?%s|%s.*?%s)' %
+tag_re = (re.compile('(%s.*?%s|%s.*?%s|%s.*?%s)' %
           (re.escape(BLOCK_TAG_START), re.escape(BLOCK_TAG_END),
            re.escape(VARIABLE_TAG_START), re.escape(VARIABLE_TAG_END),
            re.escape(COMMENT_TAG_START), re.escape(COMMENT_TAG_END))))
@@ -148,13 +149,10 @@ class Template:
             engine = Engine.get_default()
         if origin is None:
             origin = Origin(UNKNOWN_SOURCE)
-        # 模板文件的相对路径，也就是视图函数中 render 的第二个参数
-        self.name = name        
-        # django.template.base.Origin 类的实例
-        # 它定义在 django.template.loaders.filesystem.Loader.get_template_sources 方法中
-        self.origin = origin    
-        self.engine = engine                # 引擎对象
-        self.source = str(template_string)  # 模板文件中的全部内容
+        self.name = name
+        self.origin = origin
+        self.engine = engine
+        self.source = str(template_string)  # May be lazy.
         self.nodelist = self.compile_nodelist()
 
     def __iter__(self):
@@ -162,15 +160,10 @@ class Template:
             yield from node
 
     def _render(self, context):
-        # 此方法返回携带渲染完毕的模板文件内容的 django.utils.safestring.SafeString 类的实例
-        # 称之为「响应体字符串对象」
-        r = self.nodelist.render(context)
-        return r
+        return self.nodelist.render(context)
 
     def render(self, context):
-        # self 是「模板对象」，此方法返回最终的「响应体字符串对象」
-        # context 是「请求上下文对象」，django.template.context.RequestContext 类的实例
-        # 其 render_context 属性值是 django.template.context.RenderContext 类的实例
+        "Display stage -- can be called many times"
         with context.render_context.push_state(self):
             if context.template is None:
                 with context.bind_template(self):
@@ -183,29 +176,22 @@ class Template:
         """
         Parse and compile the template source into a nodelist. If debug
         is True and an exception occurs during parsing, the exception is
-        annotated with contextual line information where it occurred in the
+        is annotated with contextual line information where it occurred in the
         template source.
         """
-        # lexer 是当前模块中定义的 Lexer 或其子类的实例，叫做「模板字符串解析对象」
         if self.engine.debug:
             lexer = DebugLexer(self.source)
         else:
             lexer = Lexer(self.source)
 
-        # 此方法根据模板文件中的每一行代码返回包含标记对象的列表
-        # 标记对象就是 django.template.base.Token 类的实例
         tokens = lexer.tokenize()
-        # 该类定义在当前模块中，其实例叫做「标记解析对象」
         parser = Parser(
             tokens, self.engine.template_libraries, self.engine.template_builtins,
             self.origin,
         )
 
         try:
-            # 这是一个类列表对象，叫做「节点列表对象」，里面是前端代码的节点或者叫标签
-            # 该对象是当前模块中的 NodeList 类的实例
-            p = parser.parse()
-            return p
+            return parser.parse()
         except Exception as e:
             if self.engine.debug:
                 e.template_debug = self.get_exception_info(e, e.token)
@@ -346,14 +332,12 @@ class Token:
 
 class Lexer:
     def __init__(self, template_string):
-        # 该类的实例是「模板字符串解析对象」，参数是模板文件内容的字符串
         self.template_string = template_string
         self.verbatim = False
 
     def tokenize(self):
         """
-        根据模板文件中的每一行代码返回包含标记对象的列表
-        标记对象就是 django.template.base.Token 类的实例
+        Return a list of tokens from a given template_string.
         """
         in_tag = False
         lineno = 1
@@ -423,9 +407,7 @@ class DebugLexer(Lexer):
 
 class Parser:
     def __init__(self, tokens, libraries=None, builtins=None, origin=None):
-        # Reverse the tokens so delete_first_token(), prepend_token(), and
-        # next_token() can operate at the end of the list in constant time.
-        self.tokens = list(reversed(tokens))    # 反向的标记对象列表
+        self.tokens = tokens
         self.tags = {}
         self.filters = {}
         self.command_stack = []
@@ -449,13 +431,10 @@ class Parser:
         tokens, e.g. ['elif', 'else', 'endif']. If no matching token is
         reached, raise an exception with the unclosed block tag details.
         """
-        # 当前方法的参数用于设置停止解析点
         if parse_until is None:
             parse_until = []
         nodelist = NodeList()
         while self.tokens:
-            # self.tokens 是反向排序的列表
-            # 此处调用 self.next_token 方法弹出列表的最后一个元素
             token = self.next_token()
             # Use the raw values here for TokenType.* for a tiny performance boost.
             if token.token_type.value == 0:  # TokenType.TEXT
@@ -501,7 +480,6 @@ class Parser:
                 self.command_stack.pop()
         if parse_until:
             self.unclosed_block_tag(parse_until)
-        # 返回一个类列表对象，相当于节点列表或者叫标签列表
         return nodelist
 
     def skip_past(self, endtag):
@@ -565,13 +543,13 @@ class Parser:
         raise self.error(token, msg)
 
     def next_token(self):
-        return self.tokens.pop()
+        return self.tokens.pop(0)
 
     def prepend_token(self, token):
-        self.tokens.append(token)
+        self.tokens.insert(0, token)
 
     def delete_first_token(self):
-        del self.tokens[-1]
+        del self.tokens[0]
 
     def add_library(self, lib):
         self.tags.update(lib.tags)
@@ -625,7 +603,7 @@ filter_raw_string = r"""
     'arg_sep': re.escape(FILTER_ARGUMENT_SEPARATOR),
 }
 
-filter_re = _lazy_re_compile(filter_raw_string, re.VERBOSE)
+filter_re = re.compile(filter_raw_string, re.VERBOSE)
 
 
 class FilterExpression:
@@ -656,7 +634,7 @@ class FilterExpression:
                                           (token[:upto], token[upto:start],
                                            token[start:]))
             if var_obj is None:
-                var, constant = match['var'], match['constant']
+                var, constant = match.group("var", "constant")
                 if constant:
                     try:
                         var_obj = Variable(constant).resolve({})
@@ -668,9 +646,9 @@ class FilterExpression:
                 else:
                     var_obj = Variable(var)
             else:
-                filter_name = match['filter_name']
+                filter_name = match.group("filter_name")
                 args = []
-                constant_arg, var_arg = match['constant_arg'], match['var_arg']
+                constant_arg, var_arg = match.group("constant_arg", "var_arg")
                 if constant_arg:
                     args.append((False, Variable(constant_arg).resolve({})))
                 elif var_arg:
@@ -728,9 +706,9 @@ class FilterExpression:
         # First argument, filter input, is implied.
         plen = len(provided) + 1
         # Check to see if a decorator is providing the real function.
-        func = inspect.unwrap(func)
+        func = unwrap(func)
 
-        args, _, _, defaults, _, _, _ = inspect.getfullargspec(func)
+        args, _, _, defaults, _, _, _ = getfullargspec(func)
         alen = len(args)
         dlen = len(defaults or [])
         # Not enough OR Too many
@@ -878,9 +856,8 @@ class Variable:
                         try:  # method call (assuming no args required)
                             current = current()
                         except TypeError:
-                            signature = inspect.signature(current)
                             try:
-                                signature.bind()
+                                getcallargs(current)
                             except TypeError:  # arguments *were* required
                                 current = context.template.engine.string_if_invalid  # invalid method call
                             else:
@@ -953,7 +930,6 @@ class NodeList(list):
     contains_nontext = False
 
     def render(self, context):
-        # 处理节点对象，返回 django.utils.safestring.SafeString 类的实例
         bits = []
         for node in self:
             if isinstance(node, Node):
@@ -961,8 +937,6 @@ class NodeList(list):
             else:
                 bit = node
             bits.append(str(bit))
-        # 下面的函数来自 django.utils.safestring 模块
-        # 其返回值是根据解析得到的节点字符串相连的完整字符串创建的 django.utils.safestring.SafeString 类的实例
         return mark_safe(''.join(bits))
 
     def get_nodes_by_type(self, nodetype):
@@ -1019,7 +993,7 @@ class VariableNode(Node):
 
 
 # Regex for token keyword arguments
-kwarg_re = _lazy_re_compile(r"(?:(\w+)=)?(.+)")
+kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
 
 
 def token_kwargs(bits, parser, support_legacy=False):
@@ -1041,7 +1015,7 @@ def token_kwargs(bits, parser, support_legacy=False):
     if not bits:
         return {}
     match = kwarg_re.match(bits[0])
-    kwarg_format = match and match[1]
+    kwarg_format = match and match.group(1)
     if not kwarg_format:
         if not support_legacy:
             return {}
@@ -1052,7 +1026,7 @@ def token_kwargs(bits, parser, support_legacy=False):
     while bits:
         if kwarg_format:
             match = kwarg_re.match(bits[0])
-            if not match or not match[1]:
+            if not match or not match.group(1):
                 return kwargs
             key, value = match.groups()
             del bits[:1]
