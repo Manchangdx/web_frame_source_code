@@ -37,11 +37,13 @@ def get_internal_wsgi_application():
     whatever ``django.core.wsgi.get_wsgi_application`` returns.
     """
     from django.conf import settings
+    # 这个属性值来自项目自身的配置文件，属性值是字符串
     app_path = getattr(settings, 'WSGI_APPLICATION')
     if app_path is None:
         return get_wsgi_application()
 
     try:
+        # 返回的是 django.core.handlers.wsgi.WSGIHandler 类的实例，相当于应用对象
         return import_string(app_path)
     except ImportError as err:
         raise ImproperlyConfigured(
@@ -119,6 +121,8 @@ class ServerHandler(simple_server.ServerHandler):
             super().handle_error()
 
 
+# 此类的实例就是「请求处理对象」
+# 此类的终极父类是 socketserver.BaseRequestHandler 类，初始化方法就在后者中
 class WSGIRequestHandler(simple_server.WSGIRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -165,12 +169,30 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             if '_' in k:
                 del self.headers[k]
 
+        # 父类的方法定义在 wsgiref.simple_server.WSGIRequestHandler 类中
         return super().get_environ()
 
+    # 此方法在父类 socketserver.BaseRequestHandler 的 __init__ 方法中被调用
+    # 服务器套接字收到连接请求，创建一个当前类的实例，叫做「请求处理对象」
+    # 实例初始化过程中，将连接的临时套接字对象赋值给实例的 connect 属性，然后调用此方法
     def handle(self):
+        import threading
+        ct = threading.current_thread()
+        print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle】「请求处理对象」开始处理请求，当前为子线程: {ct.name} {ct.ident}')
+
+        # self 是「请求处理对象」
+        # HTTP 1.0 为短连接，连接后收发一次数据后自动断开
+        # HTTP 1.1 及其以后的版本支持长连接，一次连接可以收发多次数据
+        # 下面的属性用于决定连接是否持续
+        # 该属性值在 http.server.BaseHTTPRequestHandler.parse_request 方法中
+        # 根据请求的 HTTP 协议版本做出改变
         self.close_connection = True
+        # 处理一次请求
         self.handle_one_request()
+
+        # 如果是长连接，即客户端的版本是 HTTP 1.1 及其以上，继续处理请求
         while not self.close_connection:
+            #print('【django.core.servers.basehttp.WSGIRequestHandler.handle】**************************')
             self.handle_one_request()
         try:
             self.connection.shutdown(socket.SHUT_WR)
@@ -178,22 +200,59 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             pass
 
     def handle_one_request(self):
-        """Copy of WSGIRequestHandler.handle() but with different ServerHandler"""
+        """读取并解析浏览器发送的数据
+        """
+
+        # self 是「请求处理对象」
+        # 读取一行数据的前 2 ** 8 + 1 个字符，这个数据就是浏览器发送给服务器的数据
         self.raw_requestline = self.rfile.readline(65537)
+        if self.raw_requestline:
+            print(('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】'
+                    '请求信息的第一行: {}'.format(self.raw_requestline)))
+        # 如果一行的长度超过这个数，就判定它超出了服务器允许的长度范围，返回 414 状态码
         if len(self.raw_requestline) > 65536:
+            print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】414')
+            self.handle_one_request()
             self.requestline = ''
             self.request_version = ''
             self.command = ''
             self.send_error(414)
             return
 
+        # 下面这个方法在 http.server.BaseHTTPRequestHandler 类里面
+        # 解析请求数据的第一行，获取请求方法、路径、协议版本号并赋值给对应的属性
+        # 将请求头信息解析成 http.client.HTTPMessage 类的实例，这是一个类字典对象
+        # 并将此实例赋值给 self.headers 属性
         if not self.parse_request():  # An error code has been sent, just exit
             return
 
+        # 此类定义在当前模块中，其父类是 wsgiref.simple_server.ServerHandler
+        # 后者的父类是 wsgiref.handlers.SimpleHandler（初始化就在此类中） 
+        # 后者的父类是 wsgiref.handlers.BaseHandler 
+        # 其实例是创建响应对象并作进一步处理的对象，我们称之为「响应处理对象」
         handler = ServerHandler(
+            # 参数说明：
+            # 1、读取客户端发来的数据的「rfile 流对象」
+            # 2、写入返回给客户端的数据的「wfile 流对象」
+            # 3、协议相关的错误信息
+            # 4、self.get_environ 方法处理请求头中的无效字段
+            #    然后调用父类 wsgiref.simple_server.WSGIRequestHandler 的同名方法
+            #    这个同名方法会返回一个字典对象，里面是各种请求信息
             self.rfile, self.wfile, self.get_stderr(), self.get_environ()
         )
-        handler.request_handler = self      # backpointer for logging & connection closing
+
+        # self 是「请求处理对象」，下面的 handler 是「响应处理对象」
+        # self.request         临时套接字
+        # self.client_address  客户端地址元组
+        # self.server          服务器对象
+        # 将 self 赋值给「响应处理对象」的 request_handler 属性
+        handler.request_handler = self
+
+        # 调用「响应处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
+        # self.server 是「服务器对象」，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
+        # 其返回值是服务器对象的 application 属性值，也就是当前模块倒数第二行代码里的 wsgi_handler
+        # 所以下面 run 方法的参数就是「应用对象」，即 django.core.handlers.wsgi.WSGIHandler 类的实例
+        # 之前的操作是处理请求，下面这步操作就是处理响应以及返回数据给客户端
         handler.run(self.server.get_app())
 
 

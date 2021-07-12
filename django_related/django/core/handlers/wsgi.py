@@ -61,13 +61,17 @@ class LimitedStream:
         return line
 
 
+# 父类定义在 django.http.request 模块中
 class WSGIRequest(HttpRequest):
+    # 该类的实例是「请求对象」
     def __init__(self, environ):
+        print('【django.core.handlers.wsgi.WSGIRequest.__init__】初始化「请求对象」')
         script_name = get_script_name(environ)
         # If PATH_INFO is empty (e.g. accessing the SCRIPT_NAME URL without a
         # trailing slash), operate as if '/' was requested.
         path_info = get_path_info(environ) or '/'
         self.environ = environ
+        # 请求的相对路径
         self.path_info = path_info
         # be careful to only replace the first slash in the path because of
         # http://test/something and http://test//something being different as
@@ -116,21 +120,38 @@ class WSGIRequest(HttpRequest):
             self._load_post_and_files()
         return self._files
 
+    # 下面这行代码的作用是处理请求体中的表单信息生成一个类字典对象赋值给 self._post 属性，其实也就是 self.POST 属性
+    # 初始化「请求对象」时并不执行下面这一行代码，调用「请求对象」的 POST 属性时才会执行这行代码
+    # 中间件处理请求对象时 django.middleware.csrf.CsrfViewMiddleware.process_view 方法会调用「请求对象」的 POST 属性
     POST = property(_get_post, _set_post)
 
 
+# 应用对象类，该类的实例就是「应用对象」，相当于 flask.app.Flask 类的实例
 class WSGIHandler(base.BaseHandler):
     request_class = WSGIRequest
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()
 
     def __call__(self, environ, start_response):
+        # self 是「应用对象」，客户端发来请求后「响应处理对象」调用此方法
+        print('【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」')
+
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
+
+        # self.request_class 是当前模块中定义的 WSGIRequest 类
+        # 此处对其进行实例化并赋值给 request 变量，我们称之为「请求对象」
         request = self.request_class(environ)
+
+        # 此 get_response 方法定义在 django.core.handlers.base.BaseHandler 类中
+        # 把「请求对象」作为参数调用此方法，返回「响应对象」
+        # 后者是 django.http.response.HttpResponse 类的实例
         response = self.get_response(request)
+
+        print('【django.core.handlers.wsgi.WSGIHandler.__call__】获得「响应对象」:', response)
 
         response._handler_class = self.__class__
 
@@ -139,6 +160,7 @@ class WSGIHandler(base.BaseHandler):
             *response.items(),
             *(('Set-Cookie', c.output(header='')) for c in response.cookies.values()),
         ]
+        # 给「服务处理对象」增加 status 和 headers 属性
         start_response(status, response_headers)
         if getattr(response, 'file_to_stream', None) is not None and environ.get('wsgi.file_wrapper'):
             response = environ['wsgi.file_wrapper'](response.file_to_stream, response.block_size)

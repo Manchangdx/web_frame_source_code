@@ -21,19 +21,34 @@ class BaseHandler:
     _middleware_chain = None
 
     def load_middleware(self):
-        """
-        Populate middleware lists from settings.MIDDLEWARE.
+        # self 是应用对象，初始化时会调用当前方法
+        print('【django.core.handlers.base.BaseHandler.load_middleware】应用对象初始化')
 
-        Must be called after the environment is fixed (see __call__ in subclasses).
-        """
+        # 下面这个列表里面是各中间件实例的 process_view 方法
+        # 这些方法在 self._get_response 中会被循环调用
         self._view_middleware = []
+        # 下面这个列表里面是各中间件实例的 process_template_response 方法
+        # 这些方法在 self._get_response 中会被循环调用
         self._template_response_middleware = []
+        # 下面这个列表里面是各中间件实例的 process_exception 方法
+        # 这些方法在 self.process_exception_by_middleware 中会被循环调用
+        # 而后者在 self._get_response 中被调用
         self._exception_middleware = []
 
+        # 下面这个函数来自 django.core.handlers.exception 模块
+        # 此函数是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
+        # 下面这个 handler 实际上等同于 self._get_response 方法
         handler = convert_exception_to_response(self._get_response)
+        # 下面的 reversed 是 Python 内置函数
+        # 参数是定义在项目配置文件中的中间件列表，返回值是参数倒序的迭代器
+        # 这样使得项目配置文件中的中间件列表被倒序初始化（实例化）
+        # 在处理请求对象的过程中顺序执行，在处理响应对象的过程中倒序执行
         for middleware_path in reversed(settings.MIDDLEWARE):
+            # 此方法用于获取中间件类，Django 内置的中间件通常在 django.contrib 包下面
             middleware = import_string(middleware_path)
             try:
+                # middleware 是中间件，它通常是一个类，这里把 handler 函数作为参数获取其实例
+                # 实例初始化时，会把参数 handler 赋值给实例自身的 get_response 属性
                 mw_instance = middleware(handler)
             except MiddlewareNotUsed as exc:
                 if settings.DEBUG:
@@ -55,10 +70,15 @@ class BaseHandler:
             if hasattr(mw_instance, 'process_exception'):
                 self._exception_middleware.append(mw_instance.process_exception)
 
+            # 下面这一行代码导致 handler 变量的值发生变化，参数是中间件类的实例
+            # 前面已经提到，下面这个函数来自 django.core.handlers.exception 模块
+            # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
+            #
+            # 每次执行下面这行代码，handler 就变成中间件实例，实例的 get_response 属性就是上一个 handler
+            # 也就是说，下面这个 handler 的 get_response 属性值就是定义之前的 handler
             handler = convert_exception_to_response(mw_instance)
 
-        # We only assign to this when initialization is complete as it is used
-        # as a flag for initialization being complete.
+        # 它可以看作是中间件链条的第一个中间件类的实例
         self._middleware_chain = handler
 
     def make_view_atomic(self, view):
@@ -69,9 +89,18 @@ class BaseHandler:
         return view
 
     def get_response(self, request):
-        """Return an HttpResponse object for the given HttpRequest."""
-        # Setup default url resolver for this thread
+        # self 是「应用对象」，此方法利用「请求对象」创建「响应对象」并返回
+        # 参数 request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
+
         set_urlconf(settings.ROOT_URLCONF)
+
+        # self._middleware_chain 属性值是一个中间件类的实例
+        # 此处调用中间件对象，也就是调用中间件对象的 __call__ 方法
+        # 所有的中间件对象的 __call__ 方法都是 django.utils.deprecation.MiddlewareMixin.__call__
+        # 在 __call__ 内部会调用中间件对象的 get_response 方法
+        # 此方法本身就是另一个中间件对象，然后继续调用它的 __call__ 方法，链式调用
+        # 最终，调用在当前类中定义的 self._get_response 方法返回「响应对象」
+        # 然后链式返回，最后下面这个方法返回「响应对象」
         response = self._middleware_chain(request)
         response._closable_objects.append(request)
         if response.status_code >= 400:
@@ -83,11 +112,7 @@ class BaseHandler:
         return response
 
     def _get_response(self, request):
-        """
-        Resolve and call the view, then apply view, exception, and
-        template_response middleware. This method is everything that happens
-        inside the request/response middleware.
-        """
+        print('【django.core.handlers.base.BaseHandler._get_response】为创建「响应对象」做准备')
         response = None
 
         if hasattr(request, 'urlconf'):
@@ -102,14 +127,18 @@ class BaseHandler:
         request.resolver_match = resolver_match
 
         # Apply view middleware
+        # 这里可能有一个 django.middleware.csrf.CsrfViewMiddleware.process_view 中间件验证函数
         for middleware_method in self._view_middleware:
             response = middleware_method(request, callback, callback_args, callback_kwargs)
             if response:
                 break
 
         if response is None:
+            # 这里保证视图函数中数据库相关的操作具有原子性，返回值仍是视图函数
             wrapped_callback = self.make_view_atomic(callback)
             try:
+                print('【django.core.handlers.base.BaseHandler._get_response】调用视图对象:', wrapped_callback.__repr__())
+                # 调用视图对象返回「响应对象」，即 django.http.response.HttpResponse 类的实例
                 response = wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)
@@ -140,6 +169,11 @@ class BaseHandler:
                     )
 
             try:
+                # 等号后面的 response 是「响应对象」
+                # 该对象的 render 方法定义在 django.template.response.SimpleTemplateResponse 类中
+                # 该方法会为自身的 content 属性赋值携带渲染完毕的模板文件内容字符串的「响应体字符串对象」
+                # 后者是 django.utils.safestring.SafeString 类的实例
+                # 该方法的返回值仍是「响应对象」自身
                 response = response.render()
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)

@@ -47,7 +47,8 @@ class View:
 
     @classonlymethod
     def as_view(cls, **initkwargs):
-        """Main entry point for a request-response process."""
+        """当前方法返回「视图函数」
+        """
         for key in initkwargs:
             if key in cls.http_method_names:
                 raise TypeError("You tried to pass in the %s method name as a "
@@ -59,6 +60,10 @@ class View:
                                 "attributes of the class." % (cls.__name__, key))
 
         def view(request, *args, **kwargs):
+            # self 是视图类的实例，当前函数就是「视图函数」
+            import threading
+            ct = threading.current_thread()
+            print('【django.views.generic.base.View.as_view.view】调用视图对象，当前线程：', ct.name, ct.ident)
             self = cls(**initkwargs)
             if hasattr(self, 'get') and not hasattr(self, 'head'):
                 self.head = self.get
