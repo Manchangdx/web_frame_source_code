@@ -104,15 +104,19 @@ class BaseHandler:
         response = self._middleware_chain(request)
         response._closable_objects.append(request)
         if response.status_code >= 400:
+            message = f'{response.reason_phrase}: {request.path}'
+            print(f'【django.core.handlers.base.BaseHandler.get_response】{message}')
+            '''
             log_response(
                 '%s: %s', response.reason_phrase, request.path,
                 response=response,
                 request=request,
             )
+            '''
         return response
 
     def _get_response(self, request):
-        print('【django.core.handlers.base.BaseHandler._get_response】为创建「响应对象」做准备')
+        #print('【django.core.handlers.base.BaseHandler._get_response】获取视图函数')
         response = None
 
         if hasattr(request, 'urlconf'):
@@ -137,7 +141,7 @@ class BaseHandler:
             # 这里保证视图函数中数据库相关的操作具有原子性，返回值仍是视图函数
             wrapped_callback = self.make_view_atomic(callback)
             try:
-                print('【django.core.handlers.base.BaseHandler._get_response】调用视图对象:', wrapped_callback.__repr__())
+                print('【django.core.handlers.base.BaseHandler._get_response】交由 rest_framework.views.APIView.dispatch 方法继续处理')
                 # 调用视图对象返回「响应对象」，即 django.http.response.HttpResponse 类的实例
                 response = wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:

@@ -219,7 +219,7 @@ def get_child_arguments():
 
 
 def trigger_reload(filename):
-    print(f'\n【django.utils.autoreload.trigger_reload】重载变更文件:', filename)
+    print(f'【django.utils.autoreload.trigger_reload】重载变更文件:', filename)
     #logger.info('%s changed, reloading.', filename)
     sys.exit(3)
 

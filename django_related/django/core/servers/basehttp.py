@@ -189,6 +189,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         self.close_connection = True
         # 处理一次请求
         self.handle_one_request()
+        print('【django.core.servers.basehttp.WSGIRequestHandler.handle】请求处理完毕，等待下一次请求...\n')
 
         # 如果是长连接，即客户端的版本是 HTTP 1.1 及其以上，继续处理请求
         while not self.close_connection:

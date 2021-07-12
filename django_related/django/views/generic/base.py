@@ -61,9 +61,6 @@ class View:
 
         def view(request, *args, **kwargs):
             # self 是视图类的实例，当前函数就是「视图函数」
-            import threading
-            ct = threading.current_thread()
-            print('【django.views.generic.base.View.as_view.view】调用视图对象，当前线程：', ct.name, ct.ident)
             self = cls(**initkwargs)
             if hasattr(self, 'get') and not hasattr(self, 'head'):
                 self.head = self.get
@@ -73,6 +70,7 @@ class View:
                     "%s instance has no 'request' attribute. Did you override "
                     "setup() and forget to call super()?" % cls.__name__
                 )
+            # 根据请求方法找到对应的同名视图函数并调用之
             return self.dispatch(request, *args, **kwargs)
         view.view_class = cls
         view.view_initkwargs = initkwargs
@@ -99,6 +97,7 @@ class View:
             handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
         else:
             handler = self.http_method_not_allowed
+        #print('【django.views.generic.base.View.dispatch】视图函数:', handler)
         return handler(request, *args, **kwargs)
 
     def http_method_not_allowed(self, request, *args, **kwargs):
