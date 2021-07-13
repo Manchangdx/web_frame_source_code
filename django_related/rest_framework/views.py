@@ -135,6 +135,9 @@ class APIView(View):
                 )
             cls.queryset._fetch_all = force_evaluation
 
+        # 下面的 view 是 django.views.generic.base.View.as_view.view 方法
+        # 当请求进来时，找到此方法并调用之，此方法会将 Django 的「请求对象」作为参数调用 dispatch 方法
+        # 此 dispatch 方法已在当前类中重写，增加了一些钩子函数处理异常
         view = super().as_view(**initkwargs)
         view.cls = cls
         view.initkwargs = initkwargs
@@ -164,6 +167,7 @@ class APIView(View):
         If `request.method` does not correspond to a handler method,
         determine what kind of exception to raise.
         """
+        print(f'【rest_framework.views.APIView.http_method_not_allowed】请求方法 {request.method} 不被允许')
         raise exceptions.MethodNotAllowed(request.method)
 
     def permission_denied(self, request, message=None):
@@ -384,12 +388,13 @@ class APIView(View):
         """
         parser_context = self.get_parser_context(request)
 
+        # 此类定义在 rest_framework.request 模块中
         return Request(
-            request,
-            parsers=self.get_parsers(),
-            authenticators=self.get_authenticators(),
+            request,                                    # 来自 Django 的「请求对象」
+            parsers=self.get_parsers(),                 # 解析器列表，里面的对象都有 parse 方法用于解析数据
+            authenticators=self.get_authenticators(),   # 权限验证列表，里面的对象都是权限验证类的实例
             negotiator=self.get_content_negotiator(),
-            parser_context=parser_context
+            parser_context=parser_context               # 字典，里面有视图函数本身
         )
 
     def initial(self, request, *args, **kwargs):
@@ -407,9 +412,9 @@ class APIView(View):
         request.version, request.versioning_scheme = version, scheme
 
         # Ensure that the incoming request is permitted
-        self.perform_authentication(request)
-        self.check_permissions(request)
-        self.check_throttles(request)
+        self.perform_authentication(request)    # 检查用户不是匿名用户
+        self.check_permissions(request)         # 检查用户权限
+        self.check_throttles(request)           # 检查请求是否收到限制
 
     def finalize_response(self, request, response, *args, **kwargs):
         """
@@ -446,6 +451,7 @@ class APIView(View):
         Handle any exception that occurs, by returning an appropriate response,
         or re-raising the error.
         """
+        #print('【rest_framework.views.APIView.handle_exception】exc:', type(exc), exc)
         if isinstance(exc, (exceptions.NotAuthenticated,
                             exceptions.AuthenticationFailed)):
             # WWW-Authenticate header for 401 responses, else coerce to 403
@@ -457,6 +463,7 @@ class APIView(View):
                 exc.status_code = status.HTTP_403_FORBIDDEN
 
         exception_handler = self.get_exception_handler()
+        #print('【rest_framework.views.APIView.handle_exception】exception_handler:', exception_handler)
 
         context = self.get_exception_handler_context()
         response = exception_handler(exc, context)
@@ -465,6 +472,7 @@ class APIView(View):
             self.raise_uncaught_exception(exc)
 
         response.exception = True
+        print('【rest_framework.views.APIView.handle_exception】创建并返回异常响应对象:', response)
         return response
 
     def raise_uncaught_exception(self, exc):
@@ -475,33 +483,36 @@ class APIView(View):
             request.force_plaintext_errors(use_plaintext_traceback)
         raise exc
 
-    # Note: Views are made CSRF exempt from within `as_view` as to prevent
-    # accidental removal of this exemption in cases where `dispatch` needs to
-    # be overridden.
     def dispatch(self, request, *args, **kwargs):
-        """
-        `.dispatch()` is pretty much the same as Django's regular dispatch,
-        but with extra hooks for startup, finalize, and exception handling.
+        """核心方法
         """
         self.args = args
         self.kwargs = kwargs
+
+        # 此方法定义在当前类中，用于创建一个 rest_framework 的「请求对象」并返回
         request = self.initialize_request(request, *args, **kwargs)
+        print('【rest_framework.views.APIView.dispatch】重新包装一个「请求对象」:', request)
         self.request = request
         self.headers = self.default_response_headers  # deprecate?
 
         try:
+            # 验证用户权限
             self.initial(request, *args, **kwargs)
 
-            # Get the appropriate handler method
+            # 找到视图函数
             if request.method.lower() in self.http_method_names:
-                handler = getattr(self, request.method.lower(),
-                                  self.http_method_not_allowed)
+                handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
+                if handler != self.http_method_not_allowed:
+                    print('【rest_framework.views.APIView.dispatch】找到并调用视图函数:', handler)
             else:
                 handler = self.http_method_not_allowed
 
+            # 调用视图函数
             response = handler(request, *args, **kwargs)
 
+        # 异常处理
         except Exception as exc:
+            print('【rest_framework.views.APIView.dispatch】出现异常了:', exc)
             response = self.handle_exception(exc)
 
         self.response = self.finalize_response(request, response, *args, **kwargs)

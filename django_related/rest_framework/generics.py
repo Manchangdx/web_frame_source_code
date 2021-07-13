@@ -147,6 +147,7 @@ class GenericAPIView(views.APIView):
         method if you want to apply the configured filtering backend to the
         default queryset.
         """
+        #print('【rest_framework.generics.GenericAPIView.filter_queryset】self.filter_backends:', self.filter_backends)
         for backend in list(self.filter_backends):
             queryset = backend().filter_queryset(self.request, queryset, self)
         return queryset
@@ -167,8 +168,13 @@ class GenericAPIView(views.APIView):
         """
         Return a single page of results, or `None` if pagination is disabled.
         """
+        # self.paginator 是分页类的实例，分页类是视图类的 pagination_class 属性值
+        # 如果用分页，就有这个属性值
         if self.paginator is None:
             return None
+        print('【rest_framework.generics.GenericAPIView.paginate_queryset】调用分页类的实例的 paginate_queryset 方法处理分页')
+        # 此 paginate_queryset 方法大概率定义在 rest_framework.pagination.PageNumberPagination 类中
+        # 返回值是列表，列表里面是映射类实例
         return self.paginator.paginate_queryset(queryset, self.request, view=self)
 
     def get_paginated_response(self, data):

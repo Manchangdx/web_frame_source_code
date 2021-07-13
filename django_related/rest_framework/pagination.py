@@ -193,12 +193,17 @@ class PageNumberPagination(BasePagination):
         Paginate a queryset if required, either returning a
         page object, or `None` if pagination is not configured for this view.
         """
+        # 每页数量，通过参数获得，缺省值是 16
         page_size = self.get_page_size(request)
+        print('【rest_framework.pagination.PageNumberPagination.paginate_queryset】每页数量:', page_size)
         if not page_size:
             return None
 
+        # 该属性值是 django.core.paginator.Paginator 类，此处对其进行实例化，创建一个「分页器」
         paginator = self.django_paginator_class(queryset, page_size)
+        # 页码，默认值是 1
         page_number = request.query_params.get(self.page_query_param, 1)
+        print('【rest_framework.pagination.PageNumberPagination.paginate_queryset】第几页:', page_number)
         if page_number in self.last_page_strings:
             page_number = paginator.num_pages
 
@@ -256,6 +261,7 @@ class PageNumberPagination(BasePagination):
             except (KeyError, ValueError):
                 pass
 
+        # 此属性定义在当前类中，其值在配置文件 shiyanlou/settings/base.py 中
         return self.page_size
 
     def get_next_link(self):

@@ -209,6 +209,8 @@ class BaseSerializer(Field):
                 '`update()` did not return an object instance.'
             )
         else:
+            print('【rest_framework.serializers.BaseSerializer.save】调用自定义序列化子类的 create 方法根据验证过的数据创建映射类实例并保存')
+            # 根据验证过的请求体创建映射类的实例并将其赋值给序列化实例的 instance 属性
             self.instance = self.create(validated_data)
             assert self.instance is not None, (
                 '`create()` did not return an object instance.'
@@ -231,13 +233,18 @@ class BaseSerializer(Field):
 
         if not hasattr(self, '_validated_data'):
             try:
+
+                print('【rest_framework.serializers.BaseSerializer.is_valid】请求体数据验证:', self.initial_data)
                 self._validated_data = self.run_validation(self.initial_data)
+                print('【rest_framework.serializers.BaseSerializer.is_valid】请求体数据验证通过')
             except ValidationError as exc:
                 self._validated_data = {}
                 self._errors = exc.detail
+                print('【rest_framework.serializers.BaseSerializer.is_valid】请求体数据验证报错:', self._errors)
             else:
                 self._errors = {}
 
+        # 如果有字段验证失败且参数 raise_exception 为 True 则抛出异常
         if self._errors and raise_exception:
             raise ValidationError(self.errors)
 
@@ -245,6 +252,8 @@ class BaseSerializer(Field):
 
     @property
     def data(self):
+        """根据映射类实例或验证过的请求体进行序列化，生成响应体所需字典对象
+        """
         if hasattr(self, 'initial_data') and not hasattr(self, '_validated_data'):
             msg = (
                 'When a serializer is passed a `data` keyword argument you '
@@ -257,11 +266,13 @@ class BaseSerializer(Field):
 
         if not hasattr(self, '_data'):
             if self.instance is not None and not getattr(self, '_errors', None):
+                # 此 to_representation 方法定义在子类中，利用参数返回序列化后的字典对象
                 self._data = self.to_representation(self.instance)
             elif hasattr(self, '_validated_data') and not getattr(self, '_errors', None):
                 self._data = self.to_representation(self.validated_data)
             else:
                 self._data = self.get_initial()
+        #print(self._data)
         return self._data
 
     @property

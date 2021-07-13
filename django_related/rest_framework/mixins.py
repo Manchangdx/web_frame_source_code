@@ -4,7 +4,6 @@ Basic building blocks for generic class based views.
 We don't bind behaviour to http method handlers yet,
 which allows mixin classes to be composed in interesting ways.
 """
-from django.db.models import query
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
@@ -15,13 +14,28 @@ class CreateModelMixin:
     Create a model instance.
     """
     def create(self, request, *args, **kwargs):
+        """根据请求体反序列化生成映射类实例并保存到数据表中
+        """
+        print('【rest_framework.mixins.CreateModelMixin.create】请求体:')
+        print('\t', request.data)
+        # 此方法定义在 rest_framework.generics.GenericAPIView 类中，根据请求体数据创建序列化类的实例
         serializer = self.get_serializer(data=request.data)
+        print('【rest_framework.mixins.CreateModelMixin.create】创建序列化实例，调用其 is_valid 方法验证数据')
+        # 此方法定义在 rest_framework.serializers.BaseSerializer 类中，验证请求体数据，如果有异常则抛出异常
         serializer.is_valid(raise_exception=True)
+        # 此方法定义在 rest_framework.serializers.BaseSerializer 类中，创建映射类实例并保存到数据表中
         self.perform_create(serializer)
+        print('【rest_framework.mixins.CreateModelMixin.create】创建映射类实例成功，响应体:')
+        print('\t', serializer.data)
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        # 序列化实例的 data 属性定义在 rest_framework.serializers.BaseSerializer 类中，属性值是字典对象
+        resp = Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        print('【rest_framework.mixins.CreateModelMixin.create】返回响应对象:', resp)
+        return resp
 
     def perform_create(self, serializer):
+        # 此方法定义在 rest_framework.serializers.BaseSerializer 类中
+        # 调用序列化实例的 create 方法创建映射类实例或 update 方法更新映射类实例（此处为创建之用）
         serializer.save()
 
     def get_success_headers(self, data):
@@ -36,17 +50,28 @@ class ListModelMixin:
     List a queryset.
     """
     def list(self, request, *args, **kwargs):
+        """查询数据表中的数据生成映射类实例的列表
+        """
+        # 这里涉及分页，自定义视图类中需要定义 get_queryset 方法或 queryset 属性
+        # filter_queryset 定义在 rest_framework.generics.GenericAPIView 类中，进行一些额外的过滤操作
         queryset = self.filter_queryset(self.get_queryset())
-        #print('【rest_framework.mixins.ListModelMixin.list】queryset:', queryset)
 
+        print('【rest_framework.mixins.ListModelMixin.list】请求地址的查询参数:', request.query_params)
+        print('【rest_framework.mixins.ListModelMixin.list】处理分页，获得分页中的映射类实例列表')
+        # 此方法定义在 rest_framework.generics.GenericAPIView 类中
         page = self.paginate_queryset(queryset)
         if page is not None:
+            print('【rest_framework.mixins.ListModelMixin.list】将列表中的映射类实例进行序列化作为响应体')
             serializer = self.get_serializer(page, many=True)
+            print('【rest_framework.mixins.ListModelMixin.list】创建分页响应体并返回，Django 框架内的后续操作会构建响应对象')
+            # 此方法通常在项目内自定义，可能定义在 shiyanlou.contrib.pagination.page_number.CurrentPageNumberPagination 类中
             return self.get_paginated_response(serializer.data)
 
-        print('【rest_framework.mixins.ListModelMixin.list】self.get_serializer:', self.get_serializer)
+        print('【rest_framework.mixins.ListModelMixin.list】没有分页，将查询集中的全部映射类实例序列化作为响应体')
         serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        resp = Response(serializer.data)
+        print('【rest_framework.mixins.ListModelMixin.list】创建响应对象并返回:', resp)
+        return resp
 
 
 class RetrieveModelMixin:
