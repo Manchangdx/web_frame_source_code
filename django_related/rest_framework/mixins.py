@@ -16,8 +16,8 @@ class CreateModelMixin:
     def create(self, request, *args, **kwargs):
         """根据请求体反序列化生成映射类实例并保存到数据表中
         """
-        print('【rest_framework.mixins.CreateModelMixin.create】请求体:')
-        print('\t', request.data)
+        print('【rest_framework.mixins.CreateModelMixin.create】这是 POST【创建】操作')
+        print('【rest_framework.mixins.CreateModelMixin.create】请求体:', request.data)
         # 此方法定义在 rest_framework.generics.GenericAPIView 类中，根据请求体数据创建序列化类的实例
         serializer = self.get_serializer(data=request.data)
         print('【rest_framework.mixins.CreateModelMixin.create】创建序列化实例，调用其 is_valid 方法验证数据')
@@ -52,11 +52,13 @@ class ListModelMixin:
     def list(self, request, *args, **kwargs):
         """查询数据表中的数据生成映射类实例的列表
         """
+        print('【rest_framework.mixins.ListModelMixin.list】这是 GET【查询列表】操作')
+
         # 这里涉及分页，自定义视图类中需要定义 get_queryset 方法或 queryset 属性
         # filter_queryset 定义在 rest_framework.generics.GenericAPIView 类中，进行一些额外的过滤操作
         queryset = self.filter_queryset(self.get_queryset())
 
-        print('【rest_framework.mixins.ListModelMixin.list】请求地址的查询参数:', request.query_params)
+        #print('【rest_framework.mixins.ListModelMixin.list】查询参数:', request.query_params)
         print('【rest_framework.mixins.ListModelMixin.list】处理分页，获得分页中的映射类实例列表')
         # 此方法定义在 rest_framework.generics.GenericAPIView 类中
         page = self.paginate_queryset(queryset)
@@ -79,9 +81,16 @@ class RetrieveModelMixin:
     Retrieve a model instance.
     """
     def retrieve(self, request, *args, **kwargs):
+        print('【rest_framework.mixins.RetrieveModelMixin.retrieve】这是 GET【查询】操作')
+
+        print('【rest_framework.mixins.RetrieveModelMixin.retrieve】调用「视图类实例」自身的 get_object 方法获取映射类实例')
+        # 此方法定义在 rest_framework.generics.GenericAPIView 类中，也可能在自定义视图类中重写
         instance = self.get_object()
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        print('【rest_framework.mixins.RetrieveModelMixin.retrieve】序列化映射类实例生成响应体')
+        resp = Response(serializer.data)
+        print('【rest_framework.mixins.RetrieveModelMixin.retrieve】创建响应对象并返回:', resp)
+        return resp
 
 
 class UpdateModelMixin:
@@ -89,11 +98,17 @@ class UpdateModelMixin:
     Update a model instance.
     """
     def update(self, request, *args, **kwargs):
-        print('【rest_framework.mixins.UpdateModelMixin.update】request:', request)
         partial = kwargs.pop('partial', False)
+        s = 'PATCH【部分更新】' if partial else 'PUT【更新】'
+        print(f'【rest_framework.mixins.UpdateModelMixin.update】这是 {s}操作')
+        # 此方法定义在 rest_framework.generics.GenericAPIView 类中，也可能在自定义视图类中重写
         instance = self.get_object()
+        print('【rest_framework.mixins.UpdateModelMixin.update】获取将要被修改的映射类实例:', instance)
+        # 参数 instance 将赋值给「序列化对象」的 instance 属性
+        # 参数 data 通过各种验证器后用于修改 instance 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
+        # 调用「序列化对象」的 save 方法修改映射类实例并保存修改到数据表
         self.perform_update(serializer)
 
         if getattr(instance, '_prefetched_objects_cache', None):

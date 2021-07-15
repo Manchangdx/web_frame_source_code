@@ -7,13 +7,14 @@ Usage: `get_field_info(model)` returns a `FieldInfo` instance.
 """
 from collections import OrderedDict, namedtuple
 
+# 映射类的字段都属于 django.db.models.fields.__init__.Field 类（或其子类）的实例
 FieldInfo = namedtuple('FieldResult', [
-    'pk',  # Model field instance
-    'fields',  # Dict of field name -> model field instance
-    'forward_relations',  # Dict of field name -> RelationInfo
-    'reverse_relations',  # Dict of field name -> RelationInfo
-    'fields_and_pk',  # Shortcut for 'pk' + 'fields'
-    'relations'  # Shortcut for 'forward_relations' + 'reverse_relations'
+    'pk',                 # 主键字段
+    'fields',             # 除主键之外的全部字段 [(字段名, 字段), ...]
+    'forward_relations',  # 外键（关联其它表的主键）[(查询接口名, 查询值), ...]
+    'reverse_relations',  # 外键（主键被其它表关联）[(反向查询接口名, 查询值), ...]
+    'fields_and_pk',      # Shortcut for 'pk' + 'fields'
+    'relations'           # Shortcut for 'forward_relations' + 'reverse_relations'
 ])
 
 RelationInfo = namedtuple('RelationInfo', [

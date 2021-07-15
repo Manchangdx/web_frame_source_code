@@ -411,10 +411,12 @@ class APIView(View):
         version, scheme = self.determine_version(request, *args, **kwargs)
         request.version, request.versioning_scheme = version, scheme
 
+        print('【rest_framework.views.APIView.initial】检测用户权限 >>>>>>', end= ' ')
         # Ensure that the incoming request is permitted
         self.perform_authentication(request)    # 检查用户不是匿名用户
         self.check_permissions(request)         # 检查用户权限
         self.check_throttles(request)           # 检查请求是否收到限制
+        print('检查通过')
 
     def finalize_response(self, request, response, *args, **kwargs):
         """
@@ -487,11 +489,15 @@ class APIView(View):
         """核心方法
         """
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = kwargs  # 请求地址中的路径参数
 
         # 此方法定义在当前类中，用于创建一个 rest_framework 的「请求对象」并返回
         request = self.initialize_request(request, *args, **kwargs)
         print('【rest_framework.views.APIView.dispatch】重新包装一个「请求对象」:', request)
+        if self.kwargs:
+            print('【rest_framework.views.APIView.dispatch】路径参数:', self.kwargs)
+        if query := dict(request.query_params):
+            print('【rest_framework.views.APIView.dispatch】查询参数:', query)
         self.request = request
         self.headers = self.default_response_headers  # deprecate?
 

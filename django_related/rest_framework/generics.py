@@ -80,11 +80,15 @@ class GenericAPIView(views.APIView):
         queryset lookups.  Eg if objects are referenced using multiple
         keyword arguments in the url conf.
         """
+        # 自定义视图类中须定义 queryset 属性或者 get_queryset 方法
+        # 此处调用当前类中定义的 filter_queryset 进行特别的过滤操作
         queryset = self.filter_queryset(self.get_queryset())
 
         # Perform the lookup filtering.
+        # 从路径参数里获取指定映射类实例的属性值，通常是主键的属性值，所以这块儿的这个变量值通常是字符串 'pk'
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
 
+        # self.kwargs 属性定义在 rest_framework.views.APIView.dispatch 方法中，属性值是字典，里面是路径参数信息
         assert lookup_url_kwarg in self.kwargs, (
             'Expected view %s to be called with a URL keyword argument '
             'named "%s". Fix your URL conf, or set the `.lookup_field` '
@@ -92,10 +96,15 @@ class GenericAPIView(views.APIView):
             (self.__class__.__name__, lookup_url_kwarg)
         )
 
+        # 构造一个字典，大概率类似这样:  {'pk': 123}
         filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+
+        # 根据这个规则在查询集里找到那个映射类实例，如果找不到就抛出异常
+        # 下面这个函数定义在当前模块中，其实调用的是 django.shortcuts 模块中的同名函数
         obj = get_object_or_404(queryset, **filter_kwargs)
 
         # May raise a permission denied
+        # 这块儿有一个额外的权限验证，它调用的是权限类的 has_object_permission 方法
         self.check_object_permissions(self.request, obj)
 
         return obj
@@ -106,7 +115,8 @@ class GenericAPIView(views.APIView):
         deserializing input, and for serializing output.
         """
         serializer_class = self.get_serializer_class()
-        print('【rest_framework.generics.GenericAPIView.get_serializer】serializer_class:', serializer_class)
+        print('【rest_framework.generics.GenericAPIView.get_serializer】序列化类:', serializer_class)
+        # 上下文字段的值是字典对象，里面有两个重要的字段：request 请求对象；view 视图类实例
         kwargs['context'] = self.get_serializer_context()
         return serializer_class(*args, **kwargs)
 
@@ -230,7 +240,6 @@ class UpdateAPIView(mixins.UpdateModelMixin,
     Concrete view for updating a model instance.
     """
     def put(self, request, *args, **kwargs):
-        print('【rest_framework.generics.UpdateAPIView.put】调用此方法进行修改操作')
         return self.update(request, *args, **kwargs)
 
     def patch(self, request, *args, **kwargs):

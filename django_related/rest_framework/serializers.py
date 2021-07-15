@@ -167,6 +167,10 @@ class BaseSerializer(Field):
         raise NotImplementedError('`create()` must be implemented.')
 
     def save(self, **kwargs):
+        """反序列化过程调用此方法，利用验证过的请求体数据创建或修改映射类实例并返回
+
+        :kwargs: 可以额外添加键值对以创建映射类实例
+        """
         assert not hasattr(self, 'save_object'), (
             'Serializer `%s.%s` has old-style version 2 `.save_object()` '
             'that is no longer compatible with REST framework 3. '
@@ -209,8 +213,9 @@ class BaseSerializer(Field):
                 '`update()` did not return an object instance.'
             )
         else:
-            print('【rest_framework.serializers.BaseSerializer.save】调用自定义序列化子类的 create 方法根据验证过的数据创建映射类实例并保存')
+            print('【rest_framework.serializers.BaseSerializer.save】调用序列化对象自身的 create 方法根据验证过的数据创建映射类实例并保存')
             # 根据验证过的请求体创建映射类的实例并将其赋值给序列化实例的 instance 属性
+            # 此 create 方法定义在当前模块中的 ModelSerializer 类中，也可以自定义
             self.instance = self.create(validated_data)
             assert self.instance is not None, (
                 '`create()` did not return an object instance.'
@@ -219,6 +224,8 @@ class BaseSerializer(Field):
         return self.instance
 
     def is_valid(self, raise_exception=False):
+        """验证请求体，主要是调用 self.run_validation 方法进行验证
+        """
         assert not hasattr(self, 'restore_object'), (
             'Serializer `%s.%s` has old-style version 2 `.restore_object()` '
             'that is no longer compatible with REST framework 3. '
@@ -235,6 +242,7 @@ class BaseSerializer(Field):
             try:
 
                 print('【rest_framework.serializers.BaseSerializer.is_valid】请求体数据验证:', self.initial_data)
+                # 此方法定义在当前模块下的 Serializer 和 ListSerializer 类中
                 self._validated_data = self.run_validation(self.initial_data)
                 print('【rest_framework.serializers.BaseSerializer.is_valid】请求体数据验证通过')
             except ValidationError as exc:
@@ -389,11 +397,11 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     def get_fields(self):
         """
-        Returns a dictionary of {field_name: field_instance}.
+        获取当前「序列化对象」的全部 Field 属性及其值，放到字典里面返回
         """
-        # Every new serializer is created with a clone of the field instances.
-        # This allows users to dynamically modify the fields on a serializer
-        # instance without affecting every other serializer instance.
+        # 这块儿涉及到的私有属性 _declared_fields 定义在当前模块中的元类 SerializerMetaclass 里面
+        # 该私有属性值是「序列化对象」声明的 Field 属性的字典 {属性: 属性值}
+        # 注意，每次调用「序列化类」创建「序列化对象」时才会生成这个字典对象，这使得不同实例的这个属性值不一定相同
         return copy.deepcopy(self._declared_fields)
 
     def get_validators(self):
@@ -433,14 +441,23 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     def run_validation(self, data=empty):
         """
-        We override the default `run_validation`, because the validation
-        performed by validators and the `.validate()` method should
-        be coerced into an error dictionary with a 'non_fields_error' key.
+        反序列化的时候验证数据，步骤如下:
+        1. 判断参数 data（请求体）是不是有效值
+        2. 调用 self.to_internal_value 方法使用各个字段的验证器验证请求体，验证通过的数据存到 value 字典中
+        3. 调用 self.run_validators 方法把有默认值的只读字段添加到上一步验证过的数据字典 value 中 TODO
+        4. 调用 self.validate 方法对 value 进行额外的自定义的个性化验证，此方法需要在自定义序列化类中重写
+
+        :data: 字典对象，请求体
+        :return: 字典对象，验证后的数据
         """
+        # 此方法定义在 rest_framework.fields.Field 类中，判断 data 是不是有效的值
         (is_empty_value, data) = self.validate_empty_values(data)
+        # 如果 data 是空值（可能是 None 或者别的无意义的值），就返回它
         if is_empty_value:
             return data
 
+        # 此方法定义在当前类中，调用各字段自己的验证器验证请求体中各字段数据
+        # 返回值是验证通过的数据，如果有验证失败就放到 errors 列表里抛出异常
         value = self.to_internal_value(data)
         try:
             self.run_validators(value)
@@ -452,6 +469,8 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         return value
 
     def _read_only_defaults(self):
+        """获取只读字段默认值，返回值是字典对象 {只读字段名字: 字段默认值, ...}
+        """
         fields = [
             field for field in self.fields.values()
             if (field.read_only) and (field.default != empty) and (field.source != '*') and ('.' not in field.source)
@@ -472,6 +491,7 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         Add read_only fields with defaults to value before running validators.
         """
         if isinstance(value, dict):
+            # 有默认值的只读字段的字典 {只读字段名字: 字段默认值, ...}
             to_validate = self._read_only_defaults()
             to_validate.update(value)
         else:
@@ -480,7 +500,10 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     def to_internal_value(self, data):
         """
-        Dict of native values <- Dict of primitive datatypes.
+        调用各个字段的验证器验证请求体中的数据，全部验证成功则返回验证过的数据，否则抛出报错信息
+
+        :data: 字典对象，请求体
+        :return: 字典对象，验证通过的数据
         """
         if not isinstance(data, Mapping):
             message = self.error_messages['invalid'].format(
@@ -490,15 +513,22 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
                 api_settings.NON_FIELD_ERRORS_KEY: [message]
             }, code='invalid')
 
-        ret = OrderedDict()
-        errors = OrderedDict()
-        fields = self._writable_fields
+        ret = OrderedDict()              # 存放验证通过的数据
+        errors = OrderedDict()           # 存放验证失败的错误信息
+        fields = self._writable_fields   # 可写字段生成器
 
+        # field 是可写字段，django.db.models.field.__init__.Field 类的实例
+        # 调用各字段自身的验证器和序列化类中自定义的验证器逐个验证各个字段
+        # 验证通过的字段放到 ret 字典里，验证失败的放到 errors 字典里
         for field in fields:
+            # 查找自定义字段验证器
             validate_method = getattr(self, 'validate_' + field.field_name, None)
+            # 从请求体中找到字段对应的值
             primitive_value = field.get_value(data)
             try:
+                # 调用字段自身的验证器验证字段值
                 validated_value = field.run_validation(primitive_value)
+                # 如果有该字段对应的自定义验证器，调用之
                 if validate_method is not None:
                     validated_value = validate_method(validated_value)
             except ValidationError as exc:
@@ -1036,26 +1066,32 @@ class ModelSerializer(Serializer):
                 'Cannot use ModelSerializer with Abstract Models.'
             )
 
-        declared_fields = copy.deepcopy(self._declared_fields)
-        model = getattr(self.Meta, 'model')
+        model = getattr(self.Meta, 'model')  # 映射类
         depth = getattr(self.Meta, 'depth', 0)
 
         if depth is not None:
             assert depth >= 0, "'depth' may not be negative."
             assert depth <= 10, "'depth' may not be greater than 10."
 
-        # Retrieve metadata about fields & relationships on the model class.
+        # 这块儿涉及到的私有属性 _declared_fields 定义在当前模块中的元类 SerializerMetaclass 里面
+        # 该私有属性值是「序列化对象」及其父类声明的 Field 属性的字典 {属性: 属性值}
+        # 注意，每次调用「序列化类」创建「序列化对象」时才会生成这个字典对象，这使得不同实例的这个属性值不一定相同
+        declared_fields = copy.deepcopy(self._declared_fields)
+        # 此方法定义在 rest_framework.utils.model_data 模块中
+        # 返回值是一个具名元组，里面包含映射类 model 的全部字段和关联关系的查询接口
         info = model_meta.get_field_info(model)
+        # 此方法定义在当前类中，返回值有多种情况
+        # 1.「序列化类」内嵌的元数据类中的 fields 属性值
+        # 2.「序列化类」内嵌的元数据类中的 exclude 属性值
+        # 3. 也可能是俩参数之和
         field_names = self.get_field_names(declared_fields, info)
 
-        # Determine any extra field arguments and hidden fields that
-        # should be included
+        # 此方法的返回值是定义在「序列化类」内嵌的元数据类中的 extra_kwargs 属性值（字典对象）
         extra_kwargs = self.get_extra_kwargs()
         extra_kwargs, hidden_fields = self.get_uniqueness_extra_kwargs(
             field_names, declared_fields, extra_kwargs
         )
 
-        # Determine the fields that should be included on the serializer.
         fields = OrderedDict()
 
         for field_name in field_names:
@@ -1096,6 +1132,7 @@ class ModelSerializer(Serializer):
         set of fields, but also takes into account the `Meta.fields` or
         `Meta.exclude` options if they have been specified.
         """
+        # 在元数据类中，这两个属性只能且必须设置其中之一
         fields = getattr(self.Meta, 'fields', None)
         exclude = getattr(self.Meta, 'exclude', None)
 
@@ -1131,16 +1168,13 @@ class ModelSerializer(Serializer):
             fields = None
 
         if fields is not None:
-            # Ensure that all declared fields have also been included in the
-            # `Meta.fields` option.
-
-            # Do not require any fields that are declared in a parent class,
-            # in order to allow serializer subclasses to only include
-            # a subset of fields.
+            # 这个里面包含「序列化实例」的全部 Field 属性，包括其父类中定义的
             required_field_names = set(declared_fields)
+            # 去掉父类里定义的 Field 属性
             for cls in self.__class__.__bases__:
                 required_field_names -= set(getattr(cls, '_declared_fields', []))
 
+            # 保证「序列化实例」直属类里的 Field 属性在 fields 里都有
             for field_name in required_field_names:
                 assert field_name in fields, (
                     "The field '{field_name}' was declared on serializer "
@@ -1363,8 +1397,7 @@ class ModelSerializer(Serializer):
 
     def get_extra_kwargs(self):
         """
-        Return a dictionary mapping field names to a dictionary of
-        additional keyword arguments.
+        此方法的返回值是定义在「序列化类」内嵌的元数据类中的 extra_kwargs 属性值（字典对象）
         """
         extra_kwargs = copy.deepcopy(getattr(self.Meta, 'extra_kwargs', {}))
 
