@@ -178,15 +178,17 @@ class BaseSerializer(Field):
             (self.__class__.__module__, self.__class__.__name__)
         )
 
+        # 确保已经执行过 is_valid 方法验证了请求体数据
         assert hasattr(self, '_errors'), (
             'You must call `.is_valid()` before calling `.save()`.'
         )
 
+        # 确保验证数据全部通过
         assert not self.errors, (
             'You cannot call `.save()` on a serializer with invalid data.'
         )
 
-        # Guard against incorrect use of `serializer.save(commit=False)`
+        # 额外添加的数据中不可包含 'commit' 字段
         assert 'commit' not in kwargs, (
             "'commit' is not a valid keyword argument to the 'save()' method. "
             "If you need to access data before committing to the database then "
@@ -196,26 +198,34 @@ class BaseSerializer(Field):
             "For example: 'serializer.save(owner=request.user)'.'"
         )
 
+        # 通常情况下，调用 self.save 方法后（这步调用不是必须的）
+        # 可以调用 self.data 属性获得序列化数据作为响应体，也就是设置 self._data 属性并返回
+        # 也就是说，调用了 self.data 属性后，就有了 self._data 属性
+        # 然后就不能再次调用 self.save 方法了
         assert not hasattr(self, '_data'), (
             "You cannot call `.save()` after accessing `serializer.data`."
             "If you need to access data before committing to the database then "
             "inspect 'serializer.validated_data' instead. "
         )
 
+        # 把 self.is_valid 验证过的请求体数据和额外添加的数据合并
         validated_data = dict(
             list(self.validated_data.items()) +
             list(kwargs.items())
         )
 
+        # 这个 self.instance 是生成「序列化对象」时给定的
+        # 创建操作没有值，更新操作有值，值是「映射类实例」
         if self.instance is not None:
+            # 更新操作，调用 self.update 方法处理，此方法定义在 ModelSerializer 类中，亦可重写
+            print('【rest_framework.serializers.BaseSerializer.save】修改「映射类实例」并保存')
             self.instance = self.update(self.instance, validated_data)
             assert self.instance is not None, (
                 '`update()` did not return an object instance.'
             )
         else:
-            print('【rest_framework.serializers.BaseSerializer.save】调用序列化对象自身的 create 方法根据验证过的数据创建映射类实例并保存')
-            # 根据验证过的请求体创建映射类的实例并将其赋值给序列化实例的 instance 属性
-            # 此 create 方法定义在当前模块中的 ModelSerializer 类中，也可以自定义
+            # 创建操作，调用 self.create 方法处理，此方法定义在 ModelSerializer 类中，亦可重写
+            print('【rest_framework.serializers.BaseSerializer.save】创建「映射类实例」并保存')
             self.instance = self.create(validated_data)
             assert self.instance is not None, (
                 '`create()` did not return an object instance.'
@@ -224,7 +234,7 @@ class BaseSerializer(Field):
         return self.instance
 
     def is_valid(self, raise_exception=False):
-        """验证请求体，主要是调用 self.run_validation 方法进行验证
+        """创建和修改请求，反序列化时验证请求体
         """
         assert not hasattr(self, 'restore_object'), (
             'Serializer `%s.%s` has old-style version 2 `.restore_object()` '
@@ -238,9 +248,9 @@ class BaseSerializer(Field):
             'passed when instantiating the serializer instance.'
         )
 
+        # 调用 self.run_validation 方法验证请求体数据成功后就不会再次验证了，验证失败后可以再次验证
         if not hasattr(self, '_validated_data'):
             try:
-
                 print('【rest_framework.serializers.BaseSerializer.is_valid】请求体数据验证:', self.initial_data)
                 # 此方法定义在当前模块下的 Serializer 和 ListSerializer 类中
                 self._validated_data = self.run_validation(self.initial_data)
@@ -250,6 +260,9 @@ class BaseSerializer(Field):
                 self._errors = exc.detail
                 print('【rest_framework.serializers.BaseSerializer.is_valid】请求体数据验证报错:', self._errors)
             else:
+                # 这块儿保证「序列化对象」有 _errors 属性
+                #「序列化对象」有没有 _errors 属性是判断是否执行过 is_valid 方法的凭证
+                # 在调用自身的 save 方法前，必须要执行 is_valid 方法验证数据
                 self._errors = {}
 
         # 如果有字段验证失败且参数 raise_exception 为 True 则抛出异常
@@ -292,6 +305,7 @@ class BaseSerializer(Field):
 
     @property
     def validated_data(self):
+        # 执行 self.is_valid 方法的过程中，如果请求体数据验证通过，将通过验证的请求体赋值给 self._validated_data 属性
         if not hasattr(self, '_validated_data'):
             msg = 'You must call `.is_valid()` before accessing `.validated_data`.'
             raise AssertionError(msg)
@@ -373,11 +387,8 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
     @cached_property
     def fields(self):
         """
-        A dictionary of {field_name: field_instance}.
+        获取当前「序列化对象」的全部 Field 属性及其值 {字段名: 字段实例}（包括父类中定义的），放到字典里面返回
         """
-        # `fields` is evaluated lazily. We do this to ensure that we don't
-        # have issues importing modules that use ModelSerializers as fields,
-        # even if Django's app-loading stage has not yet run.
         fields = BindingDict(self)
         for key, value in self.get_fields().items():
             fields[key] = value
@@ -385,22 +396,28 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     @property
     def _writable_fields(self):
+        """
+        可写字段生成器
+        """
         for field in self.fields.values():
             if not field.read_only:
                 yield field
 
     @property
     def _readable_fields(self):
+        """
+        可读字段生成器
+        """
         for field in self.fields.values():
             if not field.write_only:
                 yield field
 
     def get_fields(self):
         """
-        获取当前「序列化对象」的全部 Field 属性及其值，放到字典里面返回
+        获取当前「序列化对象」的全部 Field 属性及其值 {字段名: 字段实例}（包括父类中定义的），放到字典里面返回
         """
         # 这块儿涉及到的私有属性 _declared_fields 定义在当前模块中的元类 SerializerMetaclass 里面
-        # 该私有属性值是「序列化对象」声明的 Field 属性的字典 {属性: 属性值}
+        # 该私有属性值是「序列化对象」声明的 Field 属性的字典 {字段名: 字段实例}
         # 注意，每次调用「序列化类」创建「序列化对象」时才会生成这个字典对象，这使得不同实例的这个属性值不一定相同
         return copy.deepcopy(self._declared_fields)
 
@@ -441,10 +458,10 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     def run_validation(self, data=empty):
         """
-        反序列化的时候验证数据，步骤如下:
-        1. 判断参数 data（请求体）是不是有效值
+        反序列化的时候验证数据的核心方法，步骤如下:
+        1. 调用 self.validate_empty_values 方法判断参数 data（请求体）是不是有效值
         2. 调用 self.to_internal_value 方法使用各个字段的验证器验证请求体，验证通过的数据存到 value 字典中
-        3. 调用 self.run_validators 方法把有默认值的只读字段添加到上一步验证过的数据字典 value 中 TODO
+        3. 调用 self.run_validators 方法把有默认值的可读字段添加到上一步验证过的数据字典 value 中，调用「序列化对象」的验证器验证
         4. 调用 self.validate 方法对 value 进行额外的自定义的个性化验证，此方法需要在自定义序列化类中重写
 
         :data: 字典对象，请求体
@@ -466,6 +483,7 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         except (ValidationError, DjangoValidationError) as exc:
             raise ValidationError(detail=as_serializer_error(exc))
 
+        # 这个返回值将赋值给 self._validated_data 属性
         return value
 
     def _read_only_defaults(self):
@@ -488,7 +506,8 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     def run_validators(self, value):
         """
-        Add read_only fields with defaults to value before running validators.
+        调用自身的验证器验证
+        默认情况下自身的验证器为空，需要额外定义 default_validators 列表
         """
         if isinstance(value, dict):
             # 有默认值的只读字段的字典 {只读字段名字: 字段默认值, ...}
@@ -496,10 +515,12 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
             to_validate.update(value)
         else:
             to_validate = value
+        # 把经过验证的请求体和只读字段合起来作为参数调用「序列化对象」自身的验证器
         super().run_validators(to_validate)
 
     def to_internal_value(self, data):
         """
+        反序列化过程中，此方法被 Serializer.run_validation 方法调用
         调用各个字段的验证器验证请求体中的数据，全部验证成功则返回验证过的数据，否则抛出报错信息
 
         :data: 字典对象，请求体
@@ -515,7 +536,7 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
         ret = OrderedDict()              # 存放验证通过的数据
         errors = OrderedDict()           # 存放验证失败的错误信息
-        fields = self._writable_fields   # 可写字段生成器
+        fields = self._writable_fields   # 可写字段生成器，迭代可写字段
 
         # field 是可写字段，django.db.models.field.__init__.Field 类的实例
         # 调用各字段自身的验证器和序列化类中自定义的验证器逐个验证各个字段
@@ -524,9 +545,16 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
             # 查找自定义字段验证器
             validate_method = getattr(self, 'validate_' + field.field_name, None)
             # 从请求体中找到字段对应的值
+            # field 是全部可写对象中的一个，请求体里未必有对应的值，如果没有，就返回 empty 对象
             primitive_value = field.get_value(data)
             try:
-                # 调用字段自身的验证器验证字段值
+                # 调用字段自身的验证器验证字段值，这块儿相当于嵌套调用了，当前方法就是被 run_validation 调用的
+                # 这个 run_validation 方法定义在四个地方:
+                #   1. serializers.Serializer 类中
+                #   2. serializers.ListSerializer 类中
+                #   3. fields.Field 类中
+                #   4. fields.CharField 类中
+                # 到这里，field 就是字段类型的对象了，或者是 ListSerializer 类型的对象（特殊字段）
                 validated_value = field.run_validation(primitive_value)
                 # 如果有该字段对应的自定义验证器，调用之
                 if validate_method is not None:
@@ -651,10 +679,9 @@ class ListSerializer(BaseSerializer):
 
     def run_validation(self, data=empty):
         """
-        We override the default `run_validation`, because the validation
-        performed by validators and the `.validate()` method should
-        be coerced into an error dictionary with a 'non_fields_error' key.
+        反序列化过程中，该方法被 Serializer.to_internal_value 方法调用
         """
+        # 此方法定义在 rest_framework.fields.Field 类中
         (is_empty_value, data) = self.validate_empty_values(data)
         if is_empty_value:
             return data

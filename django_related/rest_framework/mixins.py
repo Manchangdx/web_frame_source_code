@@ -65,7 +65,7 @@ class ListModelMixin:
         if page is not None:
             print('【rest_framework.mixins.ListModelMixin.list】将列表中的映射类实例进行序列化作为响应体')
             serializer = self.get_serializer(page, many=True)
-            print('【rest_framework.mixins.ListModelMixin.list】创建分页响应体并返回，Django 框架内的后续操作会构建响应对象')
+            print('【rest_framework.mixins.ListModelMixin.list】创建分页响应对象并返回')
             # 此方法通常在项目内自定义，可能定义在 shiyanlou.contrib.pagination.page_number.CurrentPageNumberPagination 类中
             return self.get_paginated_response(serializer.data)
 

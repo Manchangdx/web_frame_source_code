@@ -488,15 +488,10 @@ class Field:
 
     def get_default(self):
         """
-        Return the default value to use when validating data if no input
-        is provided for this field.
-
-        If a default has not been set for this field then this will simply
-        raise `SkipField`, indicating that no value should be set in the
-        validated data for this field.
+        获取字段的默认值
         """
+        # 如果字段没有定义默认值，或者是 PATCH 请求不需要获取默认值，抛出异常
         if self.default is empty or getattr(self.root, 'partial', False):
-            # No default, or this is a partial update.
             raise SkipField()
         if callable(self.default):
             if hasattr(self.default, 'set_context'):
@@ -518,58 +513,63 @@ class Field:
 
     def validate_empty_values(self, data):
         """
-        Validate empty values, and either:
+        处理字段的空值，此方法全局唯一，它被各个类中的 run_validation 方法调用
+        注意此方法处理的是字段，如果 self 是序列化对象，直接执行最后一行
+        PUT 与 PATCH 请求的区别就在于此
 
-        * Raise `ValidationError`, indicating invalid data.
-        * Raise `SkipField`, indicating that the field should be ignored.
-        * Return (True, data), indicating an empty value that should be
-          returned without any further validation being applied.
-        * Return (False, data), indicating a non-empty value, that should
-          have validation applied as normal.
+        实例自身 self 有多种可能: 序列化对象、字段、ListSerializer 对象（特殊字段）
+        参数 data 也有多种可能: 请求体字典、字段值、empty 对象
         """
+
+        # 序列化对象的 read_only 属性值肯定是 False ，只有 self 是字段时才有这个判断
         if self.read_only:
             return (True, self.get_default())
 
+        # 如果请求体中该字段值是空值
         if data is empty:
+            # self.root 就是字段所属「序列化对象」
+            # PUT 请求要把所有可读字段全都填充；PATCH 请求允许部分填充，也就是可以有空值
+            # 如果是 PUT 请求，抛出异常
             if getattr(self.root, 'partial', False):
                 raise SkipField()
+            # 如果字段为必填，抛出异常
             if self.required:
                 self.fail('required')
+            # 如果是 PATCH 请求，而且该字段不是必填，返回默认值
             return (True, self.get_default())
 
+        # 如果请求体中该字段值是 None
         if data is None:
+            # 如果该字段不允许值为 None ，抛出异常
             if not self.allow_null:
                 self.fail('null')
-            # Nullable `source='*'` fields should not be skipped when its named
-            # field is given a null value. This is because `source='*'` means
-            # the field is passed the entire object, which is not null.
             elif self.source == '*':
                 return (False, None)
             return (True, None)
 
+        # 实例自身是序列化对象，data 是字典
         return (False, data)
 
     def run_validation(self, data=empty):
         """
-        Validate a simple representation and return the internal value.
-
-        The provided data may be `empty` if no representation was included
-        in the input.
-
-        May raise `SkipField` if the field should not be included in the
-        validated data.
+        此方法由「序列化对象」的 to_internal_value 方法调用
         """
+        print(f'【rest_framework.fields.Field.run_validation】验证请求体字段: {self.field_name}, {data}')
+
+        # 空值验证：如果 data 不是 empty 不是 None ，就 PASS
         (is_empty_value, data) = self.validate_empty_values(data)
         if is_empty_value:
             return data
+        # 数据类型验证
         value = self.to_internal_value(data)
+        # 各种验证器验证：长度、最大最小值、邮箱 ...
         self.run_validators(value)
         return value
 
     def run_validators(self, value):
         """
-        Test the given value against all the validators on the field,
-        and either raise a `ValidationError` or simply return.
+        调用 self 的各种验证器验证：长度、最大最小值、邮箱 ...
+        参数是请求体中 self 字段的值
         """
         errors = []
         for validator in self.validators:

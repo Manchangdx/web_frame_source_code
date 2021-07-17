@@ -139,6 +139,7 @@ class APIView(View):
         # 当请求进来时，找到此方法并调用之，此方法会将 Django 的「请求对象」作为参数调用 dispatch 方法
         # 此 dispatch 方法已在当前类中重写，增加了一些钩子函数处理异常
         view = super().as_view(**initkwargs)
+        # 把「视图类」自身赋值给 view 函数的 cls 属性
         view.cls = cls
         view.initkwargs = initkwargs
 
@@ -393,7 +394,7 @@ class APIView(View):
             request,                                    # 来自 Django 的「请求对象」
             parsers=self.get_parsers(),                 # 解析器列表，里面的对象都有 parse 方法用于解析数据
             authenticators=self.get_authenticators(),   # 权限验证列表，里面的对象都是权限验证类的实例
-            negotiator=self.get_content_negotiator(),
+            negotiator=self.get_content_negotiator(),   # 内容协商类
             parser_context=parser_context               # 字典，里面有视图函数本身
         )
 
@@ -413,16 +414,19 @@ class APIView(View):
 
         print('【rest_framework.views.APIView.initial】检测用户权限 >>>>>>', end= ' ')
         # Ensure that the incoming request is permitted
-        self.perform_authentication(request)    # 检查用户不是匿名用户
+        self.perform_authentication(request)    # 检查用户是否是匿名用户
         self.check_permissions(request)         # 检查用户权限
-        self.check_throttles(request)           # 检查请求是否收到限制
+        self.check_throttles(request)           # 检查请求是否受到频率限制
         print('检查通过')
 
     def finalize_response(self, request, response, *args, **kwargs):
         """
         Returns the final response object.
+
+        :request: 请求对象
+        :response: 视图函数的返回值
         """
-        # Make the error obvious if a proper response is not returned
+        # 视图函数的返回值必须是响应对象
         assert isinstance(response, HttpResponseBase), (
             'Expected a `Response`, `HttpResponse` or `HttpStreamingResponse` '
             'to be returned from the view, but received a `%s`'
@@ -443,6 +447,7 @@ class APIView(View):
         if vary_headers is not None:
             patch_vary_headers(response, cc_delim_re.split(vary_headers))
 
+        # self.headers 是字典 {'Allow': 'get, post...', 'Vary': 'Accept'}
         for key, value in self.headers.items():
             response[key] = value
 
@@ -450,13 +455,17 @@ class APIView(View):
 
     def handle_exception(self, exc):
         """
-        Handle any exception that occurs, by returning an appropriate response,
-        or re-raising the error.
+        处理异常并返回响应对象，此方法被 dispatch 方法调用
+
+        :exc: 异常类实例
+        :response: 响应对象
         """
-        #print('【rest_framework.views.APIView.handle_exception】exc:', type(exc), exc)
         if isinstance(exc, (exceptions.NotAuthenticated,
                             exceptions.AuthenticationFailed)):
             # WWW-Authenticate header for 401 responses, else coerce to 403
+            # 请求头中的认证信息 TODO
+            # 如果有认证信息，抛出 401 响应码，用户认证失败
+            # 如果没有认证信息，抛出 403 响应码，权限验证失败
             auth_header = self.get_authenticate_header(self.request)
 
             if auth_header:
@@ -486,7 +495,8 @@ class APIView(View):
         raise exc
 
     def dispatch(self, request, *args, **kwargs):
-        """核心方法
+        """
+        核心方法
         """
         self.args = args
         self.kwargs = kwargs  # 请求地址中的路径参数
@@ -502,16 +512,19 @@ class APIView(View):
         self.headers = self.default_response_headers  # deprecate?
 
         try:
-            # 验证用户权限
+            # 请求验证：
+            #   1. 判断用户是否是匿名用户 (authentication_classes)
+            #   2. 验证用户的权限 (permission_classes)
+            #   3. 检查接口请求是否符合频率限制规则 (throttle_classes)
             self.initial(request, *args, **kwargs)
 
-            # 找到视图函数
+            # 寻找视图函数
             if request.method.lower() in self.http_method_names:
                 handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
-                if handler != self.http_method_not_allowed:
-                    print('【rest_framework.views.APIView.dispatch】找到并调用视图函数:', handler)
             else:
                 handler = self.http_method_not_allowed
+            if handler != self.http_method_not_allowed:
+                print('【rest_framework.views.APIView.dispatch】找到并调用视图函数:', handler)
 
             # 调用视图函数
             response = handler(request, *args, **kwargs)
