@@ -298,6 +298,8 @@ def teardown_databases(old_config, verbosity, parallel=0, keepdb=False):
 
 
 def get_runner(settings, test_runner_class=None):
+    #print('【django.test.utils.get_runner】参数 settings:', settings)
+    #print('【django.test.utils.get_runner】参数 test_runner_class:', test_runner_class)
     test_runner_class = test_runner_class or settings.TEST_RUNNER
     test_path = test_runner_class.split('.')
     # Allow for relative paths
@@ -306,6 +308,7 @@ def get_runner(settings, test_runner_class=None):
     else:
         test_module_name = '.'
     test_module = __import__(test_module_name, {}, {}, test_path[-1])
+    #print('【django.test.utils.get_runner】test_module:', test_module)
     return getattr(test_module, test_path[-1])
 
 

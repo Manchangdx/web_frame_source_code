@@ -74,14 +74,7 @@ def get_commands():
 
 
 def call_command(command_name, *args, **options):
-    """
-    Call the given command, with the given options and args/kwargs.
-
-    This is the primary API you should use for calling specific commands.
-
-    `command_name` may be a string or a command object. Using a string is
-    preferred unless the command object is required for further processing or
-    testing.
+    """根据命令字符串找到并创建「命令执行对象」，执行该对象的 execute 方法执行命令
 
     Some examples:
         call_command('migrate')
@@ -110,6 +103,7 @@ def call_command(command_name, *args, **options):
         else:
             command = load_command_class(app_name, command_name)
 
+    print('【django.core.management.__init__.call_command】创建「命令执行对象」:', command)
     # Simulate argument parsing to get the option defaults (see #10080 for details).
     parser = command.create_parser('', command_name)
     # Use the `dest` option name from the parser option
@@ -165,6 +159,9 @@ def call_command(command_name, *args, **options):
     if 'skip_checks' not in options:
         defaults['skip_checks'] = True
 
+    print('【django.core.management.__init__.call_command】调用「命令执行对象」的 execute 方法，此方法会调用「命令执行对象」的 handle 方法')
+    # 所有的「命令执行对象」的 execute 方法都在其父类 django.core.management.BaseCommand 中
+    # 调用「命令执行对象」的 execute 方法执行命令
     return command.execute(*args, **defaults)
 
 
@@ -320,10 +317,10 @@ class ManagementUtility:
 
     def execute(self):
         """
-        Given the command-line arguments, figure out which subcommand is being
-        run, create a parser appropriate to that command, and run it.
+        给定命令行参数后，找出正在运行的子命令，创建适合该命令的解析器，并运行它
         """
         try:
+            # 子命令，例如 runserver 、migrate
             subcommand = self.argv[1]
         except IndexError:
             subcommand = 'help'  # Display help if no arguments were given.
@@ -342,6 +339,8 @@ class ManagementUtility:
             pass  # Ignore any option errors at this point.
 
         try:
+            # 此对象是 django.conf.__init__.LazySettings 类的实例
+            # 此对象的全部属性都来自应用对象的 settings.py 配置文件
             settings.INSTALLED_APPS
         except ImproperlyConfigured as exc:
             self.settings_exception = exc
@@ -354,6 +353,11 @@ class ManagementUtility:
             # flag on the command class because we haven't located it yet.
             if subcommand == 'runserver' and '--noreload' not in self.argv:
                 try:
+                    # 参数 django.setup 是定义在 django.__init__ 模块中的函数
+                    # 而 check_errors 是作检测异常之用
+                    # 这里会调用 django.setup 函数
+                    # 将 settings.INSTALLED_APPS 列表中的应用程序放到 apps.app_configs 字典中
+                    # apps 对象可以看作一个应用对象收集器
                     autoreload.check_errors(django.setup)()
                 except Exception:
                     # The exception will be raised later in the child process
@@ -392,7 +396,23 @@ class ManagementUtility:
         elif self.argv[1:] in (['--help'], ['-h']):
             sys.stdout.write(self.main_help_text() + '\n')
         else:
-            self.fetch_command(subcommand).run_from_argv(self.argv)
+            # 下面的 fetch_command 方法根据命令行参数找到对应的模块中的 Command 类的实例并返回
+            # 它通过一个字典来找，每个命令都是字典中的一个 key
+            # 根据命令找到对应的 value ，它是一个包的字符串，再据此找到包下面的 management/commands 子目录
+            # 然后在这个子目录下面找到与命令同名的文件
+            # 以 python manage.py makemigrate 命令为例
+            # 这个方法就会返回 .../management/commands/makemigrate.py 文件中的 Command 类的实例
+
+            # 下面的 cmd 我们称之为「命令执行对象」，以 runserver 命令为例
+            # 此对象的父类是 django.contrib.staticfiles.management.commands.runserver.Command 类
+            # 后者的父类是 django.core.management.commands.runserver.Command 类
+            # 后者的父类是 django.core.management.base.BaseCommand 类
+            cmd = self.fetch_command(subcommand)
+            # 不论终端命令是啥
+            # 下面这个方法都定义在 django.core.management.base.BaseCommand 父类中
+            # 参数 self.argv 是终端命令参数列表，等同于 sys.argv
+            # 这个方法会调用「命令执行对象」自身的 handle 方法控制其它对象启动线程和创建套接字啥的
+            cmd.run_from_argv(self.argv)
 
 
 def execute_from_command_line(argv=None):

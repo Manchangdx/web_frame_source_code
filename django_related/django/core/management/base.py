@@ -146,72 +146,7 @@ class OutputWrapper(TextIOBase):
 
 
 class BaseCommand:
-    """
-    The base class from which all management commands ultimately
-    derive.
-
-    Use this class if you want access to all of the mechanisms which
-    parse the command-line arguments and work out what code to call in
-    response; if you don't need to change any of that behavior,
-    consider using one of the subclasses defined in this file.
-
-    If you are interested in overriding/customizing various aspects of
-    the command-parsing and -execution behavior, the normal flow works
-    as follows:
-
-    1. ``django-admin`` or ``manage.py`` loads the command class
-       and calls its ``run_from_argv()`` method.
-
-    2. The ``run_from_argv()`` method calls ``create_parser()`` to get
-       an ``ArgumentParser`` for the arguments, parses them, performs
-       any environment changes requested by options like
-       ``pythonpath``, and then calls the ``execute()`` method,
-       passing the parsed arguments.
-
-    3. The ``execute()`` method attempts to carry out the command by
-       calling the ``handle()`` method with the parsed arguments; any
-       output produced by ``handle()`` will be printed to standard
-       output and, if the command is intended to produce a block of
-       SQL statements, will be wrapped in ``BEGIN`` and ``COMMIT``.
-
-    4. If ``handle()`` or ``execute()`` raised any exception (e.g.
-       ``CommandError``), ``run_from_argv()`` will  instead print an error
-       message to ``stderr``.
-
-    Thus, the ``handle()`` method is typically the starting point for
-    subclasses; many built-in commands and command types either place
-    all of their logic in ``handle()``, or perform some additional
-    parsing work in ``handle()`` and then delegate from it to more
-    specialized methods as needed.
-
-    Several attributes affect behavior at various steps along the way:
-
-    ``help``
-        A short description of the command, which will be printed in
-        help messages.
-
-    ``output_transaction``
-        A boolean indicating whether the command outputs SQL
-        statements; if ``True``, the output will automatically be
-        wrapped with ``BEGIN;`` and ``COMMIT;``. Default value is
-        ``False``.
-
-    ``requires_migrations_checks``
-        A boolean; if ``True``, the command prints a warning if the set of
-        migrations on disk don't match the migrations in the database.
-
-    ``requires_system_checks``
-        A boolean; if ``True``, entire Django project will be checked for errors
-        prior to executing the command. Default value is ``True``.
-        To validate an individual application's models
-        rather than all applications' models, call
-        ``self.check(app_configs)`` from ``handle()``, where ``app_configs``
-        is the list of application's configuration provided by the
-        app registry.
-
-    ``stealth_options``
-        A tuple of any options the command uses which aren't defined by the
-        argument parser.
+    """命令执行类基类
     """
     # Metadata about this command.
     help = ''
@@ -228,6 +163,7 @@ class BaseCommand:
     stealth_options = ()
 
     def __init__(self, stdout=None, stderr=None, no_color=False, force_color=False):
+        # self 是「命令执行对象」
         self.stdout = OutputWrapper(stdout or sys.stdout)
         self.stderr = OutputWrapper(stderr or sys.stderr)
         if no_color and force_color:
@@ -309,22 +245,23 @@ class BaseCommand:
         parser.print_help()
 
     def run_from_argv(self, argv):
+        """设置环境变量并执行命令
         """
-        Set up any environment changes requested (e.g., Python path
-        and Django settings), then run this command. If the
-        command raises a ``CommandError``, intercept it and print it sensibly
-        to stderr. If the ``--traceback`` option is present or the raised
-        ``Exception`` is not ``CommandError``, raise it.
-        """
+        # self 是「命令执行对象」
         self._called_from_command_line = True
+        # 下面这个变量是「命令解析对象」，它是当前模块中定义的 CommandParser 类的实例
         parser = self.create_parser(argv[0], argv[1])
 
+        # 调用「命令解析对象」的 parse_args 方法，此方法定义在当前模块的 CommandParser 类中
+        # 此方法会处理子命令对应的全部选项，返回一个对象，这个对象的 __dict__ 属性值就是选项及其参数
         options = parser.parse_args(argv[2:])
+        # 内置函数 vars 返回对象的 __dict__ 属性值，也就是一个字典对象
         cmd_options = vars(options)
-        # Move positional args out of options to mimic legacy optparse
+        
         args = cmd_options.pop('args', ())
         handle_default_options(options)
         try:
+            # 关键代码，此方法定义在当前类中，就在下面。参数分别是元组和字典对象
             self.execute(*args, **cmd_options)
         except Exception as e:
             if options.traceback or not isinstance(e, CommandError):
@@ -345,11 +282,7 @@ class BaseCommand:
                 pass
 
     def execute(self, *args, **options):
-        """
-        Try to execute this command, performing system checks if needed (as
-        controlled by the ``requires_system_checks`` attribute, except if
-        force-skipped).
-        """
+        # self 是「命令执行对象」
         if options['force_color'] and options['no_color']:
             raise CommandError("The --no-color and --force-color options can't be used together.")
         if options['force_color']:
@@ -363,9 +296,22 @@ class BaseCommand:
             self.stderr = OutputWrapper(options['stderr'])
 
         if self.requires_system_checks and not options['skip_checks']:
-            self.check()
+            # 通常会执行这个方法，检测整个项目
+            # 主要是各个应用对象的映射类是否有问题以及互相之间是否有冲突之类的
+            #self.check()
+            print('【django.core.management.base.BaseCommand.execute】***** 这块儿先不检测了 *****')
         if self.requires_migrations_checks:
             self.check_migrations()
+
+        # 下面这个 handle 方法是重要的
+        # 它定义在 django.core.management.commands.xxxx.Command 类中
+
+        # 以 python manage.py runserver 为例
+        # 它会调用 self 的 run 方法，此 run 方法也在那个类中
+        # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建线程并启动
+
+        # 以 python manage.py migrate 为例
+        # 它会处理数据库相关的事务，创建连接对象，操作数据库版本控制功能，将映射类转换成数据表
         output = self.handle(*args, **options)
         if output:
             if self.output_transaction:

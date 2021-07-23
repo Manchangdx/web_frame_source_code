@@ -572,8 +572,8 @@ def get_reloader():
     return WatchmanReloader()
 
 
-#「命令处理对象」是 django.core.management.commands.runserver.Command 类的实例
-# 下面函数的参数 main_func 是「命令处理对象」的 inner_run 方法
+#「命令执行对象」是 django.core.management.commands.runserver.Command 类的实例
+# 下面函数的参数 main_func 是「命令执行对象」的 inner_run 方法
 def start_django(reloader, main_func, *args, **kwargs):
     ensure_echo_on()
 

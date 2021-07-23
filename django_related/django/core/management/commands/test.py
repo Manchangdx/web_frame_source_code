@@ -1,4 +1,5 @@
 import sys
+from unittest.suite import TestSuite
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -47,9 +48,14 @@ class Command(BaseCommand):
             test_runner_class.add_arguments(parser)
 
     def handle(self, *test_labels, **options):
+        print('【django.core.management.commands.test.Command.handle】待测试对象列表:', test_labels)
         TestRunner = get_runner(settings, options['testrunner'])
+        print('【django.core.management.commands.test.Command.handle】「测试运行器」类（默认由 settings.TEST_RUNNER 指定）:', TestRunner)
 
         test_runner = TestRunner(**options)
+        print('【django.core.management.commands.test.Command.handle】「测试运行器」:', test_runner)
+
+        print('【django.core.management.commands.test.Command.handle】将待测试对象列表作为参数调用「测试运行器」的 run_tests 方法启动测试流程')
         failures = test_runner.run_tests(test_labels)
 
         if failures:

@@ -518,7 +518,16 @@ class DiscoverRunner:
         unittest.installHandler()
 
     def build_suite(self, test_labels=None, extra_tests=None, **kwargs):
+        """创建测试套件并返回
+
+        :test_labels: 待测试对象列表
+        """
+        
+        # self.test_suite 属性值是 Python 标准库中的 unittest.suite.TestSuite 类
+        # 此处对其进行实例化，称之为「测试组件」
         suite = self.test_suite()
+        print('【django.test.runner.DiscoverRunner.build_suite】创建「测试套件」:', suite)
+
         test_labels = test_labels or ['.']
         extra_tests = extra_tests or []
         self.test_loader.testNamePatterns = self.test_name_patterns
@@ -572,6 +581,15 @@ class DiscoverRunner:
                 # run, to support running tests from two different top-levels.
                 self.test_loader._top_level_dir = None
 
+            print('【django.test.runner.DiscoverRunner.build_suite】将如下待测函数添加到「测试套件」')
+            for f in tests:
+                print(f'\t{f}')
+
+            # 根据「待测对象」的点状路径查找里面的「待测函数」
+            # 例如「待测对象」是模块，找到模块中 Test 开头的类里面 test 开头的函数，这些就是「待测函数」
+            # 这些「待测函数」就存在 tests 中（一个类列表对象）
+            # suite 是 unittest.suite.TestSuite 类的实例，叫做「测试套件」
+            # 下面这行代码把 tests 里的「待测函数」添加到「测试套件」的 _test 属性列表里
             suite.addTests(tests)
 
         for test in extra_tests:
@@ -620,8 +638,11 @@ class DiscoverRunner:
         }
 
     def run_checks(self):
-        # Checks are run after database creation since some checks require
-        # database access.
+        # 此方法定义在 django.core.management.__init__ 模块中，流程如下：
+        #   1. 根据 check 找到命令所属子包 django.core
+        #   2. 获取 django.core.management.check 模块下的 Command 类并对其进行实例化得到「命令执行对象」
+        #   3. 所有的「命令执行对象」的 execute 方法都在其父类 django.core.management.BaseCommand 中
+        #      执行这个 execute 方法
         call_command('check', verbosity=self.verbosity)
 
     def run_suite(self, suite, **kwargs):
@@ -646,9 +667,16 @@ class DiscoverRunner:
         return len(result.failures) + len(result.errors)
 
     def _get_databases(self, suite):
+        """获取「测试用例」所用数据库的别名的集合
+        """
         databases = set()
+        # 循环「测试套件」就是调用测试套件的 __iter__ 方法
+        # 此方法会迭代「测试套件」的 _test 属性值，也就是「被测函数」
         for test in suite:
+            #「被测函数」都是「单元测试」类中的方法，而单元测试类在定义的时候会继承 unittest.TestCase 的子类
             if isinstance(test, unittest.TestCase):
+                # 这块儿「测试用例」的 databases 属性默认值是 django.db.utils 模块中的
+                # DEFAULT_DB_ALIAS 变量值 'default' 的集合形式 {'default'}
                 test_databases = getattr(test, 'databases', None)
                 if test_databases == '__all__':
                     return set(connections)
@@ -659,7 +687,10 @@ class DiscoverRunner:
         return databases
 
     def get_databases(self, suite):
+        """获取「测试用例」所用数据库的别名的集合
+        """
         databases = self._get_databases(suite)
+        # 此属性的默认值是 1
         if self.verbosity >= 2:
             unused_databases = [alias for alias in connections if alias not in databases]
             if unused_databases:
@@ -667,24 +698,26 @@ class DiscoverRunner:
         return databases
 
     def run_tests(self, test_labels, extra_tests=None, **kwargs):
+        """为所有测试对象运行单元测试
+
+        :test_labels: 被测试对象的列表或元组，被测对象须是模块、类或方法的点状 Python 路径
+        :extra_tests: 额外需要被测试的对象的列表或元组
+        :return: 测试失败的数量
         """
-        Run the unit tests for all the test labels in the provided list.
-
-        Test labels should be dotted Python paths to test modules, test
-        classes, or test methods.
-
-        A list of 'extra' tests may also be provided; these tests
-        will be added to the test suite.
-
-        Return the number of tests that failed.
-        """
+        print('【django.test.runner.DiscoverRunner.run_tests】为测试做一些准备工作 ...')
         self.setup_test_environment()
+        # 创建「测试套件」，unittest.suite.TestSuite 类的实例
         suite = self.build_suite(test_labels, extra_tests)
+        
+        #「测试用例」所用数据库的别名的集合，通常是 {'default'}
         databases = self.get_databases(suite)
+        print('【django.test.runner.DiscoverRunner.run_tests】启动测试用的数据库')
         old_config = self.setup_databases(aliases=databases)
         run_failed = False
         try:
+            print('【django.test.runner.DiscoverRunner.run_tests】对项目环境进行检测  ***** START *****')
             self.run_checks()
+            print('【django.test.runner.DiscoverRunner.run_tests】对项目环境进行检测  ***** END *****')
             result = self.run_suite(suite)
         except Exception:
             run_failed = True

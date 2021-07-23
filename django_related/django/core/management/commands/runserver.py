@@ -144,7 +144,7 @@ class Command(BaseCommand):
         print(f'【django.core.management.commands.runserver.Command.inner_run】即将启动服务在该地址: {addr}')
 
         try:
-            # 这里 self 是「命令处理对象」
+            # 这里 self 是「命令执行对象」
             # 下面的 handle 是 django.core.handlers.wsgi.WSGIHandler 类的实例
             # 该实例就相当于 Flask 中的 app 应用对象
             handler = self.get_handler(*args, **options)
