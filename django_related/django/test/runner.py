@@ -647,7 +647,11 @@ class DiscoverRunner:
 
     def run_suite(self, suite, **kwargs):
         kwargs = self.get_test_runner_kwargs()
+        print('【django.test.runner.DiscoverRunner.run_suite】执行单元测试所需参数:', kwargs)
+        # test_runner 是当前类属性，属性值是 unittest.runner.TextTestRunner 类
+        # 此处创建该类的实例，叫做「单元测试执行器」
         runner = self.test_runner(**kwargs)
+        print('【django.test.runner.DiscoverRunner.run_suite】将「测试套件」作为参数调用「单元测试执行器」的 run 方法进行单元测试')
         return runner.run(suite)
 
     def teardown_databases(self, old_config, **kwargs):

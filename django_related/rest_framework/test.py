@@ -344,6 +344,8 @@ class APITransactionTestCase(testcases.TransactionTestCase):
 
 
 class APITestCase(testcases.TestCase):
+    """创建「单元测试」类所用的直接父类，此类的终极父类是 unittest.case.TestCase
+    """
     client_class = APIClient
 
 

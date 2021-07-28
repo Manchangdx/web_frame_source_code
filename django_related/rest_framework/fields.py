@@ -554,7 +554,7 @@ class Field:
         """
         此方法由「序列化对象」的 to_internal_value 方法调用
         """
-        print(f'【rest_framework.fields.Field.run_validation】验证请求体字段: {self.field_name}, {data}')
+        #print(f'【rest_framework.fields.Field.run_validation】验证请求体字段: {self.field_name}, {data}')
 
         # 空值验证：如果 data 不是 empty 不是 None ，就 PASS
         (is_empty_value, data) = self.validate_empty_values(data)
