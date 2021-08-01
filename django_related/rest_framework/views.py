@@ -284,7 +284,12 @@ class APIView(View):
 
     def get_throttles(self):
         """
-        Instantiates and returns the list of throttles that this view uses.
+        获取「限流对象」并返回
+
+        self.throttle_classes 是定义在当前类中的属性，属性值是一个配置项处理后得到的「限流类」列表
+        该配置项是 shiyanlou/settings/base.py 文件中的 REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES']
+        值是元组，元组里面的元素是「限流类」的路径字符串
+        此处对其进行实例化，获得「限流对象」并返回
         """
         return [throttle() for throttle in self.throttle_classes]
 
@@ -352,11 +357,14 @@ class APIView(View):
 
     def check_throttles(self, request):
         """
-        Check if request should be throttled.
-        Raises an appropriate exception if the request is throttled.
+        使用「限流对象」对请求进行检查
         """
         throttle_durations = []
+        # 循环「限流对象」列表
         for throttle in self.get_throttles():
+            # 如果「视图类」中定义了 throttle_scope 属性（属性值是字符串，标识限流类型）
+            # 调用 rest_framework.throtting.get_rate 方法获取指定类型的限流频率
+            # 限流频率定义在配置文件中的 DEFAULT_THROTTLE_RATES 字典中
             if not throttle.allow_request(request, self):
                 throttle_durations.append(throttle.wait())
 
