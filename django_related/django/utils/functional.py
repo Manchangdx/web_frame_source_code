@@ -5,14 +5,7 @@ from functools import total_ordering, wraps
 
 
 class cached_property:
-    """
-    Decorator that converts a method with a single self argument into a
-    property cached on the instance.
-
-    A cached property can be made out of an existing method:
-    (e.g. ``url = cached_property(get_absolute_url)``).
-    The optional ``name`` argument is obsolete as of Python 3.6 and will be
-    deprecated in Django 4.0 (#30127).
+    """描述器类
     """
     name = None
 
@@ -28,6 +21,13 @@ class cached_property:
         self.__doc__ = getattr(func, '__doc__')
 
     def __set_name__(self, owner, name):
+        """这是一个额外的特殊方法，仅在描述器类内部使用，实例执行 __init__ 初始化之后自动执行此方法
+
+        Args:
+            self: 描述器实例
+            owner: 使用描述器的类
+            name: 使用描述器的属性字符串
+        """
         if self.name is None:
             self.name = name
             self.func = self.real_func
@@ -38,10 +38,7 @@ class cached_property:
             )
 
     def __get__(self, instance, cls=None):
-        """
-        Call the function and put the return value in instance.__dict__ so that
-        subsequent attribute access on the instance returns the cached value
-        instead of calling cached_property.__get__().
+        """使用描述器的实例 instance 调用属性时，如果该属性不在 instance.__dict__ 里，调用当前方法获取返回值
         """
         if instance is None:
             return self
