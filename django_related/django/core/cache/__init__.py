@@ -30,13 +30,14 @@ DEFAULT_CACHE_ALIAS = 'default'
 
 
 def _create_cache(backend, **kwargs):
+    """从配置文件中获取缓存配置信息，从中得到缓存类，对其进行实例化并返回
+    """
     try:
-        # Try to get the CACHES entry for the given backend name first
         try:
+            # 从配置项 CACHES 中获取配置信息，conf 是一个字典对象
             conf = settings.CACHES[backend]
         except KeyError:
             try:
-                # Trying to import the given backend, in case it's a dotted path
                 import_string(backend)
             except ImportError as e:
                 raise InvalidCacheBackendError("Could not find backend '%s': %s" % (
@@ -47,10 +48,12 @@ def _create_cache(backend, **kwargs):
             params = {**conf, **kwargs}
             backend = params.pop('BACKEND')
             location = params.pop('LOCATION', '')
+        # 获取 Redis 缓存类
         backend_cls = import_string(backend)
     except ImportError as e:
         raise InvalidCacheBackendError(
             "Could not find backend '%s': %s" % (backend, e))
+    # 对 Redis 缓存类进行实例化（其实就是 Redis 客户端对象）并返回
     return backend_cls(location, params)
 
 
@@ -61,9 +64,16 @@ class CacheHandler:
     Ensure only one instance of each alias exists per thread.
     """
     def __init__(self):
+        # local 是 Python 标准库 _threading_local 模块中的类
+        # 该类在初始化时不允许提供参数，该类的实例（线程缓存对象）按线程存储数据
         self._caches = local()
 
     def __getitem__(self, alias):
+        """获取「线程缓存对象」中 alias 对应的值，变量 alias 的值通常是字符串 'default'
+
+        1.「线程缓存对象」的 caches 属性里有这个 alias ，直接返回其对应的值，也就是 Redis 缓存对象
+        2. 如果没有这个 alias ，创建一个 Redis 缓存对象加到「线程缓存对象」的 caches 属性里并返回
+        """
         try:
             return self._caches.caches[alias]
         except AttributeError:
@@ -76,6 +86,7 @@ class CacheHandler:
                 "Could not find config for '%s' in settings.CACHES" % alias
             )
 
+        # 创建一个 Redis 缓存对象
         cache = _create_cache(alias)
         self._caches.caches[alias] = cache
         return cache
