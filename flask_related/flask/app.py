@@ -888,8 +888,7 @@ class Flask(_PackageBoundObject):
         self.jinja_env.auto_reload = self.templates_auto_reload
 
     def run(self, host=None, port=None, debug=None, load_dotenv=True, **options):
-        """
-        调用 werkzeug.serving 模块中的 run_simple 函数，创建套接字并持续监听
+        """调用 werkzeug.serving 模块中的 run_simple 函数，创建套接字并持续监听
         """
         # Change this into a no-op if the server is invoked from the
         # command line. Have a look at cli.py for more information.
@@ -933,6 +932,7 @@ class Flask(_PackageBoundObject):
 
         from werkzeug.serving import run_simple
 
+        print('【flask.app.Flask.run】启动应用程序')
         try:
             run_simple(host, port, self, **options)
         finally:
@@ -2342,7 +2342,8 @@ class Flask(_PackageBoundObject):
                 # 获取响应对象并赋值给 response 变量
                 response = self.full_dispatch_request()
                 ct = threading.current_thread()
-                print('【flask.app.Flask.wsgi_app】得到响应对象，当前线程:', ct.name, ct.ident)
+                print(f'【flask.app.Flask.wsgi_app】得到响应对象，当前线程: {ct.name} {ct.ident}  '
+                      f'等待客户端发送请求...\n')
             except Exception as e:
                 error = e
                 response = self.handle_exception(e)

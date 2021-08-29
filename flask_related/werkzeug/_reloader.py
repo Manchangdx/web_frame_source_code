@@ -190,7 +190,8 @@ class ReloaderLoop(object):
 
     def log_reload(self, filename):
         filename = os.path.abspath(filename)
-        _log("info", " * Detected change in %r, reloading" % filename)
+        #_log("info", " * Detected change in %r, reloading" % filename)
+        print('【werkzeug._reloader.ReloaderLoop.log_reload】重新加载变更文件:', filename)
 
 
 class StatReloaderLoop(ReloaderLoop):
