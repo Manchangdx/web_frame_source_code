@@ -257,6 +257,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
         if self.headers.get("Expect", "").lower().strip() == "100-continue":
             self.wfile.write(b"HTTP/1.1 100 Continue\r\n\r\n")
 
+        print('【werkzeug.serving.WSGIRequestHandler.run_wsgi】处理请求头信息')
         # 这块儿读取请求头信息
         self.environ = environ = self.make_environ()
         headers_set = []
@@ -310,6 +311,8 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
             return write
 
         def execute(app):
+            print('【werkzeug.serving.WSGIRequestHandler.run_wsgi.execute】将请求头和 start_response'
+                  ' 作为参数调用「应用对象」的 __call__ 方法')
             # 调用应用对象的 __call__ 方法获取响应数据
             application_iter = app(environ, start_response)
             try:
@@ -322,7 +325,7 @@ class WSGIRequestHandler(BaseHTTPRequestHandler, object):
                     application_iter.close()
 
         try:
-            print('【werkzeug.serving.WSGIRequestHandler.run_wsgi】准备调用应用对象')
+            print('【werkzeug.serving.WSGIRequestHandler.run_wsgi】准备调用「应用对象」')
             execute(self.server.app)
         except (_ConnectionError, socket.timeout) as e:
             self.connection_dropped(e, environ)
@@ -735,6 +738,7 @@ class BaseWSGIServer(HTTPServer, object):
         fd=None,
     ):
         print('【werkzeug.serving.BaseWSGIServer.__init__】服务器对象初始化')
+        print('【werkzeug.serving.BaseWSGIServer.__init__】等待客户端发送请求...\n')
         if handler is None:
             handler = WSGIRequestHandler
 

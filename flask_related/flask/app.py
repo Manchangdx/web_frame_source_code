@@ -1838,6 +1838,7 @@ class Flask(_PackageBoundObject):
         # 从请求对象中获取路由对象，rule 是 werkzeug.routing.Rule 类的实例
         # 请求上下文对象在执行 push 方法时，会定义该属性
         rule = req.url_rule
+        print(f'【flask.app.Flask.dispatch_request】视图函数对应的标识字符串: {rule.endpoint}')
         # if we provide automatic options for this URL and the
         # request came with the OPTIONS method, reply automatically
         if (
@@ -1847,11 +1848,12 @@ class Flask(_PackageBoundObject):
             return self.make_default_options_response()
         # self.view_functions 是字典，里面包含全部视图函数键值对
         # key 是视图函数的字符串，value 是视图函数
-        # rule.endpoint 是视图函数的字符串
+        # rule.endpoint 是视图函数的标识字符串
         # 例如 'user.index' 表示 user 蓝图下的 index 视图函数
         # req.view_args 是和 req.rul_rule 一同被定义的，前者是路由的参数字典
         # 所以这个返回值就是请求对应的视图函数的调用
-        return self.view_functions[rule.endpoint](**req.view_args)
+        view_func = self.view_functions[rule.endpoint]
+        return view_func(**req.view_args)
 
     def full_dispatch_request(self):
         """
@@ -1892,7 +1894,8 @@ class Flask(_PackageBoundObject):
 
         :internal:
         """
-        # 处理视图函数的返回值获取响应对象
+        print('【flask.app.Flask.finalize_request】处理视图函数返回的数据，构造「响应对象」')
+        # 处理视图函数的返回值获取「响应对象」
         response = self.make_response(rv)
         try:
             # self.process_response 方法主要做两件事：
@@ -1906,7 +1909,7 @@ class Flask(_PackageBoundObject):
             self.logger.exception(
                 "Request finalizing failed with an error while handling an error"
             )
-        # 返回响应对象
+        # 返回「响应对象」
         return response
 
     def try_trigger_before_first_request_functions(self):
@@ -2140,6 +2143,7 @@ class Flask(_PackageBoundObject):
         if bp is not None and bp in self.before_request_funcs:
             funcs = chain(funcs, self.before_request_funcs[bp])
         for func in funcs:
+            #print(f'【flask.app.Flask.preprocess_request】找到视图函数: {func}')
             rv = func()
             if rv is not None:
                 return rv
@@ -2241,19 +2245,12 @@ class Flask(_PackageBoundObject):
         return AppContext(self)
 
     def request_context(self, environ):
-        """Create a :class:`~flask.ctx.RequestContext` representing a
-        WSGI environment. Use a ``with`` block to push the context,
-        which will make :data:`request` point at this request.
-
-        See :doc:`/reqcontext`.
-
-        Typically you should not call this from your own code. A request
-        context is automatically pushed by the :meth:`wsgi_app` when
-        handling a request. Use :meth:`test_request_context` to create
-        an environment and context instead of this method.
-
-        :param environ: a WSGI environment
+        """创建「请求上下文对象」，也就是 flask.ctx.RequestContext 类的实例
+        
+        Args:
+            environ (dict): WSGI 的环境变量，也就是请求信息
         """
+        #print('【flask.app.Flask.request_context】创建「请求上下文对象」')
         return RequestContext(self, environ)
 
     def test_request_context(self, *args, **kwargs):
@@ -2335,24 +2332,24 @@ class Flask(_PackageBoundObject):
         error = None
         try:
             try:
-                # 调用请求上下文对象的 push 方法
+                # 调用「请求上下文对象」的 push 方法
                 ctx.push()
                 # 下面这条线是请求与响应的分割线
                 # print('-------------------------------------------')
                 # 获取响应对象并赋值给 response 变量
                 response = self.full_dispatch_request()
                 ct = threading.current_thread()
-                print(f'【flask.app.Flask.wsgi_app】得到响应对象，当前线程: {ct.name} {ct.ident}  '
-                      f'等待客户端发送请求...\n')
+                print(f'【flask.app.Flask.wsgi_app】得到响应对象，当前线程: {ct.name} {ct.ident}')
+                print(f'【flask.app.Flask.wsgi_app】等待客户端发送请求...\n')
             except Exception as e:
                 error = e
                 response = self.handle_exception(e)
             except:  # noqa: B001
                 error = sys.exc_info()[1]
                 raise
-            # 调用响应对象的 __call__ 方法并返回
+            # 调用「响应对象」的 __call__ 方法并返回
             # 此方法定义在 werkzeug.wrappers.base_response.BaseResponse 类中
-            # 其作用是将响应对象返回给 Werkzeug 这个中间桥梁并由后者转发给客户端
+            # 其作用是将「响应对象」返回给 Werkzeug 这个中间桥梁并由后者转发给客户端
             return response(environ, start_response)
         finally:
             if self.should_ignore_error(error):

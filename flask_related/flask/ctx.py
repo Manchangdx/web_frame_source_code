@@ -260,16 +260,26 @@ class RequestContext(object):
     """
 
     def __init__(self, app, environ, request=None, session=None):
+        """初始化「请求上下文对象」
+
+        Args:
+            app (obj): 应用对象，flask.app.Flask 类的实例
+            environ (dict): 请求数据
+            request (obj):「请求对象」
+            session (obj):「会话对象」
+        """
         browser = 'Chrome'
         if 'OPR' in environ['HTTP_USER_AGENT']:
             browser = 'Opera'
         if 'Firefox' in environ['HTTP_USER_AGENT']:
             browser = 'Firefox'
-        #print('【flask.ctx.RequestContext.__init__】初始化', environ['RAW_URI'], 
-        #        '==={}==='.format(browser))
+        if 'Postman' in environ['HTTP_USER_AGENT']:
+            browser = 'Postman'
+        print(f'【flask.ctx.RequestContext.__init__】初始化「请求上下文对象」')
         self.app = app
         # 初始化时，通常不提供 request 和 session 这两个参数
         if request is None:
+            print(f'【flask.ctx.RequestContext.__init__】初始化「请求对象」')
             # 调用 app.request_class 方法生成的是 
             # werkzeug.wrappers.request 模块中的 Request 类的实例
             # 这个实例有很多属性，例如 cookies 包含请求中的 Cookies 信息
@@ -344,14 +354,14 @@ class RequestContext(object):
             self.request.routing_exception = e
 
     def push(self):
-        '''
+        """
         每次服务器收到请求，都会创建 RequestContext 实例并调用此方法
         此方法顺序完成如下操作：
-        1、创建「应用上下文对象」并将其压入「应用上下文栈」的栈顶
+        1、创建「应用上下文对象」（当前模块中 AppContext 类的实例）并将其压入「应用上下文栈」的栈顶
         2、将「请求上下文对象」也就是 self 压入「请求上下文栈」的栈顶
         3、根据 self.request.cookies 生成 self.session 
         4、调用 self.match_request 方法给 self.request 定义两个路由相关的属性
-        '''
+        """
         # 请求上下文栈顶，这会儿肯定是 None
         # 因为现在刚刚创建完「请求上下文对象」，还没把自身压入栈中
         top = _request_ctx_stack.top
@@ -361,6 +371,7 @@ class RequestContext(object):
         # 应用上下文栈的栈顶，这会儿肯定也是 None，应用上下文对象还没创建呢
         app_ctx = _app_ctx_stack.top
         if app_ctx is None or app_ctx.app != self.app:
+            print('【flask.ctx.RequestContext.push】创建「应用上下文对象」并将其压入「应用上下文栈」的栈顶')
             # 创建 AppContext 类的实例，即「应用上下文对象」
             app_ctx = self.app.app_context()
             # 调用「应用上下文对象」的 push 方法
@@ -374,6 +385,7 @@ class RequestContext(object):
         if hasattr(sys, "exc_clear"):
             sys.exc_clear()
 
+        print('【flask.ctx.RequestContext.push】将「请求上下文对象」压入「请求上下文栈」的栈顶')
         # 调用「请求上下文栈」的 push 方法将「请求上下文对象」压入栈顶
         _request_ctx_stack.push(self)
 

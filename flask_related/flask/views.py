@@ -34,6 +34,10 @@ class View(object):
 
         def view(*args, **kwargs):
             self = view.view_class(*class_args, **class_kwargs)
+            print(f'【flask.views.View.as_view.view】视图类实例: {self}')
+            if kwargs:
+                print(f'【flask.views.View.as_view.view】请求路径 path 参数: {kwargs}')
+            print('【cmblab.libs.views.APIView.dispatch_request】开始在项目内部处理请求...')
             return self.dispatch_request(*args, **kwargs)
 
         if cls.decorators:

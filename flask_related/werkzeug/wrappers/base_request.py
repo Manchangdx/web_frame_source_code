@@ -149,6 +149,7 @@ class BaseRequest(object):
     disable_data_descriptor = False
 
     def __init__(self, environ, populate_request=True, shallow=False):
+        #print('【werkzeug.wrappers.base_request.BaseRequest.__init__】初始化「请求对象」')
         self.environ = environ
         if populate_request and not shallow:
             self.environ["werkzeug.request"] = self
