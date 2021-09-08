@@ -269,11 +269,12 @@ class RequestContext(object):
             session (obj):「会话对象」
         """
         browser = 'Chrome'
-        if 'OPR' in environ['HTTP_USER_AGENT']:
+        ua = environ.get('HTTP_USER_AGENT', '')
+        if 'OPR' in ua:
             browser = 'Opera'
-        if 'Firefox' in environ['HTTP_USER_AGENT']:
+        if 'Firefox' in ua:
             browser = 'Firefox'
-        if 'Postman' in environ['HTTP_USER_AGENT']:
+        if 'Postman' in ua:
             browser = 'Postman'
         print(f'【flask.ctx.RequestContext.__init__】初始化「请求上下文对象」')
         self.app = app
