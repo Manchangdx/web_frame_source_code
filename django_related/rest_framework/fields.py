@@ -512,13 +512,13 @@ class Field:
         return self.default
 
     def validate_empty_values(self, data):
-        """
-        处理字段的空值，此方法全局唯一，它被各个类中的 run_validation 方法调用
-        注意此方法处理的是字段，如果 self 是序列化对象，直接执行最后一行
-        PUT 与 PATCH 请求的区别就在于此
+        """处理字段的空值，此方法全局唯一，它被各个类中的 run_validation 方法调用
 
         实例自身 self 有多种可能: 序列化对象、字段、ListSerializer 对象（特殊字段）
         参数 data 也有多种可能: 请求体字典、字段值、empty 对象
+
+        注意此方法处理的是字段，如果 self 是序列化对象，直接执行最后一行
+        PUT 与 PATCH 请求的区别就在于此
         """
 
         # 序列化对象的 read_only 属性值肯定是 False ，只有 self 是字段时才有这个判断
@@ -556,7 +556,7 @@ class Field:
         """
         #print(f'【rest_framework.fields.Field.run_validation】验证请求体字段: {self.field_name}, {data}')
 
-        # 空值验证：如果 data 不是 empty 不是 None ，就 PASS
+        # 此方法定义在当前类中，空值验证：如果 data 不是 empty 且不是 None ，就会通过验证
         (is_empty_value, data) = self.validate_empty_values(data)
         if is_empty_value:
             return data

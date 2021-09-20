@@ -386,8 +386,7 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     @cached_property
     def fields(self):
-        """
-        获取当前「序列化对象」的全部 Field 属性及其值 {字段名: 字段实例}（包括父类中定义的），放到字典里面返回
+        """获取当前「序列化对象」的全部 Field 属性及其值 {字段名: 字段实例}（包括父类中定义的），放到字典里面返回
         """
         fields = BindingDict(self)
         for key, value in self.get_fields().items():
@@ -396,8 +395,7 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     @property
     def _writable_fields(self):
-        """
-        可写字段生成器
+        """可写字段生成器
         """
         for field in self.fields.values():
             if not field.read_only:
@@ -405,16 +403,14 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
     @property
     def _readable_fields(self):
-        """
-        可读字段生成器
+        """可读字段生成器
         """
         for field in self.fields.values():
             if not field.write_only:
                 yield field
 
     def get_fields(self):
-        """
-        获取当前「序列化对象」的全部 Field 属性及其值 {字段名: 字段实例}（包括父类中定义的），放到字典里面返回
+        """获取当前「序列化对象」的全部 Field 属性及其值 {字段名: 字段实例}（包括父类中定义的），放到字典里面返回
         """
         # 这块儿涉及到的私有属性 _declared_fields 定义在当前模块中的元类 SerializerMetaclass 里面
         # 该私有属性值是「序列化对象」声明的 Field 属性的字典 {字段名: 字段实例}
@@ -457,8 +453,8 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         return dictionary.get(self.field_name, empty)
 
     def run_validation(self, data=empty):
-        """
-        反序列化的时候验证数据的核心方法，步骤如下:
+        """反序列化的时候验证数据的核心方法，步骤如下:
+
         1. 调用 self.validate_empty_values 方法判断参数 data（请求体）是不是有效值
         2. 调用 self.to_internal_value 方法使用各个字段的验证器验证请求体，验证通过的数据存到 value 字典中
         3. 调用 self.run_validators 方法把有默认值的可读字段添加到上一步验证过的数据字典 value 中，调用「序列化对象」的验证器验证
@@ -505,8 +501,8 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         return defaults
 
     def run_validators(self, value):
-        """
-        调用自身的验证器验证
+        """调用自身的验证器验证
+
         默认情况下自身的验证器为空，需要额外定义 default_validators 列表
         """
         if isinstance(value, dict):
@@ -519,8 +515,8 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         super().run_validators(to_validate)
 
     def to_internal_value(self, data):
-        """
-        反序列化过程中，此方法被 Serializer.run_validation 方法调用
+        """反序列化过程中，此方法被当前类的 run_validation 方法调用
+
         调用各个字段的验证器验证请求体中的数据，全部验证成功则返回验证过的数据，否则抛出报错信息
 
         :data: 字典对象，请求体
