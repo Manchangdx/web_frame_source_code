@@ -54,8 +54,8 @@ class Signal:
         """针对当前信号对象 self 建立「信号接收者」与「信号发送者」之间的连接，简言之就是建立连接
 
         Arguments:
-            :receiver:「信号接收者」必须是可调用对象，调用时必须可以接受关键字参数
-            :sender:「信号发送者」可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
+            :receiver:「信号接收者」，必须是可调用对象，调用时必须可以接受关键字参数
+            :sender:「信号发送者」，可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
             :weak: 待补充
             :dispatch_uid: 待补充
         """
@@ -151,25 +151,17 @@ class Signal:
         ]
 
     def send_robust(self, sender, **named):
-        """
-        Send signal from sender to all connected receivers catching errors.
+        """发送信号给「信号接收者」（其实就是调用函数）
+
+        在此之前，「信号接收者」已经与「信号发送者」建立连接
+        当前方法会将 named 字典作为参数依次调用各个「信号接收者（可调用对象）」
+        任意「信号接收者」被调用时如果出现异常，不抛出异常，而是将异常对象作为返回值二元元组的第二个值返回
 
         Arguments:
+            :sender:「信号发送者」可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
+            :named: 调用「信号接收者」时提供的参数
 
-            sender
-                The sender of the signal. Can be any Python object (normally one
-                registered with a connect if you actually want something to
-                occur).
-
-            named
-                Named arguments which will be passed to receivers. These
-                arguments must be a subset of the argument names defined in
-                providing_args.
-
-        Return a list of tuple pairs [(receiver, response), ... ].
-
-        If any receiver raises an error (specifically any subclass of
-        Exception), return the error instance as the result for that receiver.
+        Return: 列表，列表里面是二元元组 (「信号接收者」, 调用「信号接收者」的返回值或异常对象)
         """
         if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
             return []

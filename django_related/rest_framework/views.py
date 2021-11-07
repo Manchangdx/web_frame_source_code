@@ -283,13 +283,16 @@ class APIView(View):
         return [permission() for permission in self.permission_classes]
 
     def get_throttles(self):
-        """
-        获取「限流对象」并返回
+        """获取「限流对象」并返回
 
         self.throttle_classes 是定义在当前类中的属性，属性值是一个配置项处理后得到的「限流类」列表
         该配置项是 shiyanlou/settings/base.py 文件中的 REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES']
-        值是元组，元组里面的元素是「限流类」的路径字符串
-        此处对其进行实例化，获得「限流对象」并返回
+        值是元组，元组里面的元素是「限流类」的路径字符串此处对其进行实例化，获得「限流对象」并返回
+
+        shiyanlou-v2 项目的配置文件对应的限流对象列表中包含如下几个类的实例：
+            'rest_framework.throttling.AnonRateThrottle'
+            'shiyanlou.contrib.throttling.MultiScopedRateThrottle'
+            'rest_framework.throttling.UserRateThrottle'
         """
         return [throttle() for throttle in self.throttle_classes]
 
@@ -345,9 +348,7 @@ class APIView(View):
                 )
 
     def check_object_permissions(self, request, obj):
-        """
-        Check if the request should be permitted for a given object.
-        Raises an appropriate exception if the request is not permitted.
+        """检测单个映射类实例相关权限，也是用视图类的 permission_classes 属性
         """
         for permission in self.get_permissions():
             if not permission.has_object_permission(request, self, obj):
@@ -356,8 +357,7 @@ class APIView(View):
                 )
 
     def check_throttles(self, request):
-        """
-        使用「限流对象」对请求进行检查
+        """使用「限流对象」对请求进行检查
         """
         throttle_durations = []
         # 循环「限流对象」列表
@@ -392,8 +392,7 @@ class APIView(View):
     # Dispatch methods
 
     def initialize_request(self, request, *args, **kwargs):
-        """
-        Returns the initial request object.
+        """重新构造请求对象并返回
         """
         parser_context = self.get_parser_context(request)
 
@@ -407,8 +406,7 @@ class APIView(View):
         )
 
     def initial(self, request, *args, **kwargs):
-        """
-        Runs anything that needs to occur prior to calling the method handler.
+        """检测用户权限和频率限制
         """
         self.format_kwarg = self.get_format_suffix(**kwargs)
 
@@ -428,8 +426,7 @@ class APIView(View):
         print('检查通过')
 
     def finalize_response(self, request, response, *args, **kwargs):
-        """
-        Returns the final response object.
+        """返回最终的响应对象
 
         :request: 请求对象
         :response: 视图函数的返回值

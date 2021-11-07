@@ -23,7 +23,8 @@ class CreateModelMixin:
         print('【rest_framework.mixins.CreateModelMixin.create】创建序列化实例，调用其 is_valid 方法验证数据')
         # 此方法定义在 rest_framework.serializers.BaseSerializer 类中，验证请求体数据，如果有异常则抛出异常
         serializer.is_valid(raise_exception=True)
-        # 此方法定义在 rest_framework.serializers.BaseSerializer 类中，创建映射类实例并保存到数据表中
+        # 此方法调用「序列化实例」的 save 方法
+        # 后者定义在 rest_framework.serializers.BaseSerializer 类中，创建映射类实例并保存到数据表中
         self.perform_create(serializer)
         print('【rest_framework.mixins.CreateModelMixin.create】创建映射类实例成功，响应体:')
         print('\t', serializer.data)
