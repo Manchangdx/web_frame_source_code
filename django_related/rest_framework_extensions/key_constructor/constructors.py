@@ -90,7 +90,7 @@ class KeyConstructor:
                     params = None
             result_dict[bit_name] = bit_instance.get_data(
                 params=params, **kwargs)
-        print('【rest_framework_extensions.key_constructor.KeyConstructor.get_data_from_bits】result_dict:', result_dict)
+        #print('【rest_framework_extensions.key_constructor.KeyConstructor.get_data_from_bits】result_dict:', result_dict)
         return result_dict
 
 
