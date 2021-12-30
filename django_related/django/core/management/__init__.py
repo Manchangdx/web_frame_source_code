@@ -334,19 +334,24 @@ class ManagementUtility:
         parser.add_argument('args', nargs='*')  # catch-all
         try:
             options, args = parser.parse_known_args(self.argv[2:])
+            #print('【django.core.management.__init__.ManagementUtility.execute】options:', options)
             handle_default_options(options)
         except CommandError:
             pass  # Ignore any option errors at this point.
 
         try:
-            # 此对象是 django.conf.__init__.LazySettings 类的实例
-            # 此对象的全部属性都来自应用对象的 settings.py 配置文件
+            # 此 settings 是 django.conf.__init__.LazySettings 类的实例
+            # 该实例的全部属性都来自应用对象的配置文件，配置文件名是环境变量 ENVIRONMENT_VARIABLE 的值
+            # 此处调用 settings 的属性是为了初始化配置对象，配置对象是 django.conf.__init__.Settings 类的实例
+            # 配置对象初始化时会将配置文件中的全部配置项赋值给自身的属性
+            # 调用 settings 获取配置项就是获取配置对象的属性
             settings.INSTALLED_APPS
         except ImproperlyConfigured as exc:
             self.settings_exception = exc
         except ImportError as exc:
             self.settings_exception = exc
 
+        # 配置对象初始化顺利完成后，该属性值就是 True
         if settings.configured:
             # Start the auto-reloading dev server even if the code is broken.
             # The hardcoded condition is a code smell but we can't rely on a
@@ -417,5 +422,6 @@ class ManagementUtility:
 
 def execute_from_command_line(argv=None):
     """Run a ManagementUtility."""
+    print('【djaong.core.management.__init__.execute_from_command_line】argv:', argv)
     utility = ManagementUtility(argv)
     utility.execute()

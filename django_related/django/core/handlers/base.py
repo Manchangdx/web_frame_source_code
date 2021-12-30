@@ -73,7 +73,7 @@ class BaseHandler:
             # 下面这一行代码导致 handler 变量的值发生变化，参数是中间件类的实例
             # 前面已经提到，下面这个函数来自 django.core.handlers.exception 模块
             # 它是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
-            #
+
             # 每次执行下面这行代码，handler 就变成中间件实例，实例的 get_response 属性就是上一个 handler
             # 也就是说，下面这个 handler 的 get_response 属性值就是定义之前的 handler
             handler = convert_exception_to_response(mw_instance)

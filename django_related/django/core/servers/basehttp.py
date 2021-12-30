@@ -60,6 +60,7 @@ def is_broken_pipe_error():
 class WSGIServer(simple_server.WSGIServer):
     """BaseHTTPServer that implements the Python WSGI protocol"""
 
+    # 套接字允许的最大连接数
     request_queue_size = 10
 
     def __init__(self, *args, ipv6=False, allow_reuse_address=True, **kwargs):
@@ -123,6 +124,7 @@ class ServerHandler(simple_server.ServerHandler):
 
 # 此类的实例就是「请求处理对象」
 # 此类的终极父类是 socketserver.BaseRequestHandler 类，初始化方法就在后者中
+# 客户端发起连接请求后创建临时套接字和请求地址元组，后续处理就在此类的父类的初始化方法中进行
 class WSGIRequestHandler(simple_server.WSGIRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -158,7 +160,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         else:
             level = logger.info
 
-        level(format, *args, extra=extra)
+        #level(format, *args, extra=extra)
 
     def get_environ(self):
         # Strip all headers with underscores in the name before constructing
@@ -189,7 +191,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         self.close_connection = True
         # 处理一次请求
         self.handle_one_request()
-        print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle】{ct.name} {ct.ident} 请求处理完毕，等待下一次请求...\n')
+        print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle】{ct.name} {ct.ident} 请求处理完毕，等待下一次请求...')
 
         # 如果是长连接，即客户端的版本是 HTTP 1.1 及其以上，继续处理请求
         while not self.close_connection:
@@ -258,20 +260,22 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
 
 # 启动项目时，这个方法是核心
-# 参数 server_cls 的值是当前模块中定义的 WSGIServer 类
-# 后者是 Python 内置模块 wsgiref.simple_server 中的 WSGIServer 类的子类
-# 后者是 Python 内置模块 http.server 中的 HTTPServer 类的子类
-# 后者是 Python 内置模块 socketserver 中的 TCPServer 类的子类
-# 后者是 Python 内置模块 socketserver 中的 BaseServer 类的子类
+# 参数 server_cls 的值是当前模块中定义的 WSGIServer 类，其父类递归如下
+# WSGIServer →
+# wsgiref.simple_server.WSGIServer →
+# http.server.HTTPServer →
+# socketserver.TCPServer →
+# socketserver.BaseServer
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
-    import threading
-    ct = threading.current_thread()
-    print('【django.core.servers.basehttp.run】「服务器对象」初始化，当前线程:', ct.name, ct.ident)
+    import threading as t
+    ct = t.current_thread()
+    print('【django.core.servers.basehttp.run】服务器对象初始化，当前线程:', ct.name, ct.ident)
     server_address = (addr, port)
     # 通常 threading 的值是 True ，这里调用 type 函数创建一个类
     if threading:
         # 第一个参数是新建类的名字，第二个参数是新建类要继承的父类
         # 新建类 httpd_cls 就是「服务器类」，该类的实例就是「服务器对象」，实例的 socket 属性值就是套接字对象
+        # 初始化在 socketserver.TCPServer 类中进行
         httpd_cls = type('WSGIServer', (socketserver.ThreadingMixIn, server_cls), {})
     else:
         httpd_cls = server_cls
@@ -279,6 +283,7 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     # 对「服务器类」进行实例化得到「服务器对象」，其 socket 属性值就是 TCP 套接字对象
     # 当前函数最后一行代码将启动套接字的持续监听
     # WSGIRequestHandler 是请求处理类，socketserver.BaseRequestHandler 类的子类，其实例是「请求处理对象」
+    # 当「服务器对象」完成初始化时，内建套接字对象就完成了端点设置并启动了监听
     httpd = httpd_cls(server_address, WSGIRequestHandler, ipv6=ipv6)
 
     if threading:
@@ -286,12 +291,12 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
         # ThreadingMixIn.daemon_threads 指示线程在突然关闭时的行为
         # 例如由用户退出服务器或由自动重新加载器重新启动时
         # True 表示服务器在退出之前不会等待线程终止
-        # 这将使自动重新加载器更快，并且可以防止在线程未正确终止的情况下手动杀死服务器。
+        # 这将使自动重新加载器更快，并且可以防止在线程未正确终止的情况下手动杀死服务器
         httpd.daemon_threads = True
     # 参数 wsgi_handler 是 django.core.handlers.wsgi.WSGIHandler 类的实例
     # 该实例就相当于 Flask 中的 app 应用对象，它会被赋值给「服务器对象」的 application 属性
     # 当浏览器发送请求过来，服务器在处理请求的过程中会根据自身的 application 属性找到应用对象并调用之
     httpd.set_app(wsgi_handler)
     print('【django.core.servers.basehttp.run】等待客户端发送请求...\n')
-    # 启动套接字服务器的持续监听，此方法定义在 socketserver.BaseServer 类中
+    # 调用「服务器对象」的套接字对象的 accept 方法持续监听，此方法定义在 socketserver.BaseServer 类中
     httpd.serve_forever()

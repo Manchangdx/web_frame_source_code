@@ -198,7 +198,8 @@ class BaseServer:
     timeout = None
 
     def __init__(self, server_address, RequestHandlerClass):
-        """Constructor.  May be extended, do not override."""
+        """初始化「服务器对象」
+        """
         self.server_address = server_address
         self.RequestHandlerClass = RequestHandlerClass
         self.__is_shut_down = threading.Event()
@@ -468,23 +469,21 @@ class TCPServer(BaseServer):
     allow_reuse_address = False
 
     def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True):
-        """Constructor.  May be extended, do not override."""
+        """初始化「服务器对象」
+        """
         BaseServer.__init__(self, server_address, RequestHandlerClass)
         self.socket = socket.socket(self.address_family,
                                     self.socket_type)
         if bind_and_activate:
             try:
-                self.server_bind()
-                self.server_activate()
+                self.server_bind()      # 此方法就在下面，可能被重写
+                self.server_activate()  # 此方法也在下面，可能被重写
             except:
                 self.server_close()
                 raise
 
     def server_bind(self):
-        """Called by constructor to bind the socket.
-
-        May be overridden.
-
+        """给套接字对象绑定监听地址，此方法可以被重写
         """
         if self.allow_reuse_address:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -492,11 +491,9 @@ class TCPServer(BaseServer):
         self.server_address = self.socket.getsockname()
 
     def server_activate(self):
-        """Called by constructor to activate the server.
-
-        May be overridden.
-
+        """套接字对象启动监听，此方法可以被重写
         """
+        # 参数是套接字对象允许的最大连接数
         self.socket.listen(self.request_queue_size)
 
     def server_close(self):
@@ -666,10 +663,7 @@ class ThreadingMixIn:
     _threads = None
 
     def process_request_thread(self, request, client_address):
-        """Same as in BaseServer but as a thread.
-
-        In addition, exception handling is done here.
-
+        """此方法在子线程内执行，用于处理请求，请求中的任何异常都会被此方法处理
         """
         import threading
         ct = threading.current_thread()

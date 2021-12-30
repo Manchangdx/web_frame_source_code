@@ -141,14 +141,14 @@ class Command(BaseCommand):
             "quit_command": quit_command,
         })
         """
-        print(f'【django.core.management.commands.runserver.Command.inner_run】即将启动服务在该地址: {addr}')
+        print(f'【django.core.management.commands.runserver.Command.inner_run】即将在该地址启动服务: {addr}')
 
         try:
             # 这里 self 是「命令执行对象」
             # 下面的 handle 是 django.core.handlers.wsgi.WSGIHandler 类的实例
             # 该实例就相当于 Flask 中的 app 应用对象
             handler = self.get_handler(*args, **options)
-            # 这个 run 方法是核心，定义在 django.core.servers.basehttp 模块中
+            # 这个 run 是核心方法，定义在 django.core.servers.basehttp 模块中
             # 在方法内部会创建服务器对象并启动监听
             # 参数 handler 是应用对象，server_cls 是服务器类，其实例就是携带 TCP 套接字的对象
             run(

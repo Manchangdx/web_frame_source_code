@@ -68,6 +68,7 @@ def handle_default_options(options):
     user commands.
     """
     if options.settings:
+        #print('【django.core.management.base.handle_default_options】options.settings:', options.settings)
         os.environ['DJANGO_SETTINGS_MODULE'] = options.settings
     if options.pythonpath:
         sys.path.insert(0, options.pythonpath)
