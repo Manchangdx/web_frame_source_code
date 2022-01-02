@@ -16,18 +16,11 @@ from django.views import debug
 
 
 def convert_exception_to_response(get_response):
-    """
-    Wrap the given get_response callable in exception-to-response conversion.
+    """这个装饰器函数的作用就是捕获应用在处理请求过程中抛出的异常，返回一个加工过的「响应对象」
 
-    All exceptions will be converted. All known 4xx exceptions (Http404,
-    PermissionDenied, MultiPartParserError, SuspiciousOperation) will be
-    converted to the appropriate response, and all other exceptions will be
-    converted to 500 responses.
-
-    This decorator is automatically applied to all middleware to ensure that
-    no middleware leaks an exception and that the next middleware in the stack
-    can rely on getting a response instead of an exception.
+    该装饰器会自动应用于所有中间件，以确保没有中间件泄漏异常，并且堆栈中的下一个中间件可以据此获得响应对象而不是异常
     """
+    #print('>'*88, get_response)
     @wraps(get_response)
     def inner(request):
         try:

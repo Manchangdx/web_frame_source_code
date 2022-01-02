@@ -421,7 +421,8 @@ class ManagementUtility:
 
 
 def execute_from_command_line(argv=None):
-    """Run a ManagementUtility."""
+    """创建「应用程序管理器」并调用其 execute 方法
+    """
     print('【djaong.core.management.__init__.execute_from_command_line】argv:', argv)
     utility = ManagementUtility(argv)
     utility.execute()

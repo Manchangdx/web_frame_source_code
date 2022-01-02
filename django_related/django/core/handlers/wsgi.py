@@ -120,24 +120,37 @@ class WSGIRequest(HttpRequest):
             self._load_post_and_files()
         return self._files
 
-    # 下面这行代码的作用是处理请求体中的表单信息生成一个类字典对象赋值给 self._post 属性，其实也就是 self.POST 属性
-    # 初始化「请求对象」时并不执行下面这一行代码，调用「请求对象」的 POST 属性时才会执行这行代码
-    # 中间件处理请求对象时 django.middleware.csrf.CsrfViewMiddleware.process_view 方法会调用「请求对象」的 POST 属性
+    # 下面这行代码的作用是给「请求对象」加个 POST 属性
+    # 调用该 POST 属性时，处理请求体生成一个类字典对象赋值给 self._post 属性，其实也就是 self.POST 属性
+    # 中间件 django.middleware.csrf.CsrfViewMiddleware 处理请求过程中会调用自身的 process_view 方法
+    # 该方法会调用「请求对象」的 POST 属性
     POST = property(_get_post, _set_post)
 
 
-# 应用对象类，该类的实例就是「应用对象」，相当于 flask.app.Flask 类的实例
 class WSGIHandler(base.BaseHandler):
+    """应用对象类，该类的实例就是「应用对象」，相当于 flask.app.Flask 类的实例
+
+    注意「应用对象」在启动服务时就会创建，比创建「(套接字)服务器对象」还要早
+    每次请求进入后，调用该实例的 __call__ 方法处理请求
+    """
+
     request_class = WSGIRequest
 
     def __init__(self, *args, **kwargs):
+        """初始化「应用对象」，此方法在启动服务时就会执行
+        """
+        print('【django.core.handlers.wsgi.WSGIHandler.__init__】应用对象初始化')
         super().__init__(*args, **kwargs)
         # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()
 
     def __call__(self, environ, start_response):
+        """每次请求进入后，调用该方法
+        """
         # self 是「应用对象」，客户端发来请求后「响应处理对象」调用此方法
         print('【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」')
+        #for k, v in environ.items():
+        #    print(f'\t\t{k:<33}{v}')
 
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
@@ -151,7 +164,7 @@ class WSGIHandler(base.BaseHandler):
         # 后者是 django.http.response.HttpResponse 类的实例
         response = self.get_response(request)
 
-        print('【django.core.handlers.wsgi.WSGIHandler.__call__】获得「响应对象」:', response)
+        print(f'【django.core.handlers.wsgi.WSGIHandler.__call__】获得「响应对象」: {response}')
 
         response._handler_class = self.__class__
 

@@ -99,6 +99,7 @@ class Command(BaseCommand):
         """Run the server, using the autoreloader if needed."""
         use_reloader = options['use_reloader']
 
+        # 代码变更重载功能默认是开启的
         if use_reloader:
             autoreload.run_with_reloader(self.inner_run, **options)
         else:

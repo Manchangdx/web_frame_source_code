@@ -15,14 +15,18 @@ logger = logging.getLogger('django.request')
 
 
 class BaseHandler:
+    """该类的实例是「应用对象」
+    """
     _view_middleware = None
     _template_response_middleware = None
     _exception_middleware = None
     _middleware_chain = None
 
     def load_middleware(self):
-        # self 是应用对象，初始化时会调用当前方法
-        print('【django.core.handlers.base.BaseHandler.load_middleware】应用对象初始化')
+        """应用对象加载中间件
+        """
+        # self 是「应用对象」，初始化时会调用当前方法
+        print('【django.core.handlers.base.BaseHandler.load_middleware】应用对象加载中间件')
 
         # 下面这个列表里面是各中间件实例的 process_view 方法
         # 这些方法在 self._get_response 中会被循环调用
@@ -36,11 +40,13 @@ class BaseHandler:
         self._exception_middleware = []
 
         # 下面这个函数来自 django.core.handlers.exception 模块
-        # 此函数是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供请求对象作为参数
-        # 下面这个 handler 实际上等同于 self._get_response 方法
+        # 此函数是一个装饰器，返回值是函数内的嵌套函数 inner ，调用的时候需要提供「请求对象」作为参数
+        # 这个装饰器函数的作用就是捕获参数 self._get_response 处理请求时抛出的异常，返回一个加工过的「响应对象」
+        # 调用下面这个 handler 函数实际就是调用 self._get_response 方法
         handler = convert_exception_to_response(self._get_response)
+
         # 下面的 reversed 是 Python 内置函数
-        # 参数是定义在项目配置文件中的中间件列表，返回值是参数倒序的迭代器
+        # 参数是定义在项目配置文件中的中间件列表，返回值是参数列表倒序的迭代器
         # 这样使得项目配置文件中的中间件列表被倒序初始化（实例化）
         # 在处理请求对象的过程中顺序执行，在处理响应对象的过程中倒序执行
         for middleware_path in reversed(settings.MIDDLEWARE):
@@ -76,6 +82,11 @@ class BaseHandler:
 
             # 每次执行下面这行代码，handler 就变成中间件实例，实例的 get_response 属性就是上一个 handler
             # 也就是说，下面这个 handler 的 get_response 属性值就是定义之前的 handler
+            # 这样就形成了一个堆栈函数
+
+            # 假设 settings.MIDDLEWARE 列表的顺序是 1 2 3
+            # 这个 for 循环的顺序就是 3 2 1 
+            # 链式调用 handler 的次序就是 1 2 3
             handler = convert_exception_to_response(mw_instance)
 
         # 它可以看作是中间件链条的第一个中间件类的实例
@@ -89,18 +100,23 @@ class BaseHandler:
         return view
 
     def get_response(self, request):
-        # self 是「应用对象」，此方法利用「请求对象」创建「响应对象」并返回
-        # 参数 request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
+        """根据「请求对象」创建「响应对象」
+
+        self 是「应用对象」，此方法利用「请求对象」创建「响应对象」并返回
+        参数 request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
+        """
 
         set_urlconf(settings.ROOT_URLCONF)
 
-        # self._middleware_chain 属性值是一个中间件类的实例
+        # 假设 settings.MIDDLEWARE 列表的顺序是 1 2 3
+        # self._middleware_chain 属性值就是第一个中间件类的实例
         # 此处调用中间件对象，也就是调用中间件对象的 __call__ 方法
         # 所有的中间件对象的 __call__ 方法都是 django.utils.deprecation.MiddlewareMixin.__call__
-        # 在 __call__ 内部会调用中间件对象的 get_response 方法
-        # 此方法本身就是另一个中间件对象，然后继续调用它的 __call__ 方法，链式调用
-        # 最终，调用在当前类中定义的 self._get_response 方法返回「响应对象」
-        # 然后链式返回，最后下面这个方法返回「响应对象」
+        # 按照 1 2 3 的次序在 __call__ 内部先调用各个中间件对象的 process_request 方法
+        # 然后调用中间件对象的 get_response 方法，此方法本身就是另一个中间件对象，然后继续调用其 __call__ 方法
+        # 最后调用在当前类中定义的 self._get_response 方法返回「响应对象」
+        # 然后再依照 3 2 1 的次序调用各个中间件的 process_response 方法处理「响应对象」
+        # 最后下面这个方法返回处理好的「响应对象」
         response = self._middleware_chain(request)
         response._closable_objects.append(request)
         if response.status_code >= 400:

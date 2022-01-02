@@ -11,6 +11,7 @@ import logging
 import socket
 import socketserver
 import sys
+import threading
 from wsgiref import simple_server
 
 from django.core.exceptions import ImproperlyConfigured
@@ -126,6 +127,8 @@ class ServerHandler(simple_server.ServerHandler):
 # 此类的终极父类是 socketserver.BaseRequestHandler 类，初始化方法就在后者中
 # 客户端发起连接请求后创建临时套接字和请求地址元组，后续处理就在此类的父类的初始化方法中进行
 class WSGIRequestHandler(simple_server.WSGIRequestHandler):
+    """请求处理类，该类的实例叫做「请求处理对象」
+    """
     protocol_version = 'HTTP/1.1'
 
     def address_string(self):
@@ -178,10 +181,6 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
     # 服务器套接字收到连接请求，创建一个当前类的实例，叫做「请求处理对象」
     # 实例初始化过程中，将连接的临时套接字对象赋值给实例的 connect 属性，然后调用此方法
     def handle(self):
-        import threading
-        ct = threading.current_thread()
-        print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle】「请求处理对象」开始处理请求，当前为子线程: {ct.name} {ct.ident}')
-
         # self 是「请求处理对象」
         # HTTP 1.0 为短连接，连接后收发一次数据后自动断开
         # HTTP 1.1 及其以后的版本支持长连接，一次连接可以收发多次数据
@@ -191,7 +190,6 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         self.close_connection = True
         # 处理一次请求
         self.handle_one_request()
-        print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle】{ct.name} {ct.ident} 请求处理完毕，等待下一次请求...')
 
         # 如果是长连接，即客户端的版本是 HTTP 1.1 及其以上，继续处理请求
         while not self.close_connection:
@@ -210,8 +208,9 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # 读取一行数据的前 2 ** 8 + 1 个字符，这个数据就是浏览器发送给服务器的数据
         self.raw_requestline = self.rfile.readline(65537)
         if self.raw_requestline:
-            print(('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】'
-                    '请求信息的第一行: {}'.format(self.raw_requestline)))
+            ct = threading.current_thread()
+            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求处理对象开始处理请求，当前为子线程: {ct.name} {ct.ident}')
+            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求信息的第一行: {self.raw_requestline}')
         # 如果一行的长度超过这个数，就判定它超出了服务器允许的长度范围，返回 414 状态码
         if len(self.raw_requestline) > 65536:
             print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】414')
@@ -224,10 +223,14 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
         # 下面这个方法在 http.server.BaseHTTPRequestHandler 类里面
         # 解析请求数据的第一行，获取请求方法、路径、协议版本号并赋值给对应的属性
-        # 将请求头信息解析成 http.client.HTTPMessage 类的实例，这是一个类字典对象
+        # 然后获取请求头信息并解析成 http.client.HTTPMessage 类的实例，这是一个类字典对象
         # 并将此实例赋值给 self.headers 属性
-        if not self.parse_request():  # An error code has been sent, just exit
+        if not self.parse_request():
             return
+
+        print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求头信息:')
+        for k, v in self.headers.items():
+            print(f'\t\t{k:<22}{v}')
 
         # 此类定义在当前模块中，其父类是 wsgiref.simple_server.ServerHandler
         # 后者的父类是 wsgiref.handlers.SimpleHandler（初始化就在此类中） 
@@ -244,6 +247,10 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             self.rfile, self.wfile, self.get_stderr(), self.get_environ()
         )
 
+        #print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】响应处理对象读到的系统环境变量:')
+        #for k, v in handler.os_environ.items():
+        #    print(f'\t\t{k:<22}{v}')
+
         # self 是「请求处理对象」，下面的 handler 是「响应处理对象」
         # self.request         临时套接字
         # self.client_address  客户端地址元组
@@ -253,10 +260,13 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
         # 调用「响应处理对象」的 run 方法，此方法定义在 wsgiref.handlers.BaseHandler 类中
         # self.server 是「服务器对象」，其 get_app 方法定义在 wsgiref.simple_server.WSGIServer 类中
-        # 其返回值是服务器对象的 application 属性值，也就是当前模块倒数第二行代码里的 wsgi_handler
+        # 其返回值是服务器对象的 application 属性值，也就是当前模块里的 run 函数的参数 wsgi_handler
         # 所以下面 run 方法的参数就是「应用对象」，即 django.core.handlers.wsgi.WSGIHandler 类的实例
         # 之前的操作是处理请求，下面这步操作就是处理响应以及返回数据给客户端
         handler.run(self.server.get_app())
+        if self.raw_requestline:
+            ct = threading.current_thread()
+            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】{ct.name} {ct.ident} 请求处理完毕，等待下一次请求...\n\n')
 
 
 # 启动项目时，这个方法是核心
@@ -267,9 +277,11 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 # socketserver.TCPServer →
 # socketserver.BaseServer
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
+    # 单线程启动服务
+    threading = False
     import threading as t
     ct = t.current_thread()
-    print('【django.core.servers.basehttp.run】服务器对象初始化，当前线程:', ct.name, ct.ident)
+    print('【django.core.servers.basehttp.run】服务器初始化，当前线程:', ct.name, ct.ident)
     server_address = (addr, port)
     # 通常 threading 的值是 True ，这里调用 type 函数创建一个类
     if threading:
@@ -297,6 +309,6 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     # 该实例就相当于 Flask 中的 app 应用对象，它会被赋值给「服务器对象」的 application 属性
     # 当浏览器发送请求过来，服务器在处理请求的过程中会根据自身的 application 属性找到应用对象并调用之
     httpd.set_app(wsgi_handler)
-    print('【django.core.servers.basehttp.run】等待客户端发送请求...\n')
+    print('【django.core.servers.basehttp.run】等待客户端发送请求...\n\n')
     # 调用「服务器对象」的套接字对象的 accept 方法持续监听，此方法定义在 socketserver.BaseServer 类中
     httpd.serve_forever()

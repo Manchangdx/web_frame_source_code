@@ -309,7 +309,7 @@ class BaseCommand:
 
         # 以 python manage.py runserver 为例
         # 它会调用 self 的 run 方法，此 run 方法也在那个类中
-        # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建线程并启动
+        # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建子线程并启动
 
         # 以 python manage.py migrate 为例
         # 它会处理数据库相关的事务，创建连接对象，操作数据库版本控制功能，将映射类转换成数据表
