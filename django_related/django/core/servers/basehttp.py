@@ -228,9 +228,9 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         if not self.parse_request():
             return
 
-        print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求头信息:')
-        for k, v in self.headers.items():
-            print(f'\t\t{k:<22}{v}')
+        #print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求头信息:')
+        #for k, v in self.headers.items():
+        #    print(f'\t\t{k:<22}{v}')
 
         # 此类定义在当前模块中，其父类是 wsgiref.simple_server.ServerHandler
         # 后者的父类是 wsgiref.handlers.SimpleHandler（初始化就在此类中） 
