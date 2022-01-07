@@ -283,13 +283,13 @@ class APIView(View):
         return [permission() for permission in self.permission_classes]
 
     def get_throttles(self):
-        """获取「限流对象」并返回
+        """获取「限流对象」列表并返回
 
-        self.throttle_classes 是定义在当前类中的属性，属性值是一个配置项处理后得到的「限流类」列表
+        下面的 self.throttle_classes 是定义在当前类中的属性，属性值是一个配置项处理后得到的「限流类」列表
         该配置项是 shiyanlou/settings/base.py 文件中的 REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES']
-        值是元组，元组里面的元素是「限流类」的路径字符串此处对其进行实例化，获得「限流对象」并返回
+        对应的值是元组，元组中的元素是「限流类」的路径字符串，此处对其进行实例化，获得「限流对象」列表并返回
 
-        shiyanlou-v2 项目的配置文件对应的限流对象列表中包含如下几个类的实例：
+        shiyanlou-v2 项目的配置文件对应的限流对象列表中包含如下几个类的实例:
             'rest_framework.throttling.AnonRateThrottle'
             'shiyanlou.contrib.throttling.MultiScopedRateThrottle'
             'rest_framework.throttling.UserRateThrottle'
@@ -418,7 +418,11 @@ class APIView(View):
         version, scheme = self.determine_version(request, *args, **kwargs)
         request.version, request.versioning_scheme = version, scheme
 
-        print('【rest_framework.views.APIView.initial】检测用户权限 >>>>>>', end= ' ')
+        #print('【rest_framework.views.APIView.get_throttles】限流对象:')
+        #for i in self.throttle_classes:
+        #    print(f'\t\t{i}')
+
+        print('【rest_framework.views.APIView.initial】检测用户权限 >>>>>>', end='  ')
         # Ensure that the incoming request is permitted
         self.perform_authentication(request)    # 检查用户是否是匿名用户
         self.check_permissions(request)         # 检查用户权限
