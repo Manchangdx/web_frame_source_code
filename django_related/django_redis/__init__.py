@@ -10,7 +10,7 @@ def get_redis_connection(alias='default', write=True):
     from django.core.cache import caches
 
     cache = caches[alias]
-    print('【django_redis.__init__.get_redis_connection】cache:', cache, alias)
+    #print('【django_redis.__init__.get_redis_connection】cache:', cache, alias)
 
     if not hasattr(cache, "client"):
         raise NotImplementedError("This backend does not support this feature")

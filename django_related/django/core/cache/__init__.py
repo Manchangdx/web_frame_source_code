@@ -53,7 +53,7 @@ def _create_cache(alias_backend, **kwargs):
     except ImportError as e:
         raise InvalidCacheBackendError(
             "Could not find backend '%s': %s" % (backend, e))
-    # 对 Redis 缓存类进行实例化（其实就是 Redis 客户端对象）并返回
+    # 对 Redis 缓存类进行实例化（即缓存对象）并返回
     print(f'【django.core.cache.__init__._create_cache】创建 Redis 缓存对象 {alias_backend:<8}{location}')
     return backend_cls(location, params)
 
@@ -61,7 +61,10 @@ def _create_cache(alias_backend, **kwargs):
 class CacheHandler:
     """缓存处理器类，用于管理「缓存对象」
 
-    通常该类只被实例化一次，其实例叫做「缓存处理器」
+    Django 项目启动后，创建一个子线程作为 Django 应用的主线程
+    在 Django 应用的主线程中执行 django.core.managements.runserver.Command.inner_run 方法
+    在此方法中进行系统检查、数据库迁移文件检查、创建「应用对象」等操作，这些都在 Django 应用的主线程中进行
+    在此方法的执行过程中，当前缓存处理器类会被实例化一次，其实例叫做「缓存处理器」，这是一个全局对象
     该实例用于确保每个线程中每个别名只存在一个「缓存对象」
     """
 
@@ -71,39 +74,52 @@ class CacheHandler:
         # 项目启动时就会创建这个实例，该实例的所有属性都是线程安全的
         self._caches = local()
 
-        # local 实现线程安全的原理如下
+        # local 操作流程如下，它使用递归线程锁实现线程安全
         #
-        # 1. 创建一个 impl 对象，该对象用来存储数据（该对象是实现线程安全的核心）
+        # 1. 创建一个 impl 对象，该对象用来存储数据
         #    存储的数据都在 impl.dicts 属性中，其值是一个字典对象
         #    字典的 key 是当前线程的内存地址，value 是内嵌的字典对象
         #    每次数据的增删改查都根据当前线程的内存地址在 impl.dicts 字典中找到内嵌字典对象再操作
         # 2. 在创建 local 实例时将 impl 对象赋值给 local._local__impl 属性
         # 3. local 内部重写了 __setattr__ 之类的操作属性的方法
         #    每次操作都会使用一个 _patch 上下文函数根据当前所在线程来获取 impl.dicts 中对应的内嵌字典对象
-        #    然后再对这个字典对象进行操作，这样就达到了线程安全的效果
+        #    然后在线程锁内对这个字典对象进行操作，这样就达到了线程安全的效果
 
         # 在 self.__getitem__ 方法中用的是 self._caches.caches 这个属性，也就是 local 对象的 caches 属性
         #
-        # 1. 定义 local.caches 属性为空字典，也就是调用 local.__setattr__ 方法设置属性
+        # 1. 定义 local.caches 属性
         #    首先在 _patch 这个上下文函数里找到 local._local_impl 属性值，即 impl 对象
         #    然后调用 impl.get_dict 方法根据当前线程的内存地址找到 impl.dicts 字典中对应的内嵌字典
         #    这时候肯定是没有的，那就调用 impl.create_dict 方法新建一组键值对放到 impl.dicts 里面
         #    其中 key 自然就是当前线程的内存地址，value 是空字典
-        #    顺便在线程锁中把这个 value 赋值给 local.__dict__ 属性
-        #    最后给 local 设置属性，也就是向 local.__dict__ 中加入一组键值对 {'caches': {}}
-        # 2. 使用 local.caches 存储数据
+        #    然后在线程锁内进行操作:
+        #       a. 把这个 value 赋值给 local.__dict__ 属性
+        #       b. 调用 object.__setattr__ 方法设置属性
+        #          也就是向 local.__dict__ 中加入一组键值对 {'caches': {}}
+        #    此时 impl.dicts = {
+        #        当前线程的内存地址: {
+        #            'caches': {}
+        #        }
+        #    }
+        # 2. 使用 local.caches 属性存储数据
         #    创建一个缓存对象，然后将其存储 local.cache 中，其中 key 是缓存对象别名，value 是缓存对象
         #    首先要查找 local 的 caches 属性，也就是调用 local.__getattribute__ 方法
         #    还是在 _patch 这个上下文函数里找到 local._local_impl 属性值，即 impl 对象
         #    然后调用 impl.get_dict 方法根据当前线程的内存地址找到 impl.dicts 字典中对应的内嵌字典
-        #    内嵌字典就是 {'caches': {}} ，在线程锁中把这个内嵌字典赋值给 local.__dict__ 属性
-        #    这样 local.caches 的值就是空字典了
-        #    最后再给这个空字典添加一组键值对 {'default': 缓存对象}
-        #    这样 impl.dicts 就变成了 {'caches': {'default': 缓存对象}}
+        #    此时的内嵌字典就是 {'caches': {}}
+        #    然后在线程锁内进行操作:
+        #        a. 把这个内嵌字典赋值给 local.__dict__ 属性，这样 local.caches 的值就是空字典
+        #        b. 给这个空字典添加一组键值对 {'default': 缓存对象}
+        #    此时 impl.dicts = {
+        #        当前线程的内存地址: {
+        #            'caches': {
+        #                'default': 缓存对象
+        #            }
+        #        }
+        #    }
         # 3. 每次请求进入，服务器的套接字对象都会委派一个线程来单独处理
-        #    注意每次未必都会在 impl.dicts 里新建一组键值对 {当前线程的内存地址: local.__dict__}
-        #    因为线程可能重用
-        #    但同时处理的多个请求所使用的线程是单独的，它们对应的「缓存对象」也是单独的
+        #    线程可能重用，所以未必每次都在 impl.dicts 里新建一组键值对 {当前线程的内存地址: local.__dict__}
+        #    但同时处理的多个请求所使用的线程是隔绝的，它们对应的「缓存对象」也是隔绝的
 
     def __getitem__(self, alias):
         """获取「缓存处理器」中 alias 对应的值，参数 alias 的值通常是字符串 'default'
@@ -138,12 +154,11 @@ caches = CacheHandler()
 
 
 class DefaultCacheProxy:
-    """
-    Proxy access to the default Cache object's attributes.
+    """缓存代理类
 
-    This allows the legacy `cache` object to be thread-safe using the new
-    ``caches`` API.
+    caches[DEFAULT_CACHE_ALIAS] 就是「缓存对象」，是 django_redis.cache.RedisCache 类的实例
     """
+
     def __getattr__(self, name):
         return getattr(caches[DEFAULT_CACHE_ALIAS], name)
 
@@ -159,7 +174,10 @@ class DefaultCacheProxy:
     def __eq__(self, other):
         return caches[DEFAULT_CACHE_ALIAS] == other
 
-
+# 下面的 cache 对象可以看作是利用当前线程获取到的「缓存对象」，即 django_redis.cache.RedisCache 类的实例
+#「缓存对象」有一个 client 属性，属性值是 django_redis.client.default.DefaultClient 类的实例
+# 该实例就是连接 Redis 服务器的 Redis 客户端对象
+# 调用「缓存对象」的各种方法其实就是调用其 client 的同名方法
 cache = DefaultCacheProxy()
 
 

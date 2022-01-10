@@ -19,13 +19,14 @@ NO_RECEIVERS = object()
 class Signal:
     """信号基类
 
-    使用说明：
-        1. 对该类的子类进行实例化，创建「信号对象」
-        2. 在配置文件的 INSTALLED_APPS 配置项中配置这个「信号对象」
-        3. 调用 self.connect 建立「信号接收者」与「信号发送者」之间的连接，其实就是二元元组
+    使用说明:
+        1. 对当前类的子类进行实例化，创建「信号对象」
+           通常需要在配置文件的 INSTALLED_APPS 配置项中配置这个「信号对象」，也就是引用「信号对象」所在模块
+           其目的就是在项目启动时创建「信号对象」
+        2. 调用 self.connect 建立「信号接收者」与「信号发送者」之间的连接，其实就是二元元组
            当前模块下有个 receiver 函数，它是一个装饰器，用于调用 self.connect 方法
-           通常「信号接收者」也是一个函数，创建这个函数时使用 receiver 装饰器就可以了
-        4. 在需要的地方调用「信号对象」的 send 方法发送信号
+           通常「信号接收者」也是一个函数，在功能上相当于回调函数，创建该函数时使用 receiver 装饰器就可以了
+        3. 在需要的地方调用「信号对象」的 send 方法发送信号
            调用 self.send 方法发送信号的时候提供「信号发送者」和调用「信号接收者」所需参数
            这样就可以根据「信号发送者」找到对应的一系列「信号接收者」并依次调用
     """
@@ -53,22 +54,28 @@ class Signal:
     def connect(self, receiver, sender=None, weak=True, dispatch_uid=None):
         """针对当前信号对象 self 建立「信号接收者」与「信号发送者」之间的连接，简言之就是建立连接
 
+        所谓「信号接收者」其实就是一个可调用对象，通常是函数，可以称之为回调函数
+        所谓“建立连接”其实就是把「信号接收者」和「信号发送者」的内存地址组成二元元组，设为 a
+        然后「信号接收者」这个函数本身设为 b ，这样构成一个元组 (a, b) ，再把它放到 self.receivers 列表里备用
+        当 self.send 执行时，循环 self.receivers 列表，找到可用的回调函数并调用之
+
         Arguments:
             :receiver:「信号接收者」，必须是可调用对象，调用时必须可以接受关键字参数
             :sender:「信号发送者」，可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
-            :weak: 待补充
+            :weak: 弱引用，待补充
             :dispatch_uid: 待补充
         """
         from django.conf import settings
 
-        # If DEBUG is on, check that we got a good receiver
         if settings.configured and settings.DEBUG:
+            #「信号接收者」即回调函数必须是可调用对象
             assert callable(receiver), "Signal receivers must be callable."
 
-            # Check for **kwargs
+            #「信号接收者」即回调函数必须可以接受关键字参数
             if not func_accepts_kwargs(receiver):
                 raise ValueError("Signal receivers must accept keyword arguments (**kwargs).")
 
+        # 这个 lookup_key 查询键是可散列对象，通常是一个由「信号接收者」和「信号发送者」的内存地址组成的二元元组
         if dispatch_uid:
             lookup_key = (dispatch_uid, _make_id(sender))
         else:
@@ -133,12 +140,12 @@ class Signal:
         """发送信号给「信号接收者」（其实就是调用函数）
 
         在此之前，「信号接收者」已经与「信号发送者」建立连接
-        当前方法会将 named 字典作为参数依次调用各个「信号接收者（可调用对象）」
+        当前方法会将 named 字典作为关键字参数依次调用各个「信号接收者（可调用对象）」
         任意「信号接收者」被调用时如果出现异常，立刻抛出并终止当前函数
 
         Arguments:
             :sender:「信号发送者」可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
-            :named: 调用「信号接收者」时提供的参数
+            :named: 调用「信号接收者」时提供的关键字参数
 
         Return: 列表，列表里面是二元元组 (「信号接收者」, 调用「信号接收者」的返回值)
         """
@@ -240,7 +247,7 @@ def receiver(signal, **kwargs):
     """为「信号发送者」和「信号接收者」建立连接的装饰器
 
     调用此装饰器时须提供「信号对象」或其列表作为参数，也可以选择性提供「信号发送者」作为参数
-    通常在定义「信号接收者」这个函数的时候调用此装饰器，两个示例如下：
+    通常在定义「信号接收者」这个函数的时候调用此装饰器，两个示例如下:
 
         @receiver(post_save, sender=MyModel)
         def signal_receiver(sender, **kwargs):
