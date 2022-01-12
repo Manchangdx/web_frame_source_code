@@ -43,8 +43,8 @@ def omit_exception(method=None, return_value=None):
 class RedisCache(BaseCache):
     """Redis 缓存类
 
-    该类的实例叫做「缓存对象」，该对象的 client 属性值就是 Redis 客户端对象
-    调用「缓存对象」的各种方法就等同于调用 Redis 客户端对象的各种方法
+    该类的实例叫做「缓存对象」，该对象的 client 属性值就是「Redis 客户端对象」
+    调用「缓存对象」的各种方法就等同于调用「Redis 客户端对象」的各种方法
     """
 
     def __init__(self, server, params):
@@ -64,9 +64,10 @@ class RedisCache(BaseCache):
 
     @property
     def client(self):
-        """该属性值是 Redis 客户端对象
+        """该属性值是「Redis 客户端对象」
         """
         if self._client is None:
+            # 下面这个属性值通常是 django_redis.client.default.DefaultClient 类的实例
             self._client = self._client_cls(self._server, self._params, self)
         return self._client
 

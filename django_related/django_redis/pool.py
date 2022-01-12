@@ -14,7 +14,7 @@ class ConnectionFactory:
     _pools = {}
 
     def __init__(self, options):
-        print('【django_redis.pool.ConnectionFactory.__init__】初始化连接池，options:', options)
+        #print('【django_redis.pool.ConnectionFactory.__init__】初始化连接池，options:', options)
         pool_cls_path = options.get("CONNECTION_POOL_CLASS",
                                     "redis.connection.ConnectionPool")
         self.pool_cls = import_string(pool_cls_path)

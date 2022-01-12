@@ -247,7 +247,7 @@ def receiver(signal, **kwargs):
     """为「信号发送者」和「信号接收者」建立连接的装饰器
 
     调用此装饰器时须提供「信号对象」或其列表作为参数，也可以选择性提供「信号发送者」作为参数
-    通常在定义「信号接收者」这个函数的时候调用此装饰器，两个示例如下:
+    通常在定义「信号接收者」这个函数的时候使用此装饰器，两个示例如下:
 
         @receiver(post_save, sender=MyModel)
         def signal_receiver(sender, **kwargs):

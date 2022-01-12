@@ -30,7 +30,7 @@ DEFAULT_CACHE_ALIAS = 'default'
 
 
 def _create_cache(alias_backend, **kwargs):
-    """从配置文件中获取缓存配置信息，从中得到缓存类，对其进行实例化并返回
+    """从配置文件中获取缓存配置信息，从中得到缓存类，对其进行实例化生成「缓存对象」并返回
     """
     try:
         try:
@@ -53,8 +53,8 @@ def _create_cache(alias_backend, **kwargs):
     except ImportError as e:
         raise InvalidCacheBackendError(
             "Could not find backend '%s': %s" % (backend, e))
-    # 对 Redis 缓存类进行实例化（即缓存对象）并返回
-    print(f'【django.core.cache.__init__._create_cache】创建 Redis 缓存对象 {alias_backend:<8}{location}')
+    # 对 Redis 缓存类进行实例化生成「缓存对象」并返回
+    print(f'【django.core.cache.__init__._create_cache】创建「缓存对象」 {alias_backend:<8}{location}')
     return backend_cls(location, params)
 
 
@@ -70,7 +70,7 @@ class CacheHandler:
 
     def __init__(self):
         # local 是 Python 标准库 _threading_local 模块中的类
-        # 该类在初始化时不允许提供参数，该类的实例（线程缓存对象）按线程存储数据
+        # 该类在初始化时不允许提供参数，该类的实例我们称为「线程管理对象」，用于按线程存储数据
         # 项目启动时就会创建这个实例，该实例的所有属性都是线程安全的
         self._caches = local()
 
@@ -102,7 +102,7 @@ class CacheHandler:
         #        }
         #    }
         # 2. 使用 local.caches 属性存储数据
-        #    创建一个缓存对象，然后将其存储 local.cache 中，其中 key 是缓存对象别名，value 是缓存对象
+        #    创建一个「缓存对象」并将其存储在 local.cache 中，其中 key 是缓存对象别名，value 是「缓存对象」
         #    首先要查找 local 的 caches 属性，也就是调用 local.__getattribute__ 方法
         #    还是在 _patch 这个上下文函数里找到 local._local_impl 属性值，即 impl 对象
         #    然后调用 impl.get_dict 方法根据当前线程的内存地址找到 impl.dicts 字典中对应的内嵌字典
@@ -125,8 +125,8 @@ class CacheHandler:
         """获取「缓存处理器」中 alias 对应的值，参数 alias 的值通常是字符串 'default'
 
         0. 每次请求进入后，调用「缓存对象」cache 时都会执行当前所在方法
-        1. 如果「线程缓存对象」的 caches 属性里有这个 alias ，直接返回其对应的值，也就是 Redis 缓存对象
-        2. 如果没有这个 alias ，创建一个 Redis 缓存对象加到「线程缓存对象」的 caches 属性字典里并返回
+        1. 如果「线程管理对象」的 caches 属性里有这个 alias ，直接返回其对应的值，也就是 Redis 缓存对象
+        2. 如果没有这个 alias ，创建一个 Redis 缓存对象加到「线程管理对象」的 caches 属性字典里并返回
         """
         try:
             # self._caches 的所有属性都是线程安全的
@@ -141,7 +141,7 @@ class CacheHandler:
                 "Could not find config for '%s' in settings.CACHES" % alias
             )
 
-        # 创建一个 Redis 缓存对象
+        # 创建一个 Redis「缓存对象」
         cache = _create_cache(alias)
         self._caches.caches[alias] = cache
         return cache
@@ -175,9 +175,16 @@ class DefaultCacheProxy:
         return caches[DEFAULT_CACHE_ALIAS] == other
 
 # 下面的 cache 对象可以看作是利用当前线程获取到的「缓存对象」，即 django_redis.cache.RedisCache 类的实例
-#「缓存对象」有一个 client 属性，属性值是 django_redis.client.default.DefaultClient 类的实例
-# 该实例就是连接 Redis 服务器的 Redis 客户端对象
-# 调用「缓存对象」的各种方法其实就是调用其 client 的同名方法
+#「缓存对象」的 client 属性是 django_redis.client.default.DefaultClient 类的实例，叫做「Redis 客户端对象」
+#「Redis 客户端对象」的 get_client 方法返回 redis.client.Redis 类的实例，取名为「Redis 对象」
+#「Redis 对象」有个 connection_pool 属性，属性值是 redis.connection.ConnectionPool 类的实例，叫做「连接池」
+#「连接池」有个 _available_connections 列表，里面是 redis.connection.Connection 类的实例，叫做「连接对象」
+#
+# 首次调用「缓存对象」的方法时，例如调用 cache.get('xxx') 流程如下：
+# 1. 创建一个「缓存对象」，即 django_redis.cache.RedisCache 类的实例，这个就是 cache 了
+# 2. 调用 cache.get 方法，就会调用 cache.client.get 方法，其实就是对应的「Redis 客户端对象」的 get 方法
+# 3. 在「Redis 客户端对象」的 get 方法内，首先调用自身的 get_client 方法在「连接池」里找一个「连接对象」
+#    然后调用「连接对象」的 TODO
 cache = DefaultCacheProxy()
 
 
