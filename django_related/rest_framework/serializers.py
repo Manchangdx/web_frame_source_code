@@ -167,9 +167,10 @@ class BaseSerializer(Field):
         raise NotImplementedError('`create()` must be implemented.')
 
     def save(self, **kwargs):
-        """反序列化过程调用此方法，利用验证过的请求体数据创建或修改映射类实例并返回
+        """反序列化过程（dict → object）调用此方法，利用验证过的请求体数据创建或修改映射类实例并返回
 
-        :kwargs: 可以额外添加键值对以创建映射类实例
+        Args:
+            kwargs: 可以额外添加键值对以创建映射类实例
         """
         assert not hasattr(self, 'save_object'), (
             'Serializer `%s.%s` has old-style version 2 `.save_object()` '

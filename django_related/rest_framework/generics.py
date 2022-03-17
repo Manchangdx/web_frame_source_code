@@ -110,9 +110,7 @@ class GenericAPIView(views.APIView):
         return obj
 
     def get_serializer(self, *args, **kwargs):
-        """
-        Return the serializer instance that should be used for validating and
-        deserializing input, and for serializing output.
+        """创建「序列化对象」并返回
         """
         serializer_class = self.get_serializer_class()
         print('【rest_framework.generics.GenericAPIView.get_serializer】序列化类:', serializer_class)
