@@ -216,7 +216,8 @@ class BaseSerializer(Field):
         )
 
         # 这个 self.instance 是生成「序列化对象」时给定的
-        # 创建操作没有值，更新操作有值，值是「映射类实例」
+        #   创建操作时，该值为空
+        #   更新操作时，该值是「映射类实例」
         if self.instance is not None:
             # 更新操作，调用 self.update 方法处理，此方法定义在 ModelSerializer 类中，亦可重写
             print('【rest_framework.serializers.BaseSerializer.save】修改「映射类实例」并保存')
@@ -578,6 +579,9 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         fields = self._readable_fields
 
         for field in fields:
+            ######################################################################################
+            #print('>'*88, field.field_name)
+            ######################################################################################
             try:
                 attribute = field.get_attribute(instance)
             except SkipField:
