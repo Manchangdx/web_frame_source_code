@@ -12,12 +12,16 @@ class BaseCacheResponseMixin:
 
 
 class ListCacheResponseMixin(BaseCacheResponseMixin):
+    # 第一个参数：rest_framework_extensions.utils.default_list_cache_key_func
+    # 第二个参数：300
     @cache_response(key_func='list_cache_key_func', timeout='list_cache_timeout')
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
 
 class RetrieveCacheResponseMixin(BaseCacheResponseMixin):
+    # 第一个参数：rest_framework_extensions.utils.default_object_cache_key_func
+    # 第二个参数：300
     @cache_response(key_func='object_cache_key_func', timeout='object_cache_timeout')
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)

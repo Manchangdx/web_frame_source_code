@@ -11,7 +11,7 @@ def get_cache(alias):
 
 
 class CacheResponse:
-    """缓存类，可以用于存储和返回 Django 响应对象（使用 Redis 服务器缓存）
+    """缓存类，可以用于缓存 Django 响应对象的 (响应体, 响应码, 响应头) 元组
     
     该类的实例可作为视图函数的装饰器，这样做之后，视图函数就是 self.__call__ 方法的返回值 inner
     调用视图函数就是调用 inner 函数
@@ -53,7 +53,7 @@ class CacheResponse:
     def __call__(self, func):
         """创建视图函数
         
-        该类的实例就是用来创建视图函数的装饰器，创建视图函数时就会调用这个 __call__ 方法
+        该类的实例 self 就是用来创建视图函数的装饰器，创建视图函数时就会调用这个 __call__ 方法
         参数 self 就是当前类的实例，参数 func 就是被装饰的视图函数
         """
         this = self
@@ -71,13 +71,13 @@ class CacheResponse:
             )
         return inner
 
-    def process_cache_response(self,
+    def process_cache_response(self,            # 缓存类实例
                                view_instance,   # 视图类实例
                                view_method,     # 原本的视图函数
                                request,         # 请求对象
                                args,
                                kwargs):
-        # 缓存肯定是以 key - value 形式存放，因为用的是 Redis 数据库的缓存功能
+        # 缓存以 key - value 形式存放，因为用的是 Redis 数据库的缓存功能
         # 这里是获取 key ，它是一个 32 位的 MD5 哈希字符串
         key = self.calculate_key(
             view_instance=view_instance,
@@ -87,12 +87,13 @@ class CacheResponse:
             kwargs=kwargs
         )
         print('【rest_framework_extensions.cache.decorators.CacheResponse.process_cache_response】key:', key)
-        # 查询缓存的超时时间，这个是预设好的
+        # 查询缓存的超时时间
         timeout = self.calculate_timeout(view_instance=view_instance)
 
         # 根据 key 从 Redis 数据库里查询缓存数据
         response_triple = self.cache.get(key)
         #print('【rest_framework_extensions.cache.decorators.CacheResponse.process_cache_response】response_triple:', response_triple)
+
         if not response_triple:
             # render response to create and cache the content byte string
             response = view_method(view_instance, request, *args, **kwargs)
@@ -122,12 +123,20 @@ class CacheResponse:
 
         return response
 
-    def calculate_key(self,
-                      view_instance,
-                      view_method,
-                      request,
-                      args,
-                      kwargs):
+    def calculate_key(
+        self,             # 缓存类实例
+        view_instance,    # 视图类实例
+        view_method,      # 视图函数
+        request,          # 请求对象
+        args,
+        kwargs
+    ):
+        """调用 self.key_func 对应的函数计算出缓存的 key 值并返回
+
+        通常 self.key_func 是一个字符串，指向「缓存 key 构造器」
+        也就是 rest_framework_extensions.key_constructor.constructors.KeyConstructor 类的子类的实例
+        调用「缓存 key 构造器」会根据相应的规则计算出一个字符串并返回，这个字符串就是缓存的 key 值
+        """
         #print('【rest_framework_extensions.cache.decorators.CacheResponse.calculate_key】view_instance:', view_instance)
         if isinstance(self.key_func, str):
             key_func = getattr(view_instance, self.key_func)
@@ -143,7 +152,7 @@ class CacheResponse:
         )
 
     def calculate_timeout(self, view_instance, **_):
-        """计算缓存的超时时间并返回
+        """获取缓存的超时时间并返回
 
         参数 view_instance 是视图类实例，在项目启动时已经创建好
         同时创建好的还有视图函数，而视图函数是将当前类的实例作为装饰器创建的，所以 self 也在项目启动时创建好了

@@ -6,7 +6,28 @@ from rest_framework_extensions.settings import extensions_api_settings
 
 
 class KeyConstructor:
+    """缓存 key 构造类
+    
+    整个扩展的主要功能是缓存视图函数返回的响应体
+    该类的实例叫做「缓存 key 构造器」，用于构造缓存的 key 值
+    """
+
     def __init__(self, memoize_for_request=None, params=None):
+        """初始化「缓存 key 构造器」
+
+        Args:
+            memoize_for_request(bool): 
+                是否把计算好的 key 让请求对象 request 记住（计算 key 挺耗 CPU 的）（默认为否）
+                这个操作是给 request 请求对象加个属性字典
+                然后把 JSON 字符串作为 key ，计算好的 key 作为 value 放到字典里
+                这需要在视图函数里对 request 的这个属性字典作进一步处理，使之加到响应体中
+                当浏览器再次调用同样的请求时，请求体中携带上这个数据，这样就不需要再次计算 key 了
+            params(dict): 
+                调用 hashlib.md5 计算 key 首先要构造字典
+                字典是由各个 Bit 对象根据请求体、视图函数的 queryset 方法调用结果等信息计算出来的
+                这些 Bit 对象在「缓存 key 构造类」中已经设置好了
+                在对「缓存 key 构造类」进行实例化时提供该字典参数，就会在构造字典时替换设置好的 Bit 对象
+        """
         if memoize_for_request is None:
             self.memoize_for_request = extensions_api_settings.DEFAULT_KEY_CONSTRUCTOR_MEMOIZE_FOR_REQUEST
         else:
@@ -18,6 +39,8 @@ class KeyConstructor:
         self.bits = self.get_bits()
 
     def get_bits(self):
+        """获取计算缓存 key 的各种规则对象
+        """
         _bits = {}
         for attr in dir(self.__class__):
             attr_value = getattr(self.__class__, attr)
@@ -36,6 +59,7 @@ class KeyConstructor:
                 args=args,
                 kwargs=kwargs
             )
+            print(f'【rest_framework_extensions...KeyConstructor.get_key】{memoization_key=}')
             if not hasattr(request, '_key_constructor_cache'):
                 request._key_constructor_cache = {}
         if self.memoize_for_request and memoization_key in request._key_constructor_cache:
@@ -90,7 +114,7 @@ class KeyConstructor:
                     params = None
             result_dict[bit_name] = bit_instance.get_data(
                 params=params, **kwargs)
-        #print('【rest_framework_extensions.key_constructor.KeyConstructor.get_data_from_bits】result_dict:', result_dict)
+        print('【rest_framework_extensions.key_constructor.KeyConstructor.get_data_from_bits】result_dict:', result_dict)
         return result_dict
 
 
