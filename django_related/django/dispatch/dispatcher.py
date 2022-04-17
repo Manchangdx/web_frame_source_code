@@ -29,10 +29,10 @@ class Signal:
            通常「信号接收者」是一个函数，在功能上相当于回调函数，创建该函数时使用当前模块中的 receiver 装饰器就行
         3. 在需要的地方调用「信号对象」的 send 方法发送信号
            调用 self.send 方法发送信号时需提供
-               1.「信号发送者」，如果是 None 则表示发送信号给所有「信号接收者」
+               1.「信号发送者」，如果是 None 则表示任何「信号发送者」都可以发送信号给「信号接收者」
                2. 调用「信号接收者」所需的参数
            这样就可以根据「信号发送者」找到对应的一系列「信号接收者」并依次调用
-        4.「信号对象」本身与「信号发送者」和「信号接收者」都是零耦合的，「信号对象」的作用只是集纳二者的关联关系
+        4.「信号发送者」和「信号接收者」是零耦合的，「信号对象」的工作就是集纳二者的关联关系，在需要时根据 sender 找到 receiver 并调用
            所以「信号发送者」与「信号接收者」可能存在于多个「信号对象」里面
     """
 
@@ -40,25 +40,44 @@ class Signal:
         """初始化「信号对象」
 
         Arguments:
-            :providing_args: 发送信号时传递参数的列表，此列表仅为程序编写者作展示之用
+            :providing_args:
+                发送信号时传递参数的列表，此列表仅为程序编写者作展示之用
+                因为在发送信号也就是调用 self.send 方法时需要传入指定的参数，然后把用这些参数调用各个「信号接收者」也就是回调函数
+                在调用不同的「信号接收者」时传入的参数的数量和顺序都是相同的，在定义信号对象时注明参数就是为了便于编写回调函数
+            :use_caching:
+                是否使用缓存，默认为否
+                这个缓存功能就是使用一个字典存储计算好的 sender 与 receiver 列表的对应关系，避免重复计算
+                每次调用 self.send 方法都会计算 sender 对应的 receiver 列表嘛，然后顺便把它们放到缓存字典里
+                每注册一个「信号接收者」都会清空缓存字典
         """
+        #「信号发送者」与「信号接收者」的关联列表
+        # 每个关联关系都是一个元组，可能是这样：((接收者标识, 发送者标识), 接收者)
+        # [
+        #     (
+        #         (140690433683664, 140690892268032),
+        #         <weakref at 0x7ff50b52a1d0; to 'function' at 0x7ff50b52b0d0 (on_report_published)>
+        #     )
+        # ]
         self.receivers = []
         if providing_args is None:
             providing_args = []
         self.providing_args = set(providing_args)
         self.lock = threading.Lock()
         self.use_caching = use_caching
-        # For convenience we create empty caches even if they are not used.
-        # A note about caching: if use_caching is defined, then for each
-        # distinct sender we cache the receivers that sender has in
-        # 'sender_receivers_cache'. The cache is cleaned when .connect() or
-        # .disconnect() is called and populated on send().
+        # 设置缓存字典
+        # 调用 self.send 方法发送信号时
+        #    如果不需要清理无效 receiver 且对应的缓存不存在，会添加缓存
+        #    如果需要清理无效 receiver ，会重置缓存
+        # 调用 self.connect 方法注册信号时会清除缓存
         self.sender_receivers_cache = weakref.WeakKeyDictionary() if use_caching else {}
+        # 是否需要整理关联关系表，也就是清理 self.receivers 表中的无效数据
+        # 当某个 receiver 被垃圾回收器清理时，该属性值会被设置为 True
         self._dead_receivers = False
 
     def connect(self, receiver, sender=None, weak=True, dispatch_uid=None):
-        """针对当前「信号对象」self 建立「信号接收者」与「信号发送者」之间的关联，简言之就是建立关联
+        """注册回调函数
 
+        针对当前「信号对象」self 建立「信号接收者」与「信号发送者」之间的关联，简言之就是建立关联
         所谓「信号接收者」其实就是一个可调用对象，通常是函数，可以称之为回调函数
         所谓 “建立关联” 其实就是把「信号接收者」和「信号发送者」的内存地址组成二元元组，设为 a
         然后「信号接收者」这个函数本身设为 b ，这样构成一个元组 (a, b) ，再把它放到 self.receivers 列表里备用
@@ -66,8 +85,8 @@ class Signal:
 
         Arguments:
             :receiver:「信号接收者」，必须是可调用对象，调用时必须可以接受关键字参数
-            :sender:「信号发送者」，可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
-            :weak: 弱引用，待补充
+            :sender:「信号发送者」，可以是任意 Python 对象（如果是 None ，表示发送信号给关联关系里发送者是 None 的全部「信号发送者」）
+            :weak: 是否使用弱引用，默认使用弱引用，即创建一个对「信号接收者」弱引用的对象注册到 self.receivers 列表里
             :dispatch_uid: 待补充
         """
         from django.conf import settings
@@ -94,12 +113,15 @@ class Signal:
                 ref = weakref.WeakMethod
                 receiver_object = receiver.__self__
             receiver = ref(receiver)
+            # 指定第一个参数对象被垃圾回收器清理时调用的回调函数为第二个参数
             weakref.finalize(receiver_object, self._remove_receiver)
 
         with self.lock:
+            # 清理无效的 receiver
             self._clear_dead_receivers()
             if not any(r_key == lookup_key for r_key, _ in self.receivers):
                 self.receivers.append((lookup_key, receiver))
+            # FIXME 此处应该加一个判断 self.use_caching 属性值的逻辑
             self.sender_receivers_cache.clear()
 
     def disconnect(self, receiver=None, sender=None, dispatch_uid=None):
@@ -142,7 +164,7 @@ class Signal:
         return bool(self._live_receivers(sender))
 
     def send(self, sender, **named):
-        """发送信号给「信号接收者」（其实就是调用函数）
+        """发送信号给「信号接收者」（其实就是调用函数）（出现异常时立刻抛出）
 
         在此之前，「信号接收者」已经与「信号发送者」建立关联，所以：
         1. 首先要根据「信号发送者」查询到「信号接收者」列表
@@ -150,10 +172,11 @@ class Signal:
         3. 任意「信号接收者」被调用时如果出现异常，立刻抛出并终止当前函数
 
         Arguments:
-            :sender:「信号发送者」可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
+            :sender:「信号发送者」，可以是任意 Python 对象（如果是 None ，表示发送信号给关联关系里发送者是 None 的全部「信号发送者」）
             :named: 调用「信号接收者」时提供的关键字参数
 
-        Return: 列表，列表里面是二元元组 (「信号接收者」, 调用「信号接收者」的返回值)
+        Return:
+            列表，列表里面是二元元组 (「信号接收者」, 调用「信号接收者」的返回值)
         """
         if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
             return []
@@ -164,23 +187,23 @@ class Signal:
         ]
 
     def send_robust(self, sender, **named):
-        """发送信号给「信号接收者」（其实就是调用回调函数）
+        """发送信号给「信号接收者」（其实就是调用回调函数）（出现异常时不抛出）
 
-        在此之前，「信号接收者」已经与「信号发送者」建立关联
-        当前方法会将 named 字典作为参数依次调用各个「信号接收者（可调用对象）」
-        任意「信号接收者」被调用时如果出现异常，不抛出异常，而是将异常对象作为返回值二元元组的第二个值返回
+        在此之前，「信号接收者」已经与「信号发送者」建立关联，所以：
+        1. 首先要根据「信号发送者」查询到「信号接收者」列表
+        2. 然后将 named 字典作为关键字参数依次调用各个「信号接收者」
+        3. 任意「信号接收者」被调用时如果出现异常，不抛出异常，而是将异常对象作为返回值二元元组的第二个值返回
 
         Arguments:
-            :sender:「信号发送者」可以是任意 Python 对象，如果是 None ，表示全部「信号发送者」
+            :sender:「信号发送者」，可以是任意 Python 对象（如果是 None ，表示发送信号给关联关系里发送者是 None 的全部「信号发送者」）
             :named: 调用「信号接收者」时提供的参数
 
-        Return: 列表，列表里面是二元元组 (「信号接收者」, 调用「信号接收者」的返回值或异常对象)
+        Return:
+            列表，列表里面是二元元组 (「信号接收者」, 调用「信号接收者」的返回值或异常对象)
         """
         if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
             return []
 
-        # Call each receiver with whatever arguments it can accept.
-        # Return a list of tuple pairs [(receiver, response), ... ].
         responses = []
         for receiver in self._live_receivers(sender):
             try:
@@ -192,7 +215,12 @@ class Signal:
         return responses
 
     def _clear_dead_receivers(self):
-        # Note: caller is assumed to hold self.lock.
+        """整理信号对象的关联关系表，清除无效的关联关系
+
+        该方法必须在线程锁内执行
+        调用 self.connect 注册信号和调用 self.send 发送信号时都会调用该方法
+        """
+        # 当某个 receiver 被垃圾回收器清理后，该属性会被设为 True ，这样就可以执行 “整理信号对象关联关系表” 的流程了
         if self._dead_receivers:
             self._dead_receivers = False
             self.receivers = [
@@ -201,33 +229,35 @@ class Signal:
             ]
 
     def _live_receivers(self, sender):
-        """
-        Filter sequence of receivers to get resolved, live receivers.
-
-        This checks for weak references and resolves them, then returning only
-        live receivers.
+        """从 self.receivers 关联关系列表里找到 sender 对应的 receiver 并返回列表
         """
         receivers = None
+
+        # 如果信号对象使用了缓存功能并且不存在需要清除的 receiver ，就从缓存字典里找到 receiver 列表
         if self.use_caching and not self._dead_receivers:
             receivers = self.sender_receivers_cache.get(sender)
-            # We could end up here with NO_RECEIVERS even if we do check this case in
-            # .send() prior to calling _live_receivers() due to concurrent .send() call.
             if receivers is NO_RECEIVERS:
                 return []
+
         if receivers is None:
             with self.lock:
+                # 整理信号对象的关联关系表，清除无效的关联关系
                 self._clear_dead_receivers()
                 senderkey = _make_id(sender)
                 receivers = []
+                # 循环关联关系的列表，找到 sender 对应的 receiver
                 for (receiverkey, r_senderkey), receiver in self.receivers:
+                    # 如果关联关系里的发送者是 None 或者与指定发送者相同
                     if r_senderkey == NONE_ID or r_senderkey == senderkey:
                         receivers.append(receiver)
+
+                # 如果信号对象使用了缓存功能，就把 sender 和 receiver 列表放到缓存字典里
                 if self.use_caching:
                     if not receivers:
                         self.sender_receivers_cache[sender] = NO_RECEIVERS
                     else:
-                        # Note, we must cache the weakref versions.
                         self.sender_receivers_cache[sender] = receivers
+
         non_weak_receivers = []
         for receiver in receivers:
             if isinstance(receiver, weakref.ReferenceType):
@@ -237,23 +267,20 @@ class Signal:
                     non_weak_receivers.append(receiver)
             else:
                 non_weak_receivers.append(receiver)
+
         return non_weak_receivers
 
     def _remove_receiver(self, receiver=None):
-        # Mark that the self.receivers list has dead weakrefs. If so, we will
-        # clean those up in connect, disconnect and _live_receivers while
-        # holding self.lock. Note that doing the cleanup here isn't a good
-        # idea, _remove_receiver() will be called as side effect of garbage
-        # collection, and so the call can happen while we are already holding
-        # self.lock.
+        """将信号对象设为：需要整理关联关系表，即需要清除 self.receivers 列表中的无效数据
+        """
         self._dead_receivers = True
 
 
 def receiver(signal, **kwargs):
     """创建「信号接收者」即回调函数时所使用的装饰器
 
-    调用此装饰器时须提供「信号对象」或其列表作为参数，也可以选择性提供「信号发送者」作为参数
-    通常在定义「信号接收者」函数时使用此装饰器，作用是使「信号接收者」与「信号发送者」建立关联
+    通常在定义「信号接收者」函数时使用此装饰器
+    使用此装饰器时须提供「信号对象」或其列表作为参数，也可以选择性提供「信号发送者」作为参数
 
     Args:
         signal:「信号对象」或其列表
@@ -262,11 +289,11 @@ def receiver(signal, **kwargs):
 
     Eg:
         @receiver(post_save, sender=MyModel)
-        def signal_receiver(sender, **kwargs):
+        def signal_receiver(**kwargs):
             ...
 
         @receiver([post_save, post_delete], sender=MyModel)
-        def signals_receiver(sender, **kwargs):
+        def signals_receiver(**kwargs):
             ...
     """
     def _decorator(func):
