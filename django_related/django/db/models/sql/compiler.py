@@ -1084,8 +1084,10 @@ class SQLCompiler:
         for row in map(list, rows):
             for pos, (convs, expression) in converters:
                 value = row[pos]
+                #print('1'*88, type(value), value)
                 for converter in convs:
                     value = converter(value, expression, connection)
+                #print('2'*88, type(value), value)
                 row[pos] = value
             yield row
 

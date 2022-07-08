@@ -742,6 +742,7 @@ class Model(metaclass=ModelBase):
             if loaded_fields:
                 update_fields = frozenset(loaded_fields)
 
+        print(f'【django.db.models.base.Model.save】{vars(self)}')
         self.save_base(using=using, force_insert=force_insert,
                        force_update=force_update, update_fields=update_fields)
     save.alters_data = True

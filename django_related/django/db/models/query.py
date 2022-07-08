@@ -55,6 +55,7 @@ class ModelIterable(BaseIterable):
         # Execute the query. This will also fill compiler.select, klass_info,
         # and annotations.
         results = compiler.execute_sql(chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size)
+        #print('【【【【【【', compiler.execute_sql)
         select, klass_info, annotation_col_map = (compiler.select, compiler.klass_info,
                                                   compiler.annotation_col_map)
         model_cls = klass_info['model']
@@ -71,7 +72,10 @@ class ModelIterable(BaseIterable):
                 for from_field in field.from_fields
             ])) for field, related_objs in queryset._known_related_objects.items()
         ]
+        #for x in results:
+            #print('='*99, x)
         for row in compiler.results_iter(results):
+            #print('a'*88, row)
             obj = model_cls.from_db(db, init_list, row[model_fields_start:model_fields_end])
             for rel_populator in related_populators:
                 rel_populator.populate(row, obj)
