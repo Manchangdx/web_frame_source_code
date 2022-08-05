@@ -32,7 +32,8 @@ default_app = None
 #: is no active app.
 app_or_default = None
 
-#: List of all app instances (weakrefs), mustn't be used directly.
+# 这块儿创建了一个弱引用对象，数据类型是集合
+# 集合里面存放的是 celery.app.base.Celery 类的实例，号称「任务控制器」
 _apps = weakref.WeakSet()
 
 #: Global set of functions to call whenever a new app is finalized.

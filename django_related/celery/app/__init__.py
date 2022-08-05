@@ -26,15 +26,21 @@ def bugreport(app=None):
 
 
 def shared_task(*args, **kwargs):
-    """任务装饰器，用于创建定时任务
+    """任务装饰器，用于创建异步任务
 
     有两种方式：
         1. 当前函数本身作为装饰器新建函数
-        2. 当前函数的调用返回值作为装饰器新建函数，这种情况的话调用当前函数时所有的参数必须是关键字参数
+        2. 当前函数的调用作为装饰器新建函数，这种情况的话调用当前函数时所提供的参数必须都是具名参数
     """
+
     def create_shared_task(**options):
+        """每次使用 shared_task 装饰器创建函数的时候，都会执行当前函数
+        """
 
         def __inner(fun):
+            """每次使用 shared_task 装饰器创建函数的时候，都会执行当前函数 too
+            """
+
             name = options.get('name')
 
             # 下面的代码仅仅是创建一个匿名函数，将其作为参数添加到 celery._state._on_app_finalizers 集合中
@@ -52,6 +58,7 @@ def shared_task(*args, **kwargs):
             )
 
             for app in _state._get_active_apps():
+                # 变量 app 是 celery.app.base.Celery 类的实例，俗称「任务控制器」
                 # 每个「任务控制器」都有一个 finalized 属性，初始值是 False
                 # 当「任务控制器」调用了 tasks 属性获取其任务列表时，就会将自身的 finalized 属性设为 True
                 # 如果该属性值是 False 则不需要做任何事，否则就直接把任务加到「任务控制器」的任务列表里
@@ -60,7 +67,12 @@ def shared_task(*args, **kwargs):
                         app._task_from_fun(fun, **options)
 
             def task_by_cons():
+                # 当前线程中的「任务控制器」
                 app = _state.get_current_app()
+                #「任务控制器」的 tasks 属性值是「任务注册中心」，本质就是一个字典对象，类似这样的:
+                # {
+                #   'shiyanlou.apps.service.tasks.haha': fun
+                # }
                 return app.tasks[
                     # app.gen_task_name 生成 fun 的绝对路径
                     # 例如 fun 是 shiyanlou.apps.service.tasks 模块中的定时任务函数 haha
@@ -68,7 +80,7 @@ def shared_task(*args, **kwargs):
                     name or app.gen_task_name(fun.__name__, fun.__module__)
                 ]
 
-            # 被 shared_task 装饰的函数变成了这个，celery.local.Proxy 类的实例，这是一个代理对象
+            # 被 shared_task 装饰的函数变成了下面这个，celery.local.Proxy 类的实例，这是一个代理对象
             return Proxy(task_by_cons)
         return __inner
 
