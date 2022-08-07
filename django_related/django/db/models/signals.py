@@ -12,12 +12,19 @@ class ModelSignal(Signal):
     of the `app_label.ModelName` form.
     """
     def _lazy_method(self, method, apps, receiver, sender, **kwargs):
+        """此方法的作用是支持 sender 参数是 “应用名字.映射类名字” 字符串
+        """
         from django.db.models.options import Options
 
-        # This partial takes a single optional argument named "sender".
+        # 该偏函数把「信号对象」注册关联关系的 connect 方法除 sender 之外的全部参数都给固定了
         partial_method = partial(method, receiver, **kwargs)
+        # 如果 sender 是字符串，例如 'user.User'
         if isinstance(sender, str):
+            # django.apps.registry.App 类的实例
             apps = apps or Options.default_apps
+            # 第二个参数是元组：(应用字符串, 映射类字符串)，例如 ('user', 'User')
+            # 此方法会根据 sender 字符串生成的元组找到对应的映射类对象
+            # 然后将其作为 partial_method 的 sender 参数值生成没有参数的新偏函数，最后调用新偏函数
             apps.lazy_model_operation(partial_method, make_model_tuple(sender))
         else:
             return partial_method(sender)
