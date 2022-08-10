@@ -15,7 +15,7 @@ class CacheResponse:
     
     该类的实例可作为视图函数的装饰器，这样做之后，视图函数就是 self.__call__ 方法的返回值 inner
     调用视图函数就是调用 inner 函数
-    也就是说，每个需要设置缓存的视图类的方法（视图函数）都要配置一个单独的 “该类的实例”
+    也就是说，每个需要设置缓存的视图类的方法（视图函数）都要单独配置一个 “该类的实例”
 
     原注释:
         这个装饰器会渲染并丢弃原始的 DRF 响应，转而使用 Django 的 “HttpResponse”
@@ -30,8 +30,13 @@ class CacheResponse:
                  cache_errors=None):
         """初始化缓存类实例
 
-        在初始化 “该类的实例” 作为装饰器定义视图函数时，需设定 key_func 和 timeout 两个关键属性
+        在初始化该类的实例作为装饰器定义视图函数时，需设定 key_func 和 timeout 两个关键属性
         它们分别是 “用于创建缓存 key 的可调用对象” 和 “超时时间”
+        Args:
+            timeout      : 缓存有效时间，单位: 秒
+            key_func     :「缓存 key 构造器」或其字符串
+            cache        : 缓存工具，默认是 Redis
+            cache_errors : 布尔值，是否缓存异常响应
         """
         if timeout is None:
             self.timeout = extensions_api_settings.DEFAULT_CACHE_RESPONSE_TIMEOUT
@@ -52,7 +57,7 @@ class CacheResponse:
 
     def __call__(self, func):
         """创建视图函数
-        
+
         该类的实例 self 就是用来创建视图函数的装饰器，创建视图函数时就会调用这个 __call__ 方法
         参数 self 就是当前类的实例，参数 func 就是被装饰的视图函数
         """
@@ -77,6 +82,14 @@ class CacheResponse:
                                request,         # 请求对象
                                args,
                                kwargs):
+        """调用视图函数时要执行的核心方法
+
+        步骤如下:
+            1. 调用「缓存 key 构造器」获取缓存 key
+            2. 利用缓存 key 从 Redis 里查询对应的 value
+            3. 如果有 value 就解析之，返回响应对象
+            4. 如果没 value 就调用实际的视图函数生成响应对象，把响应对象缓存到 Redis 后返回
+        """
         # 缓存以 key - value 形式存放，因为用的是 Redis 数据库的缓存功能
         # 这里是获取 key ，它是一个 32 位的 MD5 哈希字符串
         key = self.calculate_key(

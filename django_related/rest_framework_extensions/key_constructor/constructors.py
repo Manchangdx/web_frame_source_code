@@ -52,6 +52,15 @@ class KeyConstructor:
         return self.get_key(**kwargs)
 
     def get_key(self, view_instance, view_method, request, args, kwargs):
+        """计算缓存 key
+
+        Args:
+            view_instance : 视图类实例
+            view_method   : 视图函数
+            request       : 请求对象
+            args          : 调用视图函数时传的可变参数
+            kwargs        : 调用视图函数时传的关键字参数
+        """
         if self.memoize_for_request:
             memoization_key = self._get_memoization_key(
                 view_instance=view_instance,
@@ -101,7 +110,15 @@ class KeyConstructor:
         return hashlib.md5(json.dumps(key_dict, sort_keys=True).encode('utf-8')).hexdigest()
 
     def get_data_from_bits(self, **kwargs):
-        #print('【rest_framework_extensions.key_constructor.KeyConstructor.get_data_from_bits】kwargs:', kwargs)
+        """根据参数构造字典并返回，这个字典将被哈希成缓存 key
+
+        Args:
+            self:「缓存 key 构造器」
+            kwargs: 构造字典所需的对象（视图类实例、视图函数、请求对象等）
+        Return:
+            构造字典有哪些键值对，这个由 self.bits 来决定
+            所以对于「缓存 key 构造器」来说，有哪些 keybit 才是核心
+        """
         result_dict = {}
         for bit_name, bit_instance in self.bits.items():
             #print('=='*22, bit_name, bit_instance, bit_instance.params)
@@ -112,8 +129,7 @@ class KeyConstructor:
                     params = bit_instance.params
                 except AttributeError:
                     params = None
-            result_dict[bit_name] = bit_instance.get_data(
-                params=params, **kwargs)
+            result_dict[bit_name] = bit_instance.get_data(params=params, **kwargs)
         print('【rest_framework_extensions.key_constructor.KeyConstructor.get_data_from_bits】result_dict:', result_dict)
         return result_dict
 
