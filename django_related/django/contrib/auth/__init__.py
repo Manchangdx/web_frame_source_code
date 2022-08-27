@@ -95,9 +95,10 @@ def login(request, user, backend=None):
     if hasattr(user, 'get_session_auth_hash'):
         session_auth_hash = user.get_session_auth_hash()
         print(f'【django.contrib.auth.__init__.login】{session_auth_hash=}')
-        print(f'【django.contrib.auth.__init__.login】{_get_user_session_key(request)=}')
+        #print(f'【django.contrib.auth.__init__.login】{_get_user_session_key(request)=}')
 
     if SESSION_KEY in request.session:
+
         if _get_user_session_key(request) != user.pk or (
                 session_auth_hash and
                 not constant_time_compare(request.session.get(HASH_SESSION_KEY, ''), session_auth_hash)):
