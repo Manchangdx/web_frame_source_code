@@ -212,7 +212,7 @@ class AppContext(object):
     """
 
     def __init__(self, app):
-        #print('【flask.ctx.AppContext.__init__】初始化')
+        print('【flask.ctx.AppContext.__init__】初始化「应用上下文对象」')
         self.app = app
         self.url_adapter = app.create_url_adapter(None)
         self.g = app.app_ctx_globals_class()
@@ -372,9 +372,9 @@ class RequestContext(object):
         # 应用上下文栈的栈顶，这会儿肯定也是 None，应用上下文对象还没创建呢
         app_ctx = _app_ctx_stack.top
         if app_ctx is None or app_ctx.app != self.app:
-            print('【flask.ctx.RequestContext.push】创建「应用上下文对象」并将其压入「应用上下文栈」的栈顶')
             # 创建 AppContext 类的实例，即「应用上下文对象」
             app_ctx = self.app.app_context()
+            print('【flask.ctx.RequestContext.push】将「应用上下文对象」压入「应用上下文栈」的栈顶')
             # 调用「应用上下文对象」的 push 方法
             # 此方法内部会调用「应用上下文栈」的 push 方法
             # 将「应用上下文对象」自身压入「应用上下文栈」的栈顶

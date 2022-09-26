@@ -365,6 +365,7 @@ def jsonify(*args, **kwargs):
         data = args[0]
     else:
         data = args or kwargs
+    print('【flask.json.__init__.jsonify】', indent)
 
     return current_app.response_class(
         dumps(data, indent=indent, separators=separators) + "\n",
