@@ -12,10 +12,11 @@ def get_cache(alias):
 
 class CacheResponse:
     """缓存类，可以用于缓存 Django 响应对象的 (响应体, 响应码, 响应头) 元组
-    
-    该类的实例可作为视图函数的装饰器，这样做之后，视图函数就是 self.__call__ 方法的返回值 inner
+
+    该类的实例可作为视图函数的装饰器
+    这样做之后，视图函数就是 self.__call__ 方法的返回值 inner 
     调用视图函数就是调用 inner 函数
-    也就是说，每个需要设置缓存的视图类的方法（视图函数）都要单独配置一个 “该类的实例”
+    也就是说，每个需要设置缓存的视图类的方法（视图函数）都要单独配置一个 “该缓存类的实例”
 
     原注释:
         这个装饰器会渲染并丢弃原始的 DRF 响应，转而使用 Django 的 “HttpResponse”
@@ -30,14 +31,15 @@ class CacheResponse:
                  cache_errors=None):
         """初始化缓存类实例
 
-        在初始化该类的实例作为装饰器定义视图函数时，需设定 key_func 和 timeout 两个关键属性
-        它们分别是 “用于创建缓存 key 的可调用对象” 和 “超时时间”
+        在初始化该类的实例作为装饰器定义视图函数时，需设定 timeout 和 key_func 两个关键属性
+        它们分别是 “超时时间” 和 “缓存 key 构造器（用于创建缓存 key 的可调用对象）”
         Args:
             timeout      : 缓存有效时间，单位: 秒
             key_func     :「缓存 key 构造器」或其字符串
             cache        : 缓存工具，默认是 Redis
             cache_errors : 布尔值，是否缓存异常响应
         """
+        # 默认超时时间是 300s
         if timeout is None:
             self.timeout = extensions_api_settings.DEFAULT_CACHE_RESPONSE_TIMEOUT
         else:
@@ -58,8 +60,8 @@ class CacheResponse:
     def __call__(self, func):
         """创建视图函数
 
-        该类的实例 self 就是用来创建视图函数的装饰器，创建视图函数时就会调用这个 __call__ 方法
-        参数 self 就是当前类的实例，参数 func 就是被装饰的视图函数
+        当前类的实例 self 就是用来创建视图函数的装饰器
+        创建视图函数时就会调用这个 __call__ 方法，参数 func 就是被装饰的视图函数
         """
         this = self
 

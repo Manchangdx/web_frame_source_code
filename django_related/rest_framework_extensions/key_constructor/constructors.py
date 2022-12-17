@@ -68,18 +68,18 @@ class KeyConstructor:
                 args=args,
                 kwargs=kwargs
             )
-            print(f'【rest_framework_extensions...KeyConstructor.get_key】{memoization_key=}')
+            print(f'【rest_framework_extensions.key_constructor.constructors.KeyConstructor.get_key】{memoization_key=}')
             if not hasattr(request, '_key_constructor_cache'):
                 request._key_constructor_cache = {}
         if self.memoize_for_request and memoization_key in request._key_constructor_cache:
             return request._key_constructor_cache.get(memoization_key)
         else:
             value = self._get_key(
-                view_instance=view_instance,
-                view_method=view_method,
-                request=request,
-                args=args,
-                kwargs=kwargs
+                view_instance=view_instance,    # 视图类实例
+                view_method=view_method,        # 视图函数
+                request=request,                # 请求对象
+                args=args,                      # 调用视图函数时传的可变参数
+                kwargs=kwargs                   # 调用视图函数时传的关键字参数（通常是路径中的变量）
             )
             if self.memoize_for_request:
                 request._key_constructor_cache[memoization_key] = value
