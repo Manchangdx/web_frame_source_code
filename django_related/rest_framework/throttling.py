@@ -107,11 +107,14 @@ class SimpleRateThrottle(BaseThrottle):
         return (num_requests, duration)
 
     def allow_request(self, request, view):
-        """
-        Implement the check to see if the request should be throttled.
+        """检查节流阀是否允许本次请求
 
-        On success calls `throttle_success`.
-        On failure calls `throttle_failure`.
+        Args:
+            self    : 节流阀对象
+            request : 请求对象
+            view    : 视图对象
+
+        Return(bool): 是否允许请求
         """
         if self.rate is None:
             return True

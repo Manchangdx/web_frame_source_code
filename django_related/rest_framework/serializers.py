@@ -572,8 +572,7 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
         return ret
 
     def to_representation(self, instance):
-        """
-        Object instance -> Dict of primitive datatypes.
+        """序列化（Object instance -> Dict of primitive datatypes）
         """
         ret = OrderedDict()
         fields = self._readable_fields

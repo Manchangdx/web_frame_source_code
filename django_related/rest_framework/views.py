@@ -334,6 +334,7 @@ class APIView(View):
         will instead be performed lazily, the first time either
         `request.user` or `request.auth` is accessed.
         """
+        print('\t【rest_framework.views.APIView.perform_authentication】认证信息检查')
         request.user
 
     def check_permissions(self, request):
@@ -341,6 +342,7 @@ class APIView(View):
         Check if the request should be permitted.
         Raises an appropriate exception if the request is not permitted.
         """
+        print('\t【rest_framework.views.APIView.check_permissions】权限检查')
         for permission in self.get_permissions():
             if not permission.has_permission(request, self):
                 self.permission_denied(
@@ -359,6 +361,7 @@ class APIView(View):
     def check_throttles(self, request):
         """使用「限流对象」对请求进行检查
         """
+        print('\t【rest_framework.views.APIView.check_throttles】限流检查')
         throttle_durations = []
         # 循环「限流对象」列表
         for throttle in self.get_throttles():
@@ -369,6 +372,7 @@ class APIView(View):
                 throttle_durations.append(throttle.wait())
 
         if throttle_durations:
+            print(f'【rest_framework.views.APIView.check_throttles】{throttle_durations}')
             # Filter out `None` values which may happen in case of config / rate
             # changes, see #1438
             durations = [
@@ -422,12 +426,12 @@ class APIView(View):
         #for i in self.throttle_classes:
         #    print(f'\t\t{i}')
 
-        print('【rest_framework.views.APIView.initial】检测用户权限 >>>>>>', end='  ')
+        print('【rest_framework.views.APIView.initial】开始检测用户权限 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
         # Ensure that the incoming request is permitted
         self.perform_authentication(request)    # 检查用户是否是匿名用户
         self.check_permissions(request)         # 检查用户权限
         self.check_throttles(request)           # 检查请求是否受到频率限制
-        print('检查通过')
+        print('【rest_framework.views.APIView.initial】检测用户权限完成 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<') 
 
     def finalize_response(self, request, response, *args, **kwargs):
         """返回最终的响应对象
