@@ -52,9 +52,11 @@ class BaseHandler:
         for middleware_path in reversed(settings.MIDDLEWARE):
             # 此方法用于获取中间件类，Django 内置的中间件通常在 django.contrib 包下面
             middleware = import_string(middleware_path)
+            # print(f'\t【django.core.handlers.base.BaseHandler.load_middleware】{middleware=}')
             try:
                 # middleware 是中间件，它通常是一个类，这里把 handler 函数作为参数获取其实例
                 # 实例初始化时，会把参数 handler 赋值给实例自身的 get_response 属性
+                # 也就是说，mw_instance.get_response 就是 handler 函数
                 mw_instance = middleware(handler)
             except MiddlewareNotUsed as exc:
                 if settings.DEBUG:
@@ -82,7 +84,7 @@ class BaseHandler:
 
             # 每次执行下面这行代码，handler 就变成中间件实例，实例的 get_response 属性就是上一个 handler
             # 也就是说，下面这个 handler 的 get_response 属性值就是定义之前的 handler
-            # 这样就形成了一个堆栈函数
+            # 这样就形成了一个函数堆栈，堆栈中各个函数之间是链式调用关系
 
             # 假设 settings.MIDDLEWARE 列表的顺序是 1 2 3
             # 这个 for 循环的顺序就是 3 2 1 
@@ -122,13 +124,11 @@ class BaseHandler:
         if response.status_code >= 400:
             message = f'{response.reason_phrase}: {request.path}'
             print(f'【django.core.handlers.base.BaseHandler.get_response】{message}')
-            '''
-            log_response(
-                '%s: %s', response.reason_phrase, request.path,
-                response=response,
-                request=request,
-            )
-            '''
+            # log_response(
+            #     '%s: %s', response.reason_phrase, request.path,
+            #     response=response,
+            #     request=request,
+            # )
         return response
 
     def _get_response(self, request):

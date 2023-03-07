@@ -25,17 +25,7 @@ logger = logging.getLogger('django.server')
 
 
 def get_internal_wsgi_application():
-    """
-    Load and return the WSGI application as configured by the user in
-    ``settings.WSGI_APPLICATION``. With the default ``startproject`` layout,
-    this will be the ``application`` object in ``projectname/wsgi.py``.
-
-    This function, and the ``WSGI_APPLICATION`` setting itself, are only useful
-    for Django's internal server (runserver); external WSGI servers should just
-    be configured to point to the correct application object directly.
-
-    If settings.WSGI_APPLICATION is not set (is ``None``), return
-    whatever ``django.core.wsgi.get_wsgi_application`` returns.
+    """创建符合 WSGI 规范的服务器对象并返回
     """
     from django.conf import settings
     # 这个属性值来自项目自身的配置文件，属性值是字符串
@@ -270,18 +260,19 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
 
 # 启动项目时，这个方法是核心
-# 参数 server_cls 的值是当前模块中定义的 WSGIServer 类，其父类递归如下
+# 参数 handler 是 django.core.handlers.wsgi.WSGIHandler 类的实例，相当于 Flask 中的 app 应用对象
+# 参数 server_cls 是当前模块中定义的 WSGIServer 类，其父类递归如下
 # WSGIServer →
 # wsgiref.simple_server.WSGIServer →
 # http.server.HTTPServer →
 # socketserver.TCPServer →
 # socketserver.BaseServer
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
-    # 单线程启动服务
+    # MCDXSIGN 单线程启动服务
     threading = False
     import threading as t
     ct = t.current_thread()
-    print('【django.core.servers.basehttp.run】服务器初始化，当前线程:', ct.name, ct.ident)
+    print('【django.core.servers.basehttp.run】WSGI 服务器初始化，当前线程:', ct.name, ct.ident)
     server_address = (addr, port)
     # 通常 threading 的值是 True ，这里调用 type 函数创建一个类
     if threading:
@@ -292,10 +283,10 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     else:
         httpd_cls = server_cls
 
-    # 对「服务器类」进行实例化得到「服务器对象」，其 socket 属性值就是 TCP 套接字对象
-    # 当前函数最后一行代码将启动套接字的持续监听
-    # WSGIRequestHandler 是请求处理类，socketserver.BaseRequestHandler 类的子类，其实例是「请求处理对象」
-    # 当「服务器对象」完成初始化时，内建套接字对象就完成了端点设置并启动了监听
+    # 对「服务器类」进行实例化得到「服务器对象」，后者的 socket 属性值就是 TCP 套接字对象
+    # 参数 1：服务器要监听的地址 + 端口元组
+    # 参数 2：请求处理类，socketserver.BaseRequestHandler 类的子类，其实例是「请求处理对象」
+    # 参数 3：待考
     httpd = httpd_cls(server_address, WSGIRequestHandler, ipv6=ipv6)
 
     if threading:
@@ -305,10 +296,13 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
         # True 表示服务器在退出之前不会等待线程终止
         # 这将使自动重新加载器更快，并且可以防止在线程未正确终止的情况下手动杀死服务器
         httpd.daemon_threads = True
+
     # 参数 wsgi_handler 是 django.core.handlers.wsgi.WSGIHandler 类的实例
     # 该实例就相当于 Flask 中的 app 应用对象，它会被赋值给「服务器对象」的 application 属性
     # 当浏览器发送请求过来，服务器在处理请求的过程中会根据自身的 application 属性找到应用对象并调用之
     httpd.set_app(wsgi_handler)
-    print('【django.core.servers.basehttp.run】等待客户端发送请求...\n\n')
+    # print('【django.core.servers.basehttp.run】等待客户端发送请求...\n\n')
+
     # 调用「服务器对象」的套接字对象的 accept 方法持续监听，此方法定义在 socketserver.BaseServer 类中
+    # 当「服务器对象」完成初始化时，内建套接字对象就完成了端点设置并启动了监听
     httpd.serve_forever()

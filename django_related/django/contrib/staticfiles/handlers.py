@@ -21,6 +21,7 @@ class StaticFilesHandlerMixin:
     def load_middleware(self):
         # Middleware are already loaded for self.application; no need to reload
         # them for self.
+        print('【django.contrib.staticfiles.handlers.StaticFilesHandlerMixin.load_middleware】应用对象加载中间件，其实啥也不干')
         pass
 
     def get_base_url(self):

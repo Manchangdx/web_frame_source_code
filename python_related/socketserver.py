@@ -199,7 +199,12 @@ class BaseServer:
 
     def __init__(self, server_address, RequestHandlerClass):
         """初始化「服务器对象」
+
+        Args:
+            server_address: 服务器要监听的地址和端口元组
+            RequestHandlerClass: 请求处理类
         """
+        print('【socketserver.BaseServer.__init__】初始化「服务器对象」')
         self.server_address = server_address
         self.RequestHandlerClass = RequestHandlerClass
         self.__is_shut_down = threading.Event()
@@ -211,27 +216,23 @@ class BaseServer:
         May be overridden.
 
         """
-        pass
 
     # 启动应用程序后，代码运行到这里
     def serve_forever(self, poll_interval=0.5):
-        """Handle one request at a time until shutdown.
+        """每次处理 1 个请求
 
-        Polls for shutdown every poll_interval seconds. Ignores
-        self.timeout. If you need to do periodic tasks, do them in
-        another thread.
+        Polls for shutdown every poll_interval seconds. Ignores self.timeout.
+        If you need to do periodic tasks, do them in another thread.
         """
         # self 是「服务器对象」
-        import threading
         ct = threading.current_thread()
         print('【socketserver.BaseServer.serve_forever】当前线程:', ct.name, ct.ident)
-        print('【socketserver.BaseServer.serve_forever】等待客户端发送请求 ...\n')
+        print('【socketserver.BaseServer.serve_forever】等待客户端发送请求 ...\n\n')
         self.__is_shut_down.clear()
         try:
-            # XXX: Consider using another file descriptor or connecting to the
-            # socket to wake this up instead of polling. Polling reduces our
-            # responsiveness to a shutdown request and wastes cpu at all other
-            # times.
+            # 原注释：
+            # 考虑使用另一个文件描述符或连接到套接字来唤醒它，而不是轮询
+            # 轮询减少了我们对关闭请求的响应，并在所有其他时间浪费 CPU
             with _ServerSelector() as selector:
                 # 注册读事件，对其持续监听
                 selector.register(self, selectors.EVENT_READ)

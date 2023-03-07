@@ -11,10 +11,14 @@ def import_string(dotted_path):
     """
     try:
         module_path, class_name = dotted_path.rsplit('.', 1)
+        # if dotted_path == 'shiyanlou.wsgi.application':
+        #     print('>'*88, dotted_path)
     except ValueError as err:
         raise ImportError("%s doesn't look like a module path" % dotted_path) from err
 
     module = import_module(module_path)
+    # if dotted_path == 'shiyanlou.wsgi.application':
+    #     print('>'*88, module)
 
     try:
         return getattr(module, class_name)

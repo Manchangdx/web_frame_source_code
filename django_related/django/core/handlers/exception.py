@@ -20,7 +20,6 @@ def convert_exception_to_response(get_response):
 
     该装饰器会自动应用于所有中间件，以确保没有中间件泄漏异常，并且堆栈中的下一个中间件可以据此获得响应对象而不是异常
     """
-    #print('>'*88, get_response)
     @wraps(get_response)
     def inner(request):
         try:
