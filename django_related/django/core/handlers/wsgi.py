@@ -139,7 +139,7 @@ class WSGIHandler(base.BaseHandler):
     def __init__(self, *args, **kwargs):
         """初始化「应用对象」，此方法在启动服务时就会执行
         """
-        print('【django.core.handlers.wsgi.WSGIHandler.__init__】应用对象初始化')
+        print(f'【django.core.handlers.wsgi.WSGIHandler.__init__】应用对象初始化: {args=}; {kwargs=}')
         super().__init__(*args, **kwargs)
         # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()

@@ -573,11 +573,10 @@ def get_reloader():
 
 
 #「命令执行对象」是 django.core.management.commands.runserver.Command 类的实例
-# 下面函数的参数 main_func 是「命令执行对象」的 inner_run 方法
+# 下面函数的参数 main_func 是「命令执行对象」的 inner_run 方法，此方法定义在上述类中
 def start_django(reloader, main_func, *args, **kwargs):
     ensure_echo_on()
 
-    import threading
     ct = threading.current_thread()
     print('【django.utils.autoreload.start_django】当前为主线程:', ct.name, ct.ident)
 

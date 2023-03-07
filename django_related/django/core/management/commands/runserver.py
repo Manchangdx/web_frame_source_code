@@ -65,6 +65,8 @@ class Command(BaseCommand):
         return get_internal_wsgi_application()
 
     def handle(self, *args, **options):
+        """这是 runserver 命令要执行的方法
+        """
         if not settings.DEBUG and not settings.ALLOWED_HOSTS:
             raise CommandError('You must set settings.ALLOWED_HOSTS if DEBUG is False.')
 
@@ -96,7 +98,8 @@ class Command(BaseCommand):
         self.run(**options)
 
     def run(self, **options):
-        """Run the server, using the autoreloader if needed."""
+        """启动服务
+        """
         use_reloader = options['use_reloader']
 
         # 代码变更重载功能默认是开启的
@@ -105,8 +108,9 @@ class Command(BaseCommand):
         else:
             self.inner_run(None, **options)
 
-    # 该方法在子线程中启动，这个子线程是项目的主线程 django-main-thread
     def inner_run(self, *args, **options):
+        """该方法在子线程中启动，这个子线程是项目的主线程 django-main-thread
+        """
         import threading
         ct = threading.current_thread()
         print('【django.core.management.commands.runserver.Command.inner_run】当前线程为 Django 应用的主线程:', ct.name, ct.ident)
@@ -118,36 +122,24 @@ class Command(BaseCommand):
         threading = options['use_threading']
         # 'shutdown_message' is a stealth option.
         shutdown_message = options.get('shutdown_message', '')
-        quit_command = 'CTRL-BREAK' if sys.platform == 'win32' else 'CONTROL-C'
+        quit_command = 'CTRL-BREAK' if sys.platform == 'win32' else 'CONTROL-C'  # pylint: disable=unused-variable
 
         print('【django.core.management.commands.runserver.Command.inner_run】不执行系统检查，执行脚本迁移检查...')
-        addr = f'{self.protocol}://{self.addr if self._raw_ipv6 else self.addr}:{self.port}/'
-
-        #self.check(display_num_errors=True)
+        # self.check(display_num_errors=True)
         # 检查数据库版本迁移，需要在终端执行 python manage.py migrate 之类的命令
         self.check_migrations()
-        """
+
         now = datetime.now().strftime('%B %d, %Y - %X')
-        self.stdout.write(now)
-        self.stdout.write((
-            "Django version %(version)s, using settings %(settings)r\n"
-            "Starting development server at %(protocol)s://%(addr)s:%(port)s/\n"
-            "Quit the server with %(quit_command)s.\n"
-        ) % {
-            "version": self.get_version(),
-            "settings": settings.SETTINGS_MODULE,
-            "protocol": self.protocol,
-            "addr": '[%s]' % self.addr if self._raw_ipv6 else self.addr,
-            "port": self.port,
-            "quit_command": quit_command,
-        })
-        """
-        print(f'【django.core.management.commands.runserver.Command.inner_run】即将在该地址启动服务: {addr}')
+        addr = f'{self.protocol}://{self.addr if self._raw_ipv6 else self.addr}:{self.port}/'
+        print(
+            f'【django.core.management.commands.runserver.Command.inner_run】当前时间: {now}; '
+            f'Django 版本: {self.get_version()}; 即将在该地址启动服务: {addr}'
+        )
 
         try:
-            # 这里 self 是「命令执行对象」
-            # 下面的 handle 是 django.core.handlers.wsgi.WSGIHandler 类的实例
-            # 该实例就相当于 Flask 中的 app 应用对象
+            # self 是「命令执行对象」
+            # get_handler 方法定义在 django.contrib.staticfiles.management.commands.runserver.Command 类中
+            # handler 是 django.core.handlers.wsgi.WSGIHandler 类的实例，相当于 Flask 中的 app 应用对象
             handler = self.get_handler(*args, **options)
             # 这个 run 是核心方法，定义在 django.core.servers.basehttp 模块中
             # 在方法内部会创建服务器对象并启动监听

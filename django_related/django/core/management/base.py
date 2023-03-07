@@ -68,7 +68,7 @@ def handle_default_options(options):
     user commands.
     """
     if options.settings:
-        #print('【django.core.management.base.handle_default_options】options.settings:', options.settings)
+        print('【django.core.management.base.handle_default_options】options.settings:', options.settings)
         os.environ['DJANGO_SETTINGS_MODULE'] = options.settings
     if options.pythonpath:
         sys.path.insert(0, options.pythonpath)
@@ -268,7 +268,6 @@ class BaseCommand:
             if options.traceback or not isinstance(e, CommandError):
                 raise
 
-            # SystemCheckError takes care of its own formatting.
             if isinstance(e, SystemCheckError):
                 self.stderr.write(str(e), lambda x: x)
             else:
@@ -278,8 +277,6 @@ class BaseCommand:
             try:
                 connections.close_all()
             except ImproperlyConfigured:
-                # Ignore if connections aren't setup at this point (e.g. no
-                # configured settings).
                 pass
 
     def execute(self, *args, **options):
@@ -301,18 +298,19 @@ class BaseCommand:
             # 主要是各个应用对象的映射类是否有问题以及互相之间是否有冲突之类的
             #self.check()
             print('【django.core.management.base.BaseCommand.execute】***** 这块儿先不检测了 *****')
+
+        # 不会执行
         if self.requires_migrations_checks:
             self.check_migrations()
 
-        # 下面这个 handle 方法是重要的
+        # 下面这个 handle 方法是重要的核心方法
         # 它定义在 django.core.management.commands.xxxx.Command 类中
-
-        # 以 python manage.py runserver 为例
-        # 它会调用 self 的 run 方法，此 run 方法也在那个类中
-        # 这个 run 方法会调用 django.utils.autoreload 模块中的方法创建子线程并启动
 
         # 以 python manage.py migrate 为例
         # 它会处理数据库相关的事务，创建连接对象，操作数据库版本控制功能，将映射类转换成数据表
+
+        # 以 python manage.py runserver 为例
+        # 它会调用 self 的 run 方法，后者会调用 django.utils.autoreload 模块中的方法创建子线程并启动
         output = self.handle(*args, **options)
         if output:
             if self.output_transaction:

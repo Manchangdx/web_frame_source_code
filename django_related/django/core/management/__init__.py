@@ -171,7 +171,7 @@ class ManagementUtility:
     """
     def __init__(self, argv=None):
         self.argv = argv or sys.argv[:]
-        self.prog_name = os.path.basename(self.argv[0])
+        self.prog_name = os.path.basename(self.argv[0])  # 从文件路径中提取文件名
         if self.prog_name == '__main__.py':
             self.prog_name = 'python -m django'
         self.settings_exception = None
@@ -320,7 +320,7 @@ class ManagementUtility:
         给定命令行参数后，找出正在运行的子命令，创建适合该命令的解析器，并运行它
         """
         try:
-            # 子命令，例如 runserver 、migrate
+            # 子命令，例如 runserver 、shell_plus 、makemigrations 、makemessages 等
             subcommand = self.argv[1]
         except IndexError:
             subcommand = 'help'  # Display help if no arguments were given.
@@ -332,9 +332,10 @@ class ManagementUtility:
         parser.add_argument('--settings')
         parser.add_argument('--pythonpath')
         parser.add_argument('args', nargs='*')  # catch-all
+
         try:
             options, args = parser.parse_known_args(self.argv[2:])
-            #print('【django.core.management.__init__.ManagementUtility.execute】options:', options)
+            # print('【django.core.management.__init__.ManagementUtility.execute】options:', options)
             handle_default_options(options)
         except CommandError:
             pass  # Ignore any option errors at this point.
@@ -344,7 +345,7 @@ class ManagementUtility:
             # 该实例的全部属性都来自应用对象的配置文件，配置文件名是环境变量 ENVIRONMENT_VARIABLE 的值
             # 此处调用 settings 的属性是为了初始化配置对象，配置对象是 django.conf.__init__.Settings 类的实例
             # 配置对象初始化时会将配置文件中的全部配置项赋值给自身的属性
-            # 调用 settings 获取配置项就是获取配置对象的属性
+            # 调用 settings 获取配置项就是获取配置对象 Settings() 的属性
             settings.INSTALLED_APPS
         except ImproperlyConfigured as exc:
             self.settings_exception = exc
@@ -353,9 +354,7 @@ class ManagementUtility:
 
         # 配置对象初始化顺利完成后，该属性值就是 True
         if settings.configured:
-            # Start the auto-reloading dev server even if the code is broken.
-            # The hardcoded condition is a code smell but we can't rely on a
-            # flag on the command class because we haven't located it yet.
+            # 启动服务
             if subcommand == 'runserver' and '--noreload' not in self.argv:
                 try:
                     # 参数 django.setup 是定义在 django.__init__ 模块中的函数
@@ -365,26 +364,19 @@ class ManagementUtility:
                     # apps 对象可以看作一个应用对象收集器
                     autoreload.check_errors(django.setup)()
                 except Exception:
-                    # The exception will be raised later in the child process
-                    # started by the autoreloader. Pretend it didn't happen by
-                    # loading an empty list of applications.
                     apps.all_models = defaultdict(dict)
                     apps.app_configs = {}
                     apps.apps_ready = apps.models_ready = apps.ready = True
 
-                    # Remove options not compatible with the built-in runserver
-                    # (e.g. options for the contrib.staticfiles' runserver).
-                    # Changes here require manually testing as described in
-                    # #27522.
                     _parser = self.fetch_command('runserver').create_parser('django', 'runserver')
                     _options, _args = _parser.parse_known_args(self.argv[2:])
                     for _arg in _args:
                         self.argv.remove(_arg)
-
-            # In all other cases, django.setup() is required to succeed.
+            # 此外的情况
             else:
                 django.setup()
 
+        # 这个暂时忽略
         self.autocomplete()
 
         if subcommand == 'help':
@@ -394,8 +386,6 @@ class ManagementUtility:
                 sys.stdout.write(self.main_help_text() + '\n')
             else:
                 self.fetch_command(options.args[0]).print_help(self.prog_name, options.args[0])
-        # Special-cases: We want 'django-admin --version' and
-        # 'django-admin --help' to work, for backwards compatibility.
         elif subcommand == 'version' or self.argv[1:] == ['--version']:
             sys.stdout.write(django.get_version() + '\n')
         elif self.argv[1:] in (['--help'], ['-h']):
@@ -408,8 +398,9 @@ class ManagementUtility:
             # 以 python manage.py makemigrate 命令为例
             # 这个方法就会返回 .../management/commands/makemigrate.py 文件中的 Command 类的实例
 
+            # 参数 subcommand 就是命令行参数 runserver makemigrations runscripts 等
             # 下面的 cmd 我们称之为「命令执行对象」，以 runserver 命令为例
-            # 此对象的父类是 django.contrib.staticfiles.management.commands.runserver.Command 类
+            # 此 cmd 对象的父类是 django.contrib.staticfiles.management.commands.runserver.Command 类
             # 后者的父类是 django.core.management.commands.runserver.Command 类
             # 后者的父类是 django.core.management.base.BaseCommand 类
             cmd = self.fetch_command(subcommand)
