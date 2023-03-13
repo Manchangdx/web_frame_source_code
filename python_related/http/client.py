@@ -211,17 +211,13 @@ def parse_headers(fp, _class=HTTPMessage):
     to parse.
 
     """
-    headers = []
     print('【http.client.parse_headers】处理请求头')
+    headers = []
     while True:
         line = fp.readline(_MAXLINE + 1)
         if len(line) > _MAXLINE:
             raise LineTooLong("header line")
-        #print('\t', line)
         headers.append(line)
-        #print('【http.client.parse_headers】headers:')
-        #for i in headers:
-        #    print('\t', i)
         if len(headers) > _MAXHEADERS:
             raise HTTPException("got more than %d headers" % _MAXHEADERS)
         if line in (b'\r\n', b'\n', b''):
