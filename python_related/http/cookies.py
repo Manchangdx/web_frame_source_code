@@ -607,3 +607,4 @@ class SimpleCookie(BaseCookie):
     def value_encode(self, val):
         strval = str(val)
         return strval, _quote(strval)
+

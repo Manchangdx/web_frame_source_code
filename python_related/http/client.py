@@ -1494,3 +1494,4 @@ class RemoteDisconnected(ConnectionResetError, BadStatusLine):
 
 # for backwards compatibility
 error = HTTPException
+

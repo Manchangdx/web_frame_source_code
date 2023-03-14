@@ -140,3 +140,4 @@ class HTTPStatus(IntEnum):
     NETWORK_AUTHENTICATION_REQUIRED = (511,
         'Network Authentication Required',
         'The client needs to authenticate to gain network access')
+

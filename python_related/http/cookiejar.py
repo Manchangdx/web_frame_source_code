@@ -2111,3 +2111,4 @@ class MozillaCookieJar(FileCookieJar):
                     "\t".join([cookie.domain, initial_dot, cookie.path,
                                secure, expires, name, value])+
                     "\n")
+
