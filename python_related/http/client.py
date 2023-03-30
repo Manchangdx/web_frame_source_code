@@ -202,16 +202,8 @@ class HTTPMessage(email.message.Message):
         return lst
 
 def parse_headers(fp, _class=HTTPMessage):
-    """Parses only RFC2822 headers from a file pointer.
-
-    email Parser wants to see strings rather than bytes.
-    But a TextIOWrapper around self.rfile would buffer too many bytes
-    from the stream, bytes which we later need to read as bytes.
-    So we read the correct bytes here, as bytes, for email Parser
-    to parse.
-
+    """解析 HTTP 请求头
     """
-    print('【http.client.parse_headers】处理请求头')
     headers = []
     while True:
         line = fp.readline(_MAXLINE + 1)
@@ -223,6 +215,12 @@ def parse_headers(fp, _class=HTTPMessage):
         if line in (b'\r\n', b'\n', b''):
             break
     hstring = b''.join(headers).decode('iso-8859-1')
+
+    print('【http.client.parse_headers】「请求处理对象」处理请求头')
+    for h in headers:
+        if h := h.decode().strip():
+            print(f'\t{h}')
+
     return email.parser.Parser(_class=_class).parsestr(hstring)
 
 

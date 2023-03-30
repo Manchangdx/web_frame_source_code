@@ -268,6 +268,13 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
 
     def parse_request(self):
         """获取客户端发来的请求数据并解析
+
+        主要给「请求处理对象」设置以下属性：
+            self.request_version  : HTTP 协议版本号
+            self.command          : 请求方法，GET / POST 之类
+            self.path             : 请求路径，带 query 参数
+            self.headers          : 请求头对象，类字典对象，存储请求头信息
+            self.close_connection : 是否关闭连接
         """
         self.command = None
         self.request_version = version = self.default_request_version
@@ -276,6 +283,8 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         # 这一行数据大概是这样 'GET /a/b/c HTTP/1.1\r\n'
         # 默认情况下，HTTP 协议遵循的是 iso-8859-1 编码规则
         requestline = str(self.raw_requestline, 'iso-8859-1')
+        print('【http.server.BaseHTTPRequestHandler.parse_request】「请求处理对象」解析请求行: ')
+        print(f'\t{str(self.raw_requestline)}')
         requestline = requestline.rstrip('\r\n')
         self.requestline = requestline
         words = requestline.split()
@@ -295,12 +304,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
                     raise ValueError
                 base_version_number = version.split('/', 1)[1]
                 version_number = base_version_number.split(".")
-                # RFC 2145 section 3.1 says there can be only one "." and
-                #   - major and minor numbers MUST be treated as
-                #      separate integers;
-                #   - HTTP/2.4 is a lower version than HTTP/2.13, which in
-                #      turn is lower than HTTP/12.3;
-                #   - Leading zeros MUST be ignored by recipients.
                 if len(version_number) != 2:
                     raise ValueError
                 version_number = int(version_number[0]), int(version_number[1])
@@ -333,12 +336,9 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
                     "Bad HTTP/0.9 request type (%r)" % command)
                 return False
         self.command, self.path = command, path
-        print(f'【http.server.BaseHTTPRequestHandler.parse_request】请求方法: {self.command}  请求路由: {self.path}')
 
-        # Examine the headers and look for a Connection directive.
         try:
-            self.headers = http.client.parse_headers(self.rfile,
-                                                     _class=self.MessageClass)
+            self.headers = http.client.parse_headers(self.rfile, _class=self.MessageClass)
         except http.client.LineTooLong as err:
             self.send_error(
                 HTTPStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,

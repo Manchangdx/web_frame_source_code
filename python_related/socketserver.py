@@ -220,13 +220,10 @@ class BaseServer:
     # 启动应用程序后，代码运行到这里
     def serve_forever(self, poll_interval=0.5):
         """每次处理 1 个请求
-
-        Polls for shutdown every poll_interval seconds. Ignores self.timeout.
-        If you need to do periodic tasks, do them in another thread.
         """
         # self 是「服务器对象」
         ct = threading.current_thread()
-        print('【socketserver.BaseServer.serve_forever】当前线程:', ct.name, ct.ident)
+        print('【socketserver.BaseServer.serve_forever】当前线程（应用主线程）:', ct.name, ct.ident)
         print('【socketserver.BaseServer.serve_forever】等待客户端发送请求 ...\n\n')
         self.__is_shut_down.clear()
         try:
@@ -271,17 +268,6 @@ class BaseServer:
         """
         pass
 
-    # The distinction between handling, getting, processing and finishing a
-    # request is fairly arbitrary.  Remember:
-    #
-    # - handle_request() is the top-level call.  It calls selector.select(),
-    #   get_request(), verify_request() and process_request()
-    # - get_request() is different for stream or datagram sockets
-    # - process_request() is the place that may fork a new process or create a
-    #   new thread to finish the request
-    # - finish_request() instantiates the request handler class; this
-    #   constructor will handle the request all by itself
-
     def handle_request(self):
         """Handle one request, possibly blocking.
 
@@ -315,7 +301,6 @@ class BaseServer:
     def _handle_request_noblock(self):
         """当连接请求进入套接字服务器，读事件就绪，调用此方法处理，处理过程是非阻塞的
         """
-
         try:
             # 此方法定义在当前类中，调用 self.socket 套接字对象的 accept 方法接收连接请求
             # 返回值是元组，里面是新建临时套接字对象和客户端地址元组
@@ -323,11 +308,9 @@ class BaseServer:
         except OSError:
             return
 
-        import threading
         ct = threading.current_thread()
         print('【socketserver.BaseServer._handle_request_noblock】请求进入:', client_address)
-        print('【socketserver.BaseServer._handle_request_noblock】当前线程（应用主线程）:', 
-                ct.name, ct.ident)
+        print('【socketserver.BaseServer._handle_request_noblock】当前线程（应用主线程）:', ct.name, ct.ident)
 
         # 下面这个方法默认情况下什么也不做，只返回 True
         if self.verify_request(request, client_address):
@@ -349,7 +332,6 @@ class BaseServer:
 
         Overridden by ForkingMixIn.
         """
-        pass
 
     def verify_request(self, request, client_address):
         """Verify the request.  May be overridden.
@@ -362,8 +344,9 @@ class BaseServer:
     def process_request(self, request, client_address):
         """调用自身的 finish_request 方法处理请求
 
-        当前方法可能被 ForkingMixIn and ThreadingMixIn 类重写
+        当前方法可能被 ForkingMixIn or ThreadingMixIn 类重写
         """
+        print('【socketserver.BaseServer.process_request】当前线程（应用主线程），单线程的，请求进来后不新建线程')
         self.finish_request(request, client_address)
         self.shutdown_request(request)
 
@@ -373,17 +356,19 @@ class BaseServer:
         May be overridden.
 
         """
-        pass
 
     # 服务器收到连接请求后，创建一个子线程处理请求
     # 子线程内执行下面这个方法，把临时套接字和客户端地址元组作为参数
     def finish_request(self, request, client_address):
         # [Flask]  self 是「服务器对象」，它定义在 werkzeug.serving.run_simple 函数中
-        # [Django] self 是「服务器对象」，它定义在 django.core.servers.basehttp.run 函数中
         # [Flask]  下面这个属性值是 werkzeug.serving.WSGIRequestHandler 类
+        # [Django] self 是「服务器对象」，它定义在 django.core.servers.basehttp.run 函数中
         # [Django] 下面这个属性值是 django.core.servers.basehttp.WSGIRequestHandler 类
+
         # 该类是当前模块下的 BaseRequestHandler 类的子类
         # 这里对其进行实例化，执行的是当前模块下的 BaseRequestHandler.__init__ 方法
+        # 这块儿 self 是「服务器对象」，应用启动后创建的全局唯一
+        # 下面这个类的实例化生成的是「请求处理对象」，每个请求进入后都新建一个
         self.RequestHandlerClass(request, client_address, self)
 
     def shutdown_request(self, request):
@@ -392,7 +377,6 @@ class BaseServer:
 
     def close_request(self, request):
         """Called to clean up an individual request."""
-        pass
 
     def handle_error(self, request, client_address):
         """Handle an error gracefully.  May be overridden.
@@ -486,6 +470,7 @@ class TCPServer(BaseServer):
     def server_bind(self):
         """给套接字对象绑定监听地址，此方法可以被重写
         """
+        print(f'【socketserver.TCPServer.server_bind】给服务器套接字绑定监听地址: {self.server_address}')
         if self.allow_reuse_address:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.server_address)
@@ -494,6 +479,7 @@ class TCPServer(BaseServer):
     def server_activate(self):
         """套接字对象启动监听，此方法可以被重写
         """
+        print('【socketserver.TCPServer.server_bind】服务器套接字开启监听')
         # 参数是套接字对象允许的最大连接数
         self.socket.listen(self.request_queue_size)
 
@@ -666,10 +652,8 @@ class ThreadingMixIn:
     def process_request_thread(self, request, client_address):
         """此方法在子线程内执行，用于处理请求，请求中的任何异常都会被此方法处理
         """
-        import threading
         ct = threading.current_thread()
-        print('【socketserver.ThreadingMixIn.process_request_thread】当前线程为子线程:', 
-                ct.name, ct.ident)
+        print('【socketserver.ThreadingMixIn.process_request_thread】当前线程（请求子线程）:', ct.name, ct.ident)
         try:
             # 此方法定义在当前模块中的 BaseServer 类中
             self.finish_request(request, client_address)
@@ -682,7 +666,7 @@ class ThreadingMixIn:
         """服务器收到连接请求后，调用此函数处理请求
         """
         # self 是服务器对象，self.socket 是套接字对象
-        print('【socketserver.ThreadingMixIn.process_request】创建子线程并启动，继续处理请求')
+        print('【socketserver.ThreadingMixIn.process_request】当前线程（应用主线程），创建子线程并启动，继续处理请求')
         # 此处创建一个子线程，子线程内部调用当前类中定义的 process_request_thread 方法
         t = threading.Thread(target = self.process_request_thread,
                              args = (request, client_address))
@@ -729,7 +713,9 @@ class BaseRequestHandler:
 
     def __init__(self, request, client_address, server):
         # self 我们称之为「请求处理对象」
-        print('【socketserver.BaseRequestHandler.__init__】「请求处理对象」初始化')
+        ct = threading.current_thread()
+        x = '应用主线程' if ct.name == 'django-main-thread' else '请求子线程'
+        print(f'【socketserver.BaseRequestHandler.__init__】当前线程（{x}）: {ct.name} {ct.ident} ，「请求处理对象」初始化')
         self.request = request                  # 临时套接字
         self.client_address = client_address    # 客户端地址元组
         self.server = server                    # 服务器对象
