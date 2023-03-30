@@ -120,11 +120,7 @@ class APIView(View):
 
     @classmethod
     def as_view(cls, **initkwargs):
-        """
-        Store the original class on the view function.
-
-        This allows us to discover information about the view when we do URL
-        reverse lookups.  Used for breadcrumb generation.
+        """原注释: 将原始类存储在视图函数上。这允许我们在进行URL反向查找时发现关于视图的信息。用于面包屑生成。
         """
         if isinstance(getattr(cls, 'queryset', None), models.query.QuerySet):
             def force_evaluation():
@@ -508,15 +504,14 @@ class APIView(View):
         raise exc
 
     def dispatch(self, request, *args, **kwargs):
-        """
-        核心方法
+        """核心方法
         """
         self.args = args
         self.kwargs = kwargs  # 请求地址中的路径参数
 
         # 此方法定义在当前类中，用于创建一个 rest_framework 的「请求对象」并返回
         request = self.initialize_request(request, *args, **kwargs)
-        print('【rest_framework.views.APIView.dispatch】重新包装一个「请求对象」:', request)
+        print('【rest_framework.views.APIView.dispatch】在视图类中继续接收套接字数据，解析请求体，重新包装一个「请求对象」:', request)
         if self.kwargs:
             print('【rest_framework.views.APIView.dispatch】路径参数:', self.kwargs)
         if query := dict(request.query_params):

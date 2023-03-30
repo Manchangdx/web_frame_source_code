@@ -578,11 +578,10 @@ def start_django(reloader, main_func, *args, **kwargs):
     ensure_echo_on()
 
     ct = threading.current_thread()
-    print('【django.utils.autoreload.start_django】当前为主线程:', ct.name, ct.ident)
+    print('【django.utils.autoreload.start_django】当前线程（主线程）:', ct.name, ct.ident, '，创建应用主线程并启动')
 
     main_func = check_errors(main_func)
     django_main_thread = threading.Thread(target=main_func, args=args, kwargs=kwargs, name='django-main-thread')
-    print('【django.utils.autoreload.start_django】创建子线程并启动，该子线程为 Django 应用的主线程:', django_main_thread)
     django_main_thread.setDaemon(True)
     django_main_thread.start()
 

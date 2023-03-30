@@ -13,7 +13,7 @@ def setup(set_prefix=True):
     """
     import threading
     ct = threading.current_thread()
-    print('【django.__init__.setup】启动或重启应用，当前线程:', ct.name, ct.ident)
+    print('【django.__init__.setup】当前线程（主线程）:', ct.name, ct.ident, '，启动或重启应用')
     from django.apps import apps
     from django.conf import settings
     from django.urls import set_script_prefix

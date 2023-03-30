@@ -73,14 +73,18 @@ class ThreadedWSGIServer(socketserver.ThreadingMixIn, WSGIServer):
 
 
 class ServerHandler(simple_server.ServerHandler):
+    """响应处理类
+    """
     http_version = '1.1'
 
     def __init__(self, stdin, stdout, stderr, environ, **kwargs):
-        """
-        Use a LimitedStream so that unread request data will be ignored at
-        the end of the request. WSGIRequest uses a LimitedStream but it
-        shouldn't discard the data since the upstream servers usually do this.
-        This fix applies only for testserver/runserver.
+        """初始化「响应处理对象」
+
+        Args:
+            stdin   : 读取客户端发来的数据的「rfile 流对象」
+            stdout  : 写入返回给客户端的数据的「wfile 流对象」
+            stderr  : 协议相关的错误信息
+            environ : 字典对象，包含请求相关的全部信息
         """
         try:
             content_length = int(environ.get('CONTENT_LENGTH'))
@@ -191,16 +195,23 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             pass
 
     def handle_one_request(self):
-        """读取并解析浏览器发送的数据
+        """读取并解析浏览器发送的数据，self 是「请求处理对象」
         """
+        # 浏览器发送一次 HTTP 请求给服务器，服务器就收到一条 TCP 消息
+        # 该消息包含 HTTP 请求行、请求头、请求体
+        # 其中请求行是一行数据，请求头是多行数据，请求体不定行数，使用 \r\n 作为换行符
+        # 在请求头和请求体之间会额外再多一组换行符 \r\n
 
-        # self 是「请求处理对象」
-        # 读取一行数据的前 2 ** 8 + 1 个字符，这个数据就是浏览器发送给服务器的数据
+        # 下面的 self.rfile.readline 每次都读取 TCP 临时套接字收到的一条数据中的一行数据
+        # 此处读取第一行数据的前 2 ** 8 + 1 个字符，这个数据就是浏览器发送给服务器的 HTTP 请求行
         self.raw_requestline = self.rfile.readline(65537)
+
         if self.raw_requestline:
             ct = threading.current_thread()
-            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求处理对象开始处理请求，当前为子线程: {ct.name} {ct.ident}')
-            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求信息的第一行: {self.raw_requestline}')
+            x = '应用主线程' if ct.name == 'django-main-thread' else '请求子线程'
+            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】当前线程（{x}）: {ct.name} {ct.ident} ,「请求处理对象」开始处理请求')
+            # print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】「请求处理对象」解析请求行: {self.raw_requestline}')
+
         # 如果一行的长度超过这个数，就判定它超出了服务器允许的长度范围，返回 414 状态码
         if len(self.raw_requestline) > 65536:
             print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】414')
@@ -211,16 +222,14 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             self.send_error(414)
             return
 
-        # 下面这个方法在 http.server.BaseHTTPRequestHandler 类里面
-        # 解析请求数据的第一行，获取请求方法、路径、协议版本号并赋值给对应的属性
-        # 然后获取请求头信息并解析成 http.client.HTTPMessage 类的实例，这是一个类字典对象
-        # 并将此实例赋值给 self.headers 属性
+        # 下面这个方法在 http.server.BaseHTTPRequestHandler 类里面，解析请求头数据
         if not self.parse_request():
             return
 
-        #print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求头信息:')
-        #for k, v in self.headers.items():
-        #    print(f'\t\t{k:<22}{v}')
+        print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】「请求处理对象」创建「响应处理对象」')
+        # print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求头信息:')
+        # for k, v in self.headers.items():
+        #     print(f'\t\t{k:<22}{v}')
 
         # 此类定义在当前模块中，其父类是 wsgiref.simple_server.ServerHandler
         # 后者的父类是 wsgiref.handlers.SimpleHandler（初始化就在此类中） 
@@ -237,11 +246,11 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
             self.rfile, self.wfile, self.get_stderr(), self.get_environ()
         )
 
-        #print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】响应处理对象读到的系统环境变量:')
-        #for k, v in handler.os_environ.items():
-        #    print(f'\t\t{k:<22}{v}')
+        # print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】响应处理对象读到的系统环境变量:')
+        # for k, v in handler.os_environ.items():
+        #     print(f'\t\t{k:<22}{v}')
 
-        # self 是「请求处理对象」，下面的 handler 是「响应处理对象」
+        # self                「请求处理对象」，下面的 handler 是「响应处理对象」
         # self.request         临时套接字
         # self.client_address  客户端地址元组
         # self.server          服务器对象
@@ -256,7 +265,11 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         handler.run(self.server.get_app())
         if self.raw_requestline:
             ct = threading.current_thread()
-            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】{ct.name} {ct.ident} 请求处理完毕，等待下一次请求...\n\n')
+            x = '应用主线程' if ct.name == 'django-main-thread' else '请求子线程'
+            print(
+                f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】当前线程（{x}）: '
+                f'{ct.name} {ct.ident} 请求处理完毕，等待下一次请求...\n\n'
+            )
 
 
 # 启动项目时，这个方法是核心
@@ -269,10 +282,10 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 # socketserver.BaseServer
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
     # MCDXSIGN 单线程启动服务
-    threading = False
+    # threading = False
     import threading as t
     ct = t.current_thread()
-    print('【django.core.servers.basehttp.run】WSGI 服务器初始化，当前线程:', ct.name, ct.ident)
+    print('【django.core.servers.basehttp.run】当前线程（应用主线程）:', ct.name, ct.ident, '，WSGI 服务器初始化')
     server_address = (addr, port)
     # 通常 threading 的值是 True ，这里调用 type 函数创建一个类
     if threading:

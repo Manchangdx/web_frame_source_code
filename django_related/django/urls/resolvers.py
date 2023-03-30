@@ -536,11 +536,14 @@ class URLResolver:
         return name in self._callback_strs
 
     def resolve(self, path):
+        """根据 URL 路径寻找视图
+        """
         path = str(path)  # path may be a reverse_lazy object
         tried = []
         match = self.pattern.match(path)
         if match:
             new_path, args, kwargs = match
+            # print('>'*88, f'{path=}', self.url_patterns)
             for pattern in self.url_patterns:
                 try:
                     sub_match = pattern.resolve(new_path)
@@ -552,6 +555,7 @@ class URLResolver:
                         tried.append([pattern])
                 else:
                     if sub_match:
+                        # print(f'【django.urls.resolvers.URLResolver.resolve】寻找 {path} 的视图函数: {sub_match=}')
                         # Merge captured arguments in match with submatch
                         sub_match_dict = {**kwargs, **self.default_kwargs}
                         # Update the sub_match_dict with the kwargs from the sub_match.

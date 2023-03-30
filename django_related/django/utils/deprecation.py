@@ -88,6 +88,9 @@ class MiddlewareMixin:
         super().__init__()
 
     def __call__(self, request):
+        """调用中间件链条起始方法
+        """
+        # print(f'【django.utils.deprecation.MiddlewareMixin.__call__】开始调用中间件 {self.__class__.__name__}')
         response = None
         if hasattr(self, 'process_request'):
             response = self.process_request(request)

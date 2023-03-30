@@ -265,8 +265,7 @@ class Request:
         return self._authenticator
 
     def _load_data_and_files(self):
-        """
-        Parses the request content into `self.data`.
+        """解析 HTTP 请求体
         """
         if not _hasattr(self, '_data'):
             self._data, self._files = self._parse()
@@ -276,8 +275,8 @@ class Request:
             else:
                 self._full_data = self._data
 
-            # if a form media type, copy data & files refs to the underlying
-            # http request so that closable objects are handled appropriately.
+            # print(f'【rest_framework.request.Request._load_data_and_files】「请求对象」解析请求体: {self._full_data}')
+
             if is_form_media_type(self.content_type):
                 self._request._post = self.POST
                 self._request._files = self.FILES

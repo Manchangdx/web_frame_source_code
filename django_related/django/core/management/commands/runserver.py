@@ -113,7 +113,7 @@ class Command(BaseCommand):
         """
         import threading
         ct = threading.current_thread()
-        print('【django.core.management.commands.runserver.Command.inner_run】当前线程为 Django 应用的主线程:', ct.name, ct.ident)
+        print('【django.core.management.commands.runserver.Command.inner_run】当前线程（应用主线程）:', ct.name, ct.ident)
 
         # If an exception was silenced in ManagementUtility.execute in order
         # to be raised in the child process, raise it now.

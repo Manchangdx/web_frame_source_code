@@ -65,24 +65,18 @@ class LimitedStream:
 class WSGIRequest(HttpRequest):
     # 该类的实例是「请求对象」
     def __init__(self, environ):
-        print('【django.core.handlers.wsgi.WSGIRequest.__init__】初始化「请求对象」')
         script_name = get_script_name(environ)
-        # If PATH_INFO is empty (e.g. accessing the SCRIPT_NAME URL without a
-        # trailing slash), operate as if '/' was requested.
         path_info = get_path_info(environ) or '/'
+        print(f'【django.core.handlers.wsgi.WSGIRequest.__init__】初始化「请求对象」, {path_info=}')
         self.environ = environ
         # 请求的相对路径
         self.path_info = path_info
-        # be careful to only replace the first slash in the path because of
-        # http://test/something and http://test//something being different as
-        # stated in https://www.ietf.org/rfc/rfc2396.txt
         self.path = '%s/%s' % (script_name.rstrip('/'),
                                path_info.replace('/', '', 1))
         self.META = environ
         self.META['PATH_INFO'] = path_info
         self.META['SCRIPT_NAME'] = script_name
         self.method = environ['REQUEST_METHOD'].upper()
-        # Set content_type, content_params, and encoding.
         self._set_content_type_params(environ)
         try:
             content_length = int(environ.get('CONTENT_LENGTH'))
@@ -97,7 +91,6 @@ class WSGIRequest(HttpRequest):
 
     @cached_property
     def GET(self):
-        # The WSGI spec says 'QUERY_STRING' may be absent.
         raw_query_string = get_bytes_from_wsgi(self.environ, 'QUERY_STRING', '')
         return QueryDict(raw_query_string, encoding=self._encoding)
 
@@ -140,16 +133,28 @@ class WSGIHandler(base.BaseHandler):
         """初始化「应用对象」，此方法在启动服务时就会执行
         """
         super().__init__(*args, **kwargs)
-        print(f'【django.core.handlers.wsgi.WSGIHandler.__init__】应用对象初始化: {args=}; {kwargs=}')
+        print(f'【django.core.handlers.wsgi.WSGIHandler.__init__】「应用对象」初始化: {args=}; {kwargs=}')
         # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()
 
     def __call__(self, environ, start_response):
-        """每次请求进入后，调用该方法
+        """客户端发来请求后「响应处理对象」调用此方法，这是符合 WSGI 标准的 HTTP 函数
+
+        Args:
+            self           :「应用对象」，服务启动后创建的全局唯一的对象
+            environ        : 类字典对象，里面包含全部请求信息
+            start_response : 发送 HTTP 响应的函数
+
+        Process:
+            1. 利用 environ 创建「请求对象」
+            2. 利用「请求对象」生成「响应对象」
+            3. 返回「响应对象」
         """
-        # self 是「应用对象」，客户端发来请求后「响应处理对象」调用此方法
-        print('【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」')
-        #for k, v in environ.items():
+        print(
+            '【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」的 __call__ 方法，'
+            '这是符合 WSGI 标准的 HTTP 函数，从这里开始进入到 Web 应用处理请求的阶段'
+        )
+        # for k, v in environ.items():
         #    print(f'\t\t{k:<33}{v}')
 
         set_script_prefix(get_script_name(environ))

@@ -60,7 +60,9 @@ class View:
                                 "attributes of the class." % (cls.__name__, key))
 
         def view(request, *args, **kwargs):
-            # self 是视图类的实例，当前函数就是「视图函数」
+            """根据「请求对象」的路径信息找到的视图函数
+            """
+            # cls 是视图类，self 是视图类的实例
             self = cls(**initkwargs)
             if hasattr(self, 'get') and not hasattr(self, 'head'):
                 self.head = self.get
@@ -70,16 +72,14 @@ class View:
                     "%s instance has no 'request' attribute. Did you override "
                     "setup() and forget to call super()?" % cls.__name__
                 )
-            # 根据请求方法找到对应的同名视图函数并调用之
+
+            # 此 dispatch 方法在 rest_framework.views.APIView 类中，根据请求方法找到对应的同名视图函数并调用之
             return self.dispatch(request, *args, **kwargs)
+
         view.view_class = cls
         view.view_initkwargs = initkwargs
 
-        # take name and docstring from class
         update_wrapper(view, cls, updated=())
-
-        # and possible attributes set by decorators
-        # like csrf_exempt from dispatch
         update_wrapper(view, cls.dispatch, assigned=())
         return view
 
@@ -97,7 +97,6 @@ class View:
             handler = getattr(self, request.method.lower(), self.http_method_not_allowed)
         else:
             handler = self.http_method_not_allowed
-        #print('【django.views.generic.base.View.dispatch】视图函数:', handler)
         return handler(request, *args, **kwargs)
 
     def http_method_not_allowed(self, request, *args, **kwargs):
