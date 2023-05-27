@@ -310,12 +310,6 @@ class Server(events.AbstractServer):
             return
         self._serving = True
         for sock in self._sockets:
-            try:
-                import click
-                cs = click.style('启动套接字监听', fg='yellow')
-                print(f'【asyncio.base_events.Server._start_serving】{cs}')
-            except:
-                print(f'【asyncio.base_events.Server._start_serving】启动套接字监听')
             sock.listen(self._backlog)
             self._loop._start_serving(
                 self._protocol_factory, sock, self._ssl_context,
@@ -572,8 +566,10 @@ class BaseEventLoop(events.AbstractEventLoop):
                                finalizer=self._asyncgen_finalizer_hook)
         try:
             events._set_running_loop(self)
+            #print('a'*88)
             while True:
                 self._run_once()
+                #print('b'*88, self._stopping)
                 if self._stopping:
                     break
         finally:
@@ -588,10 +584,6 @@ class BaseEventLoop(events.AbstractEventLoop):
 
         If the argument is a coroutine, it is wrapped in a Task.
 
-        WARNING: It would be disastrous to call run_until_complete()
-        with the same coroutine twice -- it would wrap it in two
-        different Tasks and that can't be good.
-
         Return the Future's result, or raise its exception.
         """
         self._check_closed()
@@ -605,6 +597,8 @@ class BaseEventLoop(events.AbstractEventLoop):
             future._log_destroy_pending = False
 
         future.add_done_callback(_run_until_complete_cb)
+        print(f'【asyncio.base_events.BaseEventLoop.run_until_complete】任务名称: {future.get_name()}')
+
         try:
             self.run_forever()
         except:
@@ -1406,6 +1400,7 @@ class BaseEventLoop(events.AbstractEventLoop):
 
         This method is a coroutine.
         """
+        print(f'【asyncio.base_events.BaseEventLoop.create_server】loop 创建套接字作为服务器: ({host}:{port})')
         if isinstance(ssl, bool):
             raise TypeError('ssl argument must be an SSLContext or None')
 
@@ -1484,11 +1479,8 @@ class BaseEventLoop(events.AbstractEventLoop):
         for sock in sockets:
             sock.setblocking(False)
 
-        # 此处创建当前模块中的 Server 类的实例，即为协程中的「套接字服务对象」
         server = Server(self, sockets, protocol_factory,
                         ssl, backlog, ssl_handshake_timeout)
-        server_str = ' '.join(i for i in str(server).split() if not 'family' in i)
-        print('【asyncio.base_events.BaseEventLoop.create_server】创建套接字服务对象:', server_str)
         if start_serving:
             server._start_serving()
             # Skip one loop iteration so that all 'loop.add_reader'
@@ -1798,6 +1790,7 @@ class BaseEventLoop(events.AbstractEventLoop):
         'call_later' callbacks.
         """
 
+        #print('1'*11)
         sched_count = len(self._scheduled)
         if (sched_count > _MIN_SCHEDULED_TIMER_HANDLES and
             self._timer_cancelled_count / sched_count >
@@ -1829,7 +1822,9 @@ class BaseEventLoop(events.AbstractEventLoop):
             when = self._scheduled[0]._when
             timeout = min(max(0, when - self.time()), MAXIMUM_SELECT_TIMEOUT)
 
+        #print('2'*11)
         event_list = self._selector.select(timeout)
+        #print('3'*11)
         self._process_events(event_list)
 
         # Handle 'later' callbacks that are ready.
@@ -1849,6 +1844,7 @@ class BaseEventLoop(events.AbstractEventLoop):
         # they will be run the next time (after another I/O poll).
         # Use an idiom that is thread-safe without using locks.
         ntodo = len(self._ready)
+        #print(f'【asyncio.base_events.BaseEventLoop._run_once】{self._ready=}')
         for i in range(ntodo):
             handle = self._ready.popleft()
             if handle._cancelled:

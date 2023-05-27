@@ -92,7 +92,6 @@ async def start_server(client_connected_cb, host=None, port=None, *,
         return protocol
 
     print('【asyncio.streams.start_server】调用 asyncio.base_event.BaseEventLoop.create_server 方法创建协程可用的套接字服务对象')
-
     return await loop.create_server(factory, host, port, **kwds)
 
 

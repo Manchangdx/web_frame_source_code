@@ -160,7 +160,11 @@ class Queue:
             getter = self._loop.create_future()
             self._getters.append(getter)
             try:
-                print(f'【asyncio.queues.Queue.get】getter: {getter} 这是一个期物对象 loop.create_future() ，什么也不干，一直处于 PENDDING 状态，直到自己被赋值，也就是调用自身的 set_result 方法')
+                print(
+                    f'【asyncio.queues.Queue.get】getter: {getter} '
+                    f'这是一个期物对象 loop.create_future() ，什么也不干，一直处于 PENDDING 状态，'
+                    f'直到自己被赋值，也就是调用自身的 set_result 方法'
+                )
                 x = await getter
                 print('【asyncio.queues.Queue.get】期物对象被赋值:', x)
             except:
@@ -187,7 +191,6 @@ class Queue:
         if self.empty():
             raise QueueEmpty
         item = self._get()
-        print('【asyncio.queues.Queue.get_nowait】item:', item)
         self._wakeup_next(self._putters)
         return item
 
