@@ -18,7 +18,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Channel0(object):
-    """Internal Channel0 handler."""
+    """零号信道
+
+    1. 建立连接
+    2. 关闭连接
+    3. 心跳检查
+    """
 
     def __init__(self, connection, client_properties=None):
         super(Channel0, self).__init__()
@@ -32,10 +37,7 @@ class Channel0(object):
         self._override_client_properties = client_properties
 
     def on_frame(self, frame_in):
-        """Handle frames sent to Channel0.
-
-        :param frame_in: Amqp frame.
-        :return:
+        """零号信道处理服务器发来的数据帧
         """
         LOGGER.debug('Frame Received: %s', frame_in.name)
         if frame_in.name == 'Heartbeat':
@@ -137,10 +139,7 @@ class Channel0(object):
                              self._parameters['password'])
 
     def _send_start_ok(self, frame_in):
-        """Send Start OK frame.
-
-        :param specification.Connection.Start frame_in: Amqp frame.
-        :return:
+        """向服务器发送 Start OK 数据帧
         """
         mechanisms = try_utf8_decode(frame_in.mechanisms)
         if 'EXTERNAL' in mechanisms:

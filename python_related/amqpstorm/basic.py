@@ -19,7 +19,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Basic(Handler):
-    """RabbitMQ Basic Operations."""
+    """信道管理器
+    """
     __slots__ = ['_max_frame_size']
 
     def __init__(self, channel, max_frame_size=None):
@@ -111,25 +112,19 @@ class Basic(Handler):
         recover_frame = specification.Basic.Recover(requeue=requeue)
         return self._channel.rpc_request(recover_frame)
 
-    def consume(self, callback=None, queue='', consumer_tag='',
-                exclusive=False, no_ack=False, no_local=False, arguments=None):
+    def consume(
+        self, callback=None, queue='', consumer_tag='',
+        exclusive=False, no_ack=False, no_local=False, arguments=None
+    ):
         """Start a queue consumer.
 
-        :param typing.Callable callback: Message callback
-        :param str queue: Queue name
-        :param str consumer_tag: Consumer tag
-        :param bool no_local: Do not deliver own messages
-        :param bool no_ack: No acknowledgement needed
-        :param bool exclusive: Request exclusive access
-        :param dict arguments: Consume key/value arguments
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :returns: Consumer tag
-        :rtype: str
+        Args:
+            callback:       回调函数
+            queue:          当前信道要接收消息的消息队列
+            consumer_tag:   消费者标签
+            exclusive:      是否独占该消息队列
+            no_ack:         是否手动确认消息
+            no_local:       是否允许消费者接收自身发出的消息
         """
         if not compatibility.is_string(queue):
             raise AMQPInvalidArgument('queue should be a string')
@@ -143,9 +138,7 @@ class Basic(Handler):
             raise AMQPInvalidArgument('no_local should be a boolean')
         elif arguments is not None and not isinstance(arguments, dict):
             raise AMQPInvalidArgument('arguments should be a dict or None')
-        consume_rpc_result = self._consume_rpc_request(arguments, consumer_tag,
-                                                       exclusive, no_ack,
-                                                       no_local, queue)
+        consume_rpc_result = self._consume_rpc_request(arguments, consumer_tag, exclusive, no_ack, no_local, queue)
         tag = self._consume_add_and_get_tag(consume_rpc_result)
         self._channel._consumer_callbacks[tag] = callback
         return tag
@@ -286,8 +279,7 @@ class Basic(Handler):
         self._channel.add_consumer_tag(consumer_tag)
         return consumer_tag
 
-    def _consume_rpc_request(self, arguments, consumer_tag, exclusive, no_ack,
-                             no_local, queue):
+    def _consume_rpc_request(self, arguments, consumer_tag, exclusive, no_ack, no_local, queue):
         """Create a Consume Frame and execute a RPC request.
 
         :param str queue: Queue name

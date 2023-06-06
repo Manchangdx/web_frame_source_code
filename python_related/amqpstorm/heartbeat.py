@@ -25,16 +25,12 @@ class Heartbeat(object):
         self._threshold = 0
 
     def register_read(self):
-        """Register that a frame has been received.
-
-        :return:
+        """从服务器读取数据次数 +1
         """
         self._reads_since_check += 1
 
     def register_write(self):
-        """Register that a frame has been sent.
-
-        :return:
+        """向服务器写入次数 +1
         """
         self._writes_since_check += 1
 
@@ -43,6 +39,7 @@ class Heartbeat(object):
         """
         if not self._interval:
             return False
+        print(f'【amqpstorm.heartbeat.Heartbeat.start】启动心跳检查 [{threading.current_thread().name}]')
         # 把自己的 “线程事件” 设为 “已设置” 状态
         self._running.set()
         with self._lock:
@@ -71,6 +68,7 @@ class Heartbeat(object):
         首先检查是否有任何数据被发送，如果没有，向服务器发送一个心跳信号。
         如果在两个时间间隔内都没有接收到任何数据，抛出一个异常，以便关闭连接。
         """
+        # 如果自身的 “线程事件” 处于 “未设置” 状态，直接返回
         if not self._running.is_set():
             return False
         if self._writes_since_check == 0:

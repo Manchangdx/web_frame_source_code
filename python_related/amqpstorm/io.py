@@ -37,7 +37,7 @@ class Poller(object):
 
     @property
     def is_ready(self) -> bool:
-        """判断连接 RabbitMQ 服务器的客户端套接字是否 “读就绪”
+        """判断连接 RabbitMQ 服务器的客户端套接字是否 “读就绪”，也就是服务器发来消息
         """
         try:
             ready, _, _ = self.select.select([self.fileno], [], [], POLL_TIMEOUT)
@@ -56,7 +56,7 @@ class IO(object):
         self._wr_lock = threading.Lock()
         self._rd_lock = threading.Lock()
         self._inbound_thread = None
-        self._on_read_impl = on_read_impl
+        self._on_read_impl = on_read_impl  # connection.Connection._read_buffer
         self._running = threading.Event()
         self._parameters = parameters
         self.data_in = EMPTY_BUFFER
@@ -88,7 +88,7 @@ class IO(object):
     def open(self):
         """在线程安全的情况下启动 IO 相关活动
 
-        1. 将 “协程事件” 设为 “已设置” 状态
+        1. 将 “线程事件” 设为 “已设置” 状态
         2. 创建 TCP 套接字，并与 RabbitMQ 服务器建立连接
         3. 创建 poller 对象，其本质就是 select 多路复用对象，用于判断客户端套接字是否 “读就绪”，也就是有没有收到服务器发来的消息
         4. 创建一个子线程并启动运行，该子线程会维持一个无限循环，在循环中利用 poller 对象判断客户端套接字是否 “读就绪”
@@ -97,7 +97,8 @@ class IO(object):
         self._rd_lock.acquire()
         try:
             self.data_in = EMPTY_BUFFER
-            print('【amqpstorm.io.IO.open】将 “协程事件” 设为 “已设置” 状态')
+            current_thread = threading.current_thread()
+            print(f'【amqpstorm.io.IO.open】将 “线程事件” 设为 “已设置” 状态 [{current_thread.name}]')
             self._running.set()
             print('【amqpstorm.io.IO.open】创建 TCP 套接字，并与 RabbitMQ 服务器建立连接')
             sock_addresses = self._get_socket_addresses()
@@ -253,6 +254,8 @@ class IO(object):
     def _process_incoming_data(self):
         """处理 RabbitMQ 服务器发来的消息
         """
+        current_thread = threading.current_thread()
+        print(f'【amqpstorm.io.IO._process_incoming_data】启动监听服务器发来的消息 [{current_thread.name}]')
         # 如果 “线程事件” 处于 “已设置” 状态
         while self._running.is_set():
             # 如果 RabbitMQ 服务器发来了消息

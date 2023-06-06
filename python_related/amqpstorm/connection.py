@@ -70,17 +70,19 @@ class Connection(Stateful):
 
     @property
     def channels(self):
-        """Returns a dictionary of the Channels currently available.
+        """信道字典
 
-        :rtype: dict
+        return:
+            {
+                channel_id: Channel(),
+                ...
+            }
         """
         return self._channels
 
     @property
     def fileno(self):
-        """Returns the Socket File number.
-
-        :rtype: integer,None
+        """客户端套接字文件描述符
         """
         if not self._io.socket:
             return None
@@ -97,9 +99,7 @@ class Connection(Stateful):
 
     @property
     def max_allowed_channels(self):
-        """Returns the maximum allowed channels for the connection.
-
-        :rtype: int
+        """单个连接允许创建的信道数量上限，默认是 2047 个
         """
         return self._channel0.max_allowed_channels
 
@@ -121,25 +121,13 @@ class Connection(Stateful):
 
     @property
     def socket(self):
-        """Returns an instance of the Socket used by the Connection.
-
-        :rtype: socket.socket
-        """
         return self._io.socket
 
     def channel(self, rpc_timeout=60, lazy=False):
-        """Open a Channel.
-
-        :param int rpc_timeout: Timeout before we give up waiting for an RPC
-                                response from the server.
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :rtype: amqpstorm.Channel
+        """创建一个信道
         """
+        current_thread = threading.current_thread()
+        print(f'【amqpstorm.connection.Connection.channel】新建一个信道 [{current_thread.name}]')
         LOGGER.debug('Opening a new Channel')
         if not compatibility.is_integer(rpc_timeout):
             raise AMQPInvalidArgument('rpc_timeout should be an integer')
@@ -160,7 +148,7 @@ class Connection(Stateful):
 
         1. 如果没有异常并且连接处于未关闭模式：什么也不做
         2. 如果没有异常并且连接处于关闭模式：创建异常，断开信道和连接，将连接设为关闭模式，抛出异常
-        2. 如果有异常：断开信道和连接，将连接设为关闭模式，抛出异常
+        3. 如果有异常：断开信道和连接，将连接设为关闭模式，抛出异常
         """
         if not self.exceptions:
             if not self.is_closed:
@@ -191,43 +179,47 @@ class Connection(Stateful):
         LOGGER.debug('Connection Closed')
 
     def open(self):
-        """创建 TCP 客户端套接字，与 RabbitMQ 服务器建立连接
+        """启动连接
         """
         LOGGER.debug('Connection Opening')
-        # 将 self._state 为开启状态
+
+        # 连接有四个状态：已关闭、正在关闭、已开启、正在开启
+        # 新建的连接处于 “已关闭” 状态
+        # 将 self._state 设为 “正在开启” 状态
         self.set_state(self.OPENING)
+
         self._exceptions = []
         self._channels = {}
         self._last_channel_id = None
+
         # 创建 TCP 客户端套接字，与 RabbitMQ 服务器建立连接，等待接收服务端发来的消息
         self._io.open()
-        # 向 RabbitMQ 服务器发送握手请求
+
+        # 向 RabbitMQ 服务器发送握手请求，把所有准备工作做好
         self._send_handshake()
         self._wait_for_connection_state(state=Stateful.OPEN)
+
         # 启动心跳检查
         self.heartbeat.start(self._exceptions)
+
+        print(f'【amqpstorm.connection.Connection.open】启动连接完毕 [{threading.current_thread().name}]')
         LOGGER.debug('Connection Opened')
 
     def write_frame(self, channel_id, frame_out):
-        """Marshal and write an outgoing pamqp frame to the Socket.
+        """将一条数据通过指定信道发送给 RabbitMQ 服务器
 
-        :param int channel_id: Channel ID.
-        :param specification.Frame frame_out: Amqp frame.
-
-        :return:
+        Args:
+            channel_id: 信道 ID
+            frame_out: pamqp.specification.Frame 类的实例
         """
         frame_data = pamqp_frame.marshal(frame_out, channel_id)
         self.heartbeat.register_write()
-        print(f'【amqpstorm.connection.Connection.write_frame】利用信道给服务器发送消息 {channel_id=} {frame_out=}')
+        current_thread = threading.current_thread()
+        print(f'【amqpstorm.connection.Connection.write_frame】利用信道给服务器发送消息 {channel_id=} {frame_out=} [{current_thread.name}] {time.ctime()}')
         self._io.write_to_socket(frame_data)
 
     def write_frames(self, channel_id, frames_out):
-        """Marshal and write multiple outgoing pamqp frames to the Socket.
-
-        :param int channel_id: Channel ID/
-        :param list frames_out: Amqp frames.
-
-        :return:
+        """将多条数据通过指定信道发送给 RabbitMQ 服务器
         """
         data_out = EMPTY_BUFFER
         for single_frame in frames_out:
@@ -246,14 +238,9 @@ class Connection(Stateful):
             self._cleanup_channel(channel_id)
 
     def _get_next_available_channel_id(self):
-        """Returns the next available available channel id.
-
-        :raises AMQPConnectionError: Raises if there is no available channel.
-        :rtype: int
+        """返回一个未被使用的信道 ID
         """
-        print('>'*88, f'{self.max_allowed_channels=}')
-        for channel_id in compatibility.RANGE(self._last_channel_id or 1,
-                                              self.max_allowed_channels + 1):
+        for channel_id in compatibility.RANGE(self._last_channel_id or 1, self.max_allowed_channels + 1):
             if channel_id in self._channels:
                 channel = self._channels[channel_id]
                 if channel.current_state != Channel.CLOSED:
@@ -266,16 +253,10 @@ class Connection(Stateful):
             self._last_channel_id = None
             return self._get_next_available_channel_id()
 
-        raise AMQPConnectionError(
-            'reached the maximum number of channels %d' %
-            self.max_allowed_channels)
+        raise AMQPConnectionError(f'reached the maximum number of channels {self.max_allowed_channels}')
 
     def _handle_amqp_frame(self, data_in):
-        """Unmarshal a single AMQP frame and return the result.
-
-        :param data_in: socket data
-
-        :return: data_in, channel_id, frame
+        """反序列化服务器发来的消息
         """
         if not data_in:
             return data_in, None, None
@@ -292,13 +273,14 @@ class Connection(Stateful):
         return data_in, None, None
 
     def _read_buffer(self, data_in):
-        """Process the socket buffer, and direct the data to the appropriate
-        channel.
-
-        :rtype: bytes
+        """处理服务器发来的消息
         """
         while data_in:
             data_in, channel_id, frame_in = self._handle_amqp_frame(data_in)
+            print(
+                f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 '
+                f'{data_in=} {channel_id=} {frame_in=} [{threading.current_thread().name}] {time.ctime()}'
+            )
 
             if frame_in is None:
                 break
@@ -324,10 +306,24 @@ class Connection(Stateful):
             del self._channels[channel_id]
 
     def _send_handshake(self):
-        """创建 TCP 连接后发送一个 AMQP 握手请求
+        """通过零号信道发送一个 AMQP 握手请求
+
+        此请求是建立 TCP 连接后客户端发出的第一个请求，该请求引发的连锁反应如下：
+            1. 向服务器发送第一个握手请求，包含 AMQP 版本号
+            2. 服务器返回 Start 数据帧
+            3. 向服务器发送 StartOk 数据帧，包括 Python 版本、AMQPStorm 版本、用户账号密码等信息
+            4. 服务器验证通过后返回 Tune 数据帧
+            5. 向服务器发送两个数据帧
+                  TuneOk 数据帧，包括信道数量上限、数据帧的字节数上限、心跳间隔时间等
+                  Open 数据帧，包含要连接的 vhost 虚拟主机
+            6. 服务器返回 OpenOk 数据帧
+            7. 收到这个数据帧后将连接的状态设为 “已开启”
         """
         frame_data = pamqp_header.ProtocolHeader().marshal()
-        print(f'【amqpstorm.connection.Connection._send_handshaek】创建 TCP 连接后发送一个 AMQP 握手请求: {frame_data}')
+        print(
+            f'【amqpstorm.connection.Connection._send_handshake】创建 TCP 连接后向服务器发送一个 AMQP 握手请求: '
+            f'{frame_data} [{threading.current_thread().name}]'
+        )
         self._io.write_to_socket(frame_data)
 
     def _validate_parameters(self):
@@ -349,10 +345,7 @@ class Connection(Stateful):
             raise AMQPInvalidArgument('heartbeat should be an integer')
 
     def _wait_for_connection_state(self, state=Stateful.OPEN, rpc_timeout=30):
-        """设置连接状态 self._state 后必须要调用此方法处理后续工作
-
-        1. 开启连接：检查异常，如果有异常，断开连接、关闭连接、抛出异常
-        2. 关闭连接：检查异常，断开连接、关闭连接、抛出异常
+        """确保连接处于参数 state 指定的状态
         """
         start_time = time.time()
         while self.current_state != state:

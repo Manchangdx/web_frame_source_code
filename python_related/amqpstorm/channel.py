@@ -29,12 +29,7 @@ CONTENT_FRAME = ['Basic.Deliver', 'ContentHeader', 'ContentBody']
 
 
 class Channel(BaseChannel):
-    """RabbitMQ Channel.
-
-    e.g.
-    ::
-
-        channel = connection.channel()
+    """RabbitMQ Channel
     """
     __slots__ = [
         '_consumer_callbacks', 'rpc', '_basic', '_confirming_deliveries',
@@ -42,6 +37,8 @@ class Channel(BaseChannel):
     ]
 
     def __init__(self, channel_id, connection, rpc_timeout):
+        current_thread = threading.current_thread()
+        print(f'【amqpstorm.channel.Channel.__init__】信道初始化 {channel_id=} [{current_thread.name}]')
         super(Channel, self).__init__(channel_id)
         self.lock = threading.Lock()
         self.rpc = Rpc(self, timeout=rpc_timeout)
@@ -331,11 +328,13 @@ class Channel(BaseChannel):
     def rpc_request(self, frame_out, connection_adapter=None):
         """Perform a RPC Request.
 
-        :param specification.Frame frame_out: Amqp frame.
-        :rtype: dict
+        Args:
+            frame_out: pamqp.specification.Frame 子类的实例
         """
         with self.rpc.lock:
+            # 随机生成的唯一标识符
             uuid = self.rpc.register_request(frame_out.valid_responses)
+            # 发送消息给服务器，将信道与消息队列绑定
             self._connection.write_frame(self.channel_id, frame_out)
             return self.rpc.get_request(
                 uuid, connection_adapter=connection_adapter
