@@ -84,10 +84,10 @@ class Channel(BaseChannel):
         """根据服务器发来的数据帧构造【消息】
 
         Args:
-            break_on_empty: 没有消息时停止循环
-            to_tuple        : 返回【消息】的关键属性元组
-            auto_decode     : 返回解码后的消息体
-            message_impl    : 消息类，默认是 message.Message
+            break_on_empty : 没有消息时停止循环
+            to_tuple       : 返回【消息】的关键属性元组
+            auto_decode    : 返回解码后的消息体
+            message_impl   : 消息类，默认是 message.Message
         """
         self.check_for_errors()
         if message_impl:

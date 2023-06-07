@@ -210,39 +210,17 @@ class Basic(Handler):
         self._channel.write_frames(frames_out)
 
     def ack(self, delivery_tag=0, multiple=False):
-        """Acknowledge Message.
-
-        :param int/long delivery_tag: Server-assigned delivery tag
-        :param bool multiple: Acknowledge multiple messages
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :return:
+        """发送消息确认数据帧给服务器
         """
         if not compatibility.is_integer(delivery_tag):
             raise AMQPInvalidArgument('delivery_tag should be an integer')
         elif not isinstance(multiple, bool):
             raise AMQPInvalidArgument('multiple should be a boolean')
-        ack_frame = specification.Basic.Ack(delivery_tag=delivery_tag,
-                                            multiple=multiple)
+        ack_frame = specification.Basic.Ack(delivery_tag=delivery_tag, multiple=multiple)
         self._channel.write_frame(ack_frame)
 
     def nack(self, delivery_tag=0, multiple=False, requeue=True):
-        """Negative Acknowledgement.
-
-        :param int/long delivery_tag: Server-assigned delivery tag
-        :param bool multiple: Negative acknowledge multiple messages
-        :param bool requeue: Re-queue the message
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :return:
+        """消息确认失败，将其重新放回消息队列
         """
         if not compatibility.is_integer(delivery_tag):
             raise AMQPInvalidArgument('delivery_tag should be an integer')
@@ -250,9 +228,7 @@ class Basic(Handler):
             raise AMQPInvalidArgument('multiple should be a boolean')
         elif not isinstance(requeue, bool):
             raise AMQPInvalidArgument('requeue should be a boolean')
-        nack_frame = specification.Basic.Nack(delivery_tag=delivery_tag,
-                                              multiple=multiple,
-                                              requeue=requeue)
+        nack_frame = specification.Basic.Nack(delivery_tag=delivery_tag, multiple=multiple, requeue=requeue)
         self._channel.write_frame(nack_frame)
 
     def reject(self, delivery_tag=0, requeue=True):

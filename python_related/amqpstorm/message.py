@@ -73,19 +73,10 @@ class Message(BaseMessage):
         return self._try_decode_utf8_content(self._properties, 'properties')
 
     def ack(self):
-        """Acknowledge Message.
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :return:
+        """向服务器发送消息确认数据帧
         """
         if not self._method:
-            raise AMQPMessageError(
-                'Message.ack only available on incoming messages'
-            )
+            raise AMQPMessageError('Message.ack only available on incoming messages')
         self._channel.basic.ack(delivery_tag=self.delivery_tag)
 
     def nack(self, requeue=True):
