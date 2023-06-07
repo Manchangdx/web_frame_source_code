@@ -17,7 +17,7 @@ class Rpc(object):
 
     def __init__(self, default_adapter, timeout=360):
         self._lock = threading.Lock()
-        self._default_connection_adapter = default_adapter
+        self._default_connection_adapter = default_adapter  # channel.Channel()
         self._timeout = timeout
         self._response = {}
         self._request = {}
@@ -27,10 +27,7 @@ class Rpc(object):
         return self._lock
 
     def on_frame(self, frame_in):
-        """On RPC Frame.
-
-        :param specification.Frame frame_in: Amqp frame.
-        :return:
+        """处理服务器发给信道的消息
         """
         if frame_in.name not in self._request:
             return False
@@ -83,23 +80,17 @@ class Rpc(object):
         if uuid in self._response:
             del self._response[uuid]
 
-    def get_request(self, uuid, raw=False, multiple=False,
-                    connection_adapter=None):
-        """Get a RPC request.
-
-        :param str uuid: Rpc Identifier
-        :param bool raw: If enabled return the frame as is, else return
-                         result as a dictionary.
-        :param bool multiple: Are we expecting multiple frames.
-        :param obj connection_adapter: Provide custom connection adapter.
-        :return:
+    def get_request(self, uuid, raw=False, multiple=False, connection_adapter=None):
+        """获取服务器返回的数据帧，每次信道发出 RPC 请求给服务器后，都会调用此方法等待并返回响应
         """
         if uuid not in self._response:
             return
-        self._wait_for_request(
-            uuid, connection_adapter or self._default_connection_adapter
-        )
+
+        # 阻塞运行，等待服务器响应
+        self._wait_for_request(uuid, connection_adapter or self._default_connection_adapter)
+        # 从 self._response[uuid] 列表中获取服务器返回的数据帧
         frame = self._get_response_frame(uuid)
+
         if not multiple:
             self.remove(uuid)
         result = None
@@ -110,11 +101,6 @@ class Rpc(object):
         return result
 
     def _get_response_frame(self, uuid):
-        """Get a response frame.
-
-        :param str uuid: Rpc Identifier
-        :return:
-        """
         frame = None
         frames = self._response.get(uuid, None)
         if frames:
@@ -122,11 +108,11 @@ class Rpc(object):
         return frame
 
     def _wait_for_request(self, uuid, connection_adapter=None):
-        """Wait for RPC request to arrive.
+        """等待服务器返回数据帧
 
-        :param str uuid: Rpc Identifier.
-        :param obj connection_adapter: Provide custom connection adapter.
-        :return:
+        每次信道发出 RPC 请求给服务器后，都会调用此方法等待响应
+        信道收到响应后，就会调用 self.on_frame 方法将响应数据帧放到 self._response[uuid] 的列表里面
+        然后此方法就会结束运行（或者超时抛出异常）
         """
         start_time = time.time()
         while not self._response[uuid]:

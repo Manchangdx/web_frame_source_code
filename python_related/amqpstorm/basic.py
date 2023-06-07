@@ -162,43 +162,41 @@ class Basic(Handler):
         self._channel.remove_consumer_tag(consumer_tag)
         return result
 
-    def publish(self, body, routing_key, exchange='', properties=None,
-                mandatory=False, immediate=False):
-        """Publish a Message.
+    def publish(self, body, routing_key, exchange='', properties=None, mandatory=False, immediate=False):
+        """向消息队列发送消息
 
-        :param bytes,str,unicode body: Message payload
-        :param str routing_key: Message routing key
-        :param str exchange: The exchange to publish the message to
-        :param dict properties: Message properties
-        :param bool mandatory: Requires the message is published
-        :param bool immediate: Request immediate delivery
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :rtype: bool,None
+        Args:
+            routing_key : 消息路由键，交换机据此判断将消息转发到哪些队列
+            exchange    : 交换机
+            properties  : 字典参数
+            mandatory   : 服务器收到无法被转发到任何队列的消息时，是否返回一个 Basic.Return 数据帧
+            immediate   : 服务器转发消息到队列，如果队列未绑定接受者，是否返回一个 Basic.Return 数据帧
         """
-        self._validate_publish_parameters(body, exchange, immediate, mandatory,
-                                          properties, routing_key)
+        # 验证参数的数据类型是否合规
+        self._validate_publish_parameters(body, exchange, immediate, mandatory, properties, routing_key)
         properties = properties or {}
+        # 获取消息体的字节序列
         body = self._handle_utf8_payload(body, properties)
+        # 消息的其它属性
         properties = specification.Basic.Properties(**properties)
-        method_frame = specification.Basic.Publish(exchange=exchange,
-                                                   routing_key=routing_key,
-                                                   mandatory=mandatory,
-                                                   immediate=immediate)
-        header_frame = pamqp_header.ContentHeader(body_size=len(body),
-                                                  properties=properties)
+
+        method_frame = specification.Basic.Publish(
+            exchange=exchange, routing_key=routing_key, mandatory=mandatory, immediate=immediate
+        )
+        header_frame = pamqp_header.ContentHeader(
+            body_size=len(body), properties=properties
+        )
 
         frames_out = [method_frame, header_frame]
         for body_frame in self._create_content_body(body):
             frames_out.append(body_frame)
 
+        # 如果发送设置了确认机制的消息
         if self._channel.confirming_deliveries:
+            # 就要在同步锁中执行专门的方法
             with self._channel.rpc.lock:
                 return self._publish_confirm(frames_out, mandatory)
+
         self._channel.write_frames(frames_out)
 
     def ack(self, delivery_tag=0, multiple=False):
@@ -300,21 +298,7 @@ class Basic(Handler):
         return self._channel.rpc_request(consume_frame)
 
     @staticmethod
-    def _validate_publish_parameters(body, exchange, immediate, mandatory,
-                                     properties, routing_key):
-        """Validate Publish Parameters.
-
-        :param bytes,str,unicode body: Message payload
-        :param str routing_key: Message routing key
-        :param str exchange: The exchange to publish the message to
-        :param dict properties: Message properties
-        :param bool mandatory: Requires the message is published
-        :param bool immediate: Request immediate delivery
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-
-        :return:
-        """
+    def _validate_publish_parameters(body, exchange, immediate, mandatory, properties, routing_key):
         if not compatibility.is_string(body):
             raise AMQPInvalidArgument('body should be a string')
         elif not compatibility.is_string(routing_key):
@@ -330,13 +314,6 @@ class Basic(Handler):
 
     @staticmethod
     def _handle_utf8_payload(body, properties):
-        """Update the Body and Properties to the appropriate encoding.
-
-        :param bytes,str,unicode body: Message payload
-        :param dict properties: Message properties
-
-        :return:
-        """
         if 'content_encoding' not in properties:
             properties['content_encoding'] = 'utf-8'
         encoding = properties['content_encoding']
@@ -379,18 +356,20 @@ class Basic(Handler):
                             auto_decode=auto_decode)
 
     def _publish_confirm(self, frames_out, mandatory):
-        """Confirm that message was published successfully.
+        """发送 “设置了确认机制的消息”
 
-        :param list frames_out:
-
-        :rtype: bool
+        此方法发送消息后，会阻塞当前信道，直到收到服务器返回的数据帧
+        并且根据数据帧判断消息是否发送成功
         """
-        confirm_uuid = self._channel.rpc.register_request(['Basic.Ack',
-                                                           'Basic.Nack'])
+        # 生成随机编号
+        confirm_uuid = self._channel.rpc.register_request(['Basic.Ack', 'Basic.Nack'])
+        # 发送消息
         self._channel.write_frames(frames_out)
+        # 阻塞等待并获取服务器返回的响应数据帧
         result = self._channel.rpc.get_request(confirm_uuid, raw=True)
         if mandatory:
             self._channel.check_for_exceptions()
+        # 根据响应数据帧的类型判断消息是否发送成功
         if isinstance(result, specification.Basic.Ack):
             return True
         return False

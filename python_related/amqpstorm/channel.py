@@ -56,10 +56,7 @@ class Channel(BaseChannel):
 
     def __exit__(self, exception_type, exception_value, _):
         if exception_type:
-            LOGGER.warning(
-                'Closing channel due to an unhandled exception: %s',
-                exception_value
-            )
+            LOGGER.warning(f'Closing channel due to an unhandled exception: {exception_value}')
         if not self.is_open:
             return
         self.close()
@@ -69,54 +66,18 @@ class Channel(BaseChannel):
 
     @property
     def basic(self):
-        """RabbitMQ Basic Operations.
-
-            e.g.
-            ::
-
-                message = channel.basic.get(queue='hello_world')
-
-        :rtype: amqpstorm.basic.Basic
-        """
         return self._basic
 
     @property
     def exchange(self):
-        """RabbitMQ Exchange Operations.
-
-            e.g.
-            ::
-
-                channel.exchange.declare(exchange='hello_world')
-
-        :rtype: amqpstorm.exchange.Exchange
-        """
         return self._exchange
 
     @property
     def queue(self):
-        """RabbitMQ Queue Operations.
-
-            e.g.
-            ::
-
-                channel.queue.declare(queue='hello_world')
-
-        :rtype: amqpstorm.queue.Queue
-        """
         return self._queue
 
     @property
     def tx(self):
-        """RabbitMQ Tx Operations.
-
-            e.g.
-            ::
-
-                channel.tx.commit()
-
-        :rtype: amqpstorm.tx.Tx
-        """
         return self._tx
 
     def build_inbound_messages(self, break_on_empty=False, to_tuple=False,
@@ -238,14 +199,7 @@ class Channel(BaseChannel):
             raise exception
 
     def confirm_deliveries(self):
-        """Set the channel to confirm that each message has been
-        successfully delivered.
-
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :return:
+        """将信道设置为 “确认每条消息是否已经成功发送”
         """
         self._confirming_deliveries = True
         confirm_frame = specification.Confirm.Select()
@@ -253,17 +207,10 @@ class Channel(BaseChannel):
 
     @property
     def confirming_deliveries(self):
-        """Is the channel set to confirm deliveries.
-
-        :return:
-        """
         return self._confirming_deliveries
 
     def on_frame(self, frame_in):
-        """Handle frame sent to this specific channel.
-
-        :param pamqp.Frame frame_in: Amqp frame.
-        :return:
+        """处理服务器发来的消息
         """
         if self.rpc.on_frame(frame_in):
             return
@@ -326,19 +273,18 @@ class Channel(BaseChannel):
             self._consumer_callbacks[consumer_tag](message)
 
     def rpc_request(self, frame_out, connection_adapter=None):
-        """Perform a RPC Request.
+        """给服务器发送一个 RPC 请求
 
         Args:
             frame_out: pamqp.specification.Frame 子类的实例
         """
         with self.rpc.lock:
-            # 随机生成的唯一标识符
-            uuid = self.rpc.register_request(frame_out.valid_responses)
-            # 发送消息给服务器，将信道与消息队列绑定
+            # 发送消息给服务器
             self._connection.write_frame(self.channel_id, frame_out)
-            return self.rpc.get_request(
-                uuid, connection_adapter=connection_adapter
-            )
+            # 把数据帧的名字记下，并随机生成唯一标识符
+            uuid = self.rpc.register_request(frame_out.valid_responses)
+            # 等待并返回 “服务器返回的响应”
+            return self.rpc.get_request(uuid, connection_adapter=connection_adapter)
 
     def start_consuming(self, to_tuple=False, auto_decode=True):
         """Start consuming messages.

@@ -215,7 +215,10 @@ class Connection(Stateful):
         frame_data = pamqp_frame.marshal(frame_out, channel_id)
         self.heartbeat.register_write()
         current_thread = threading.current_thread()
-        print(f'【amqpstorm.connection.Connection.write_frame】利用信道给服务器发送消息 {channel_id=} {frame_out=} [{current_thread.name}] {time.ctime()}')
+        print(
+            f'【amqpstorm.connection.Connection.write_frame】利用信道给服务器发送消息 {channel_id=} {frame_out=} '
+            f'[{current_thread.name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}]'
+        )
         self._io.write_to_socket(frame_data)
 
     def write_frames(self, channel_id, frames_out):
@@ -278,8 +281,8 @@ class Connection(Stateful):
         while data_in:
             data_in, channel_id, frame_in = self._handle_amqp_frame(data_in)
             print(
-                f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 '
-                f'{data_in=} {channel_id=} {frame_in=} [{threading.current_thread().name}] {time.ctime()}'
+                f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 {data_in=} {channel_id=} {frame_in=}'
+                f' [{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}]'
             )
 
             if frame_in is None:

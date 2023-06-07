@@ -138,19 +138,12 @@ class BaseChannel(Stateful):
 
 class BaseMessage(object):
     """Message base class.
-
-    :param Channel channel: AMQPStorm Channel
-    :param str,unicode body: Message body
-    :param dict method: Message method
-    :param dict properties: Message properties
-    :param bool auto_decode: This is not implemented in the base message class.
     """
     __slots__ = [
         '_auto_decode', '_body', '_channel', '_method', '_properties'
     ]
 
-    def __init__(self, channel, body=None, method=None, properties=None,
-                 auto_decode=None):
+    def __init__(self, channel, body=None, method=None, properties=None, auto_decode=None):
         self._auto_decode = auto_decode
         self._channel = channel
         self._body = body
@@ -162,9 +155,7 @@ class BaseMessage(object):
             yield attribute[1::], getattr(self, attribute)
 
     def to_dict(self):
-        """Message to Dictionary.
-
-        :rtype: dict
+        """将消息对象的关键属性以字典格式返回
         """
         return {
             'body': self._body,
@@ -174,9 +165,7 @@ class BaseMessage(object):
         }
 
     def to_tuple(self):
-        """Message to Tuple.
-
-        :rtype: tuple
+        """将消息对象的关键属性以元组的格式返回
         """
         return self._body, self._channel, self._method, self._properties
 

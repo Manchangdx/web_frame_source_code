@@ -11,48 +11,18 @@ from amqpstorm.exception import AMQPMessageError
 
 class Message(BaseMessage):
     """RabbitMQ Message.
-
-    e.g.
-    ::
-
-        # Message Properties.
-        properties = {
-            'content_type': 'text/plain',
-            'expiration': '3600',
-            'headers': {'key': 'value'},
-        }
-        # Create a new message.
-        message = Message.create(channel, 'Hello RabbitMQ!', properties)
-        # Publish the message to a queue called, 'my_queue'.
-        message.publish('my_queue')
-
-    :param Channel channel: AMQPStorm Channel
-    :param bytes,str,unicode body: Message payload
-    :param dict method: Message method
-    :param dict properties: Message properties
-    :param bool auto_decode: Auto-decode strings when possible. Does not
-                             apply to to_dict, or to_tuple.
     """
     __slots__ = [
         '_decode_cache'
     ]
 
-    def __init__(self, channel, body=None, method=None, properties=None,
-                 auto_decode=True):
-        super(Message, self).__init__(
-            channel, body, method, properties, auto_decode
-        )
+    def __init__(self, channel, body=None, method=None, properties=None, auto_decode=True):
+        super(Message, self).__init__(channel, body, method, properties, auto_decode)
         self._decode_cache = dict()
 
     @staticmethod
     def create(channel, body, properties=None):
-        """Create a new Message.
-
-        :param Channel channel: AMQPStorm Channel
-        :param bytes,str,unicode body: Message payload
-        :param dict properties: Message properties
-
-        :rtype: Message
+        """创建消息对象并返回
         """
         properties = dict(properties or {})
         if 'correlation_id' not in properties:
@@ -62,17 +32,11 @@ class Message(BaseMessage):
         if 'timestamp' not in properties:
             properties['timestamp'] = datetime.utcnow()
 
-        return Message(channel, auto_decode=False,
-                       body=body, properties=properties)
+        return Message(channel, auto_decode=False, body=body, properties=properties)
 
     @property
     def body(self):
-        """Return the Message Body.
-
-            If auto_decode is enabled, the body will automatically be
-            decoded using decode('utf-8') if possible.
-
-        :rtype: bytes,str,unicode
+        """返回消息体（如果 auto_decode=True 就对消息体进行编码生成字节序列）
         """
         if not self._auto_decode:
             return self._body
@@ -84,10 +48,6 @@ class Message(BaseMessage):
 
     @property
     def channel(self):
-        """Return the Channel used by this message.
-
-        :rtype: Channel
-        """
         return self._channel
 
     @property
@@ -162,28 +122,23 @@ class Message(BaseMessage):
         self._channel.basic.reject(delivery_tag=self.delivery_tag,
                                    requeue=requeue)
 
-    def publish(self, routing_key, exchange='', mandatory=False,
-                immediate=False):
-        """Publish Message.
+    def publish(self, routing_key, exchange='', mandatory=False, immediate=False):
+        """向消息队列发送消息
 
-        :param str routing_key: Message routing key
-        :param str exchange: The exchange to publish the message to
-        :param bool mandatory: Requires the message is published
-        :param bool immediate: Request immediate delivery
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :rtype: bool,None
+        Args:
+            routing_key : 消息路由键，交换机据此判断将消息转发到哪些队列
+            exchange    : 交换机
+            mandatory   : 服务器收到无法被转发到任何队列的消息时，是否返回一个 Basic.Return 数据帧
+            immediate   : 服务器转发消息到队列，如果队列未绑定接受者，是否返回一个 Basic.Return 数据帧
         """
-        return self._channel.basic.publish(body=self._body,
-                                           routing_key=routing_key,
-                                           exchange=exchange,
-                                           properties=self._properties,
-                                           mandatory=mandatory,
-                                           immediate=immediate)
+        return self._channel.basic.publish(
+            body=self._body,
+            routing_key=routing_key,
+            exchange=exchange,
+            properties=self._properties,
+            mandatory=mandatory,
+            immediate=immediate
+        )
 
     @property
     def app_id(self):
