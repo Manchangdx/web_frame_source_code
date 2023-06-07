@@ -206,24 +206,29 @@ class Connection(Stateful):
         LOGGER.debug('Connection Opened')
 
     def write_frame(self, channel_id, frame_out):
-        """将一条数据通过指定信道发送给 RabbitMQ 服务器
+        """将一条数据帧通过指定信道发送给 RabbitMQ 服务器
 
         Args:
             channel_id: 信道 ID
             frame_out: pamqp.specification.Frame 类的实例
         """
-        frame_data = pamqp_frame.marshal(frame_out, channel_id)
-        self.heartbeat.register_write()
-        current_thread = threading.current_thread()
         print(
             f'【amqpstorm.connection.Connection.write_frame】利用信道给服务器发送消息 {channel_id=} {frame_out=} '
-            f'[{current_thread.name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}]'
+            f'[{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
         )
+        frame_data = pamqp_frame.marshal(frame_out, channel_id)
+        self.heartbeat.register_write()
         self._io.write_to_socket(frame_data)
 
     def write_frames(self, channel_id, frames_out):
-        """将多条数据通过指定信道发送给 RabbitMQ 服务器
+        """将多条数据帧通过指定信道发送给 RabbitMQ 服务器
         """
+        with self.lock:
+            print(
+                f'【amqpstorm.connection.Connection.write_frames】利用信道给服务器发送消息 {channel_id=} '
+                f'[{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
+                f'\n\t{frames_out=}'
+            )
         data_out = EMPTY_BUFFER
         for single_frame in frames_out:
             data_out += pamqp_frame.marshal(single_frame, channel_id)
@@ -277,12 +282,17 @@ class Connection(Stateful):
 
     def _read_buffer(self, data_in):
         """处理服务器发来的消息
+
+        当 select 多路复用机制监听到 TCP 套接字可读事件就绪时，就会调用此方法，此方法在 amqpstorm.io 线程中执行
+        有时服务器发来的消息是多个数据帧连起来的二进制数据，每个数据帧以 b'\xce' 结尾
+        这种情况下，下面的 while 循环就会循环多次，每次调用 self._handle_amqp_frame 处理 1 个排在最前面的数据帧
+        直到最后一个数据帧处理完毕，data_in 就变成空字节序列 b'' 了
         """
         while data_in:
             data_in, channel_id, frame_in = self._handle_amqp_frame(data_in)
             print(
                 f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 {data_in=} {channel_id=} {frame_in=}'
-                f' [{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}]'
+                f' [{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
             )
 
             if frame_in is None:

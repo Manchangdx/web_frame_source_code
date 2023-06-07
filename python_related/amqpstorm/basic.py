@@ -28,18 +28,15 @@ class Basic(Handler):
         self._max_frame_size = max_frame_size or MAX_FRAME_SIZE
 
     def qos(self, prefetch_count=0, prefetch_size=0, global_=False):
-        """Specify quality of service.
+        """设置信道的服务质量，其实就是设置接收服务器队列中的消息的频率
 
-        :param int prefetch_count: Prefetch window in messages
-        :param int/long prefetch_size: Prefetch window in octets
-        :param bool global_: Apply to entire connection
+        Args:
+            prefetch_count : 预取的消息数量，默认无限制
+            prefetch_size  : 预取的消息字节数，默认无限制，非零时屏蔽上个参数
+            global_        : 是否将此设置应用到当前连接中的所有信道上
 
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :rtype: dict
+        Returns:
+            dict: 返回服务设置结果
         """
         if not compatibility.is_integer(prefetch_count):
             raise AMQPInvalidArgument('prefetch_count should be an integer')
@@ -47,9 +44,7 @@ class Basic(Handler):
             raise AMQPInvalidArgument('prefetch_size should be an integer')
         elif not isinstance(global_, bool):
             raise AMQPInvalidArgument('global_ should be a boolean')
-        qos_frame = specification.Basic.Qos(prefetch_count=prefetch_count,
-                                            prefetch_size=prefetch_size,
-                                            global_=global_)
+        qos_frame = specification.Basic.Qos(prefetch_count=prefetch_count, prefetch_size=prefetch_size, global_=global_)
         return self._channel.rpc_request(qos_frame)
 
     def get(self, queue='', no_ack=False, to_dict=False, auto_decode=True,
@@ -116,7 +111,15 @@ class Basic(Handler):
         self, callback=None, queue='', consumer_tag='',
         exclusive=False, no_ack=False, no_local=False, arguments=None
     ):
-        """Start a queue consumer.
+        """将当前信道绑定到指定的消息队列上
+
+        调用此方法产生的连锁事件:
+            1. 发送 Basic.Consume 数据帧给服务器
+            2. 服务器返回响应，响应中包含 Basic.ConsumeOk 数据帧
+               此数据帧有个 consume_tag, 把这个标签放到 channel._consumer_callbacks 字典里 {标签: 回调函数}
+            3. 如果消息队列中有消息，捎带返回指定数量的【消息】
+               每条【消息】包含 3 个 pamqp 数据帧：specification.Basic.Deliver、header.ContentHeader、body.ContentBody
+               所有的数据帧都被放置在 self._channel._inbound 列表里以待消费
 
         Args:
             callback:       回调函数
@@ -138,7 +141,10 @@ class Basic(Handler):
             raise AMQPInvalidArgument('no_local should be a boolean')
         elif arguments is not None and not isinstance(arguments, dict):
             raise AMQPInvalidArgument('arguments should be a dict or None')
+
+        # 发送 RPC 数据帧，阻塞等待响应
         consume_rpc_result = self._consume_rpc_request(arguments, consumer_tag, exclusive, no_ack, no_local, queue)
+
         tag = self._consume_add_and_get_tag(consume_rpc_result)
         self._channel._consumer_callbacks[tag] = callback
         return tag
@@ -180,18 +186,22 @@ class Basic(Handler):
         # 消息的其它属性
         properties = specification.Basic.Properties(**properties)
 
+        # 方法数据帧
         method_frame = specification.Basic.Publish(
             exchange=exchange, routing_key=routing_key, mandatory=mandatory, immediate=immediate
         )
+        # 头部数据帧
         header_frame = pamqp_header.ContentHeader(
             body_size=len(body), properties=properties
         )
 
         frames_out = [method_frame, header_frame]
+
+        # 根据 max_frame_size 切分消息体生成多个数据帧
         for body_frame in self._create_content_body(body):
             frames_out.append(body_frame)
 
-        # 如果发送设置了确认机制的消息
+        # 如果发送 “设置了确认机制的消息”
         if self._channel.confirming_deliveries:
             # 就要在同步锁中执行专门的方法
             with self._channel.rpc.lock:
@@ -278,23 +288,12 @@ class Basic(Handler):
         return consumer_tag
 
     def _consume_rpc_request(self, arguments, consumer_tag, exclusive, no_ack, no_local, queue):
-        """Create a Consume Frame and execute a RPC request.
-
-        :param str queue: Queue name
-        :param str consumer_tag: Consumer tag
-        :param bool no_local: Do not deliver own messages
-        :param bool no_ack: No acknowledgement needed
-        :param bool exclusive: Request exclusive access
-        :param dict arguments: Consume key/value arguments
-
-        :rtype: dict
+        """发送 RPC 数据帧给服务器，将当前信道与指定的消息队列进行绑定
         """
-        consume_frame = specification.Basic.Consume(queue=queue,
-                                                    consumer_tag=consumer_tag,
-                                                    exclusive=exclusive,
-                                                    no_local=no_local,
-                                                    no_ack=no_ack,
-                                                    arguments=arguments)
+        consume_frame = specification.Basic.Consume(
+            queue=queue, consumer_tag=consumer_tag, exclusive=exclusive,
+            no_local=no_local, no_ack=no_ack, arguments=arguments
+        )
         return self._channel.rpc_request(consume_frame)
 
     @staticmethod
@@ -375,14 +374,7 @@ class Basic(Handler):
         return False
 
     def _create_content_body(self, body):
-        """Split body based on the maximum frame size.
-
-            This function is based on code from Rabbitpy.
-            https://github.com/gmr/rabbitpy
-
-        :param bytes,str,unicode body: Message payload
-
-        :rtype: collections.Iterable
+        """根据 maximum frame size 将消息体切分成多个数据帧
         """
         frames = int(math.ceil(len(body) / float(self._max_frame_size)))
         for offset in compatibility.RANGE(0, frames):
@@ -391,6 +383,7 @@ class Basic(Handler):
             body_len = len(body)
             if end_frame > body_len:
                 end_frame = body_len
+            # 使用生成器以减少内存占用
             yield pamqp_body.ContentBody(body[start_frame:end_frame])
 
     def _get_content_body(self, message_uuid, body_size):

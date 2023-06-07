@@ -111,11 +111,6 @@ class BaseChannel(Stateful):
         return self._consumer_tags
 
     def add_consumer_tag(self, tag):
-        """Add a Consumer tag.
-
-        :param str tag: Consumer tag.
-        :return:
-        """
         if not is_string(tag):
             raise AMQPChannelError('consumer tag needs to be a string')
         if tag not in self._consumer_tags:

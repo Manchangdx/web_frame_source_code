@@ -254,8 +254,9 @@ class IO(object):
     def _process_incoming_data(self):
         """处理 RabbitMQ 服务器发来的消息
         """
-        current_thread = threading.current_thread()
-        print(f'【amqpstorm.io.IO._process_incoming_data】启动监听服务器发来的消息 [{current_thread.name}]')
+        with self._rd_lock:
+            current_thread = threading.current_thread()
+            print(f'【amqpstorm.io.IO._process_incoming_data】启动监听服务器发来的消息 [{current_thread.name}]')
         # 如果 “线程事件” 处于 “已设置” 状态
         while self._running.is_set():
             # 如果 RabbitMQ 服务器发来了消息

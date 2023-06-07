@@ -29,6 +29,7 @@ class Rpc(object):
     def on_frame(self, frame_in):
         """处理服务器发给信道的消息
         """
+        # 只有 RPC 请求才会记录在 self._request 中
         if frame_in.name not in self._request:
             return False
 
@@ -40,11 +41,7 @@ class Rpc(object):
         return True
 
     def register_request(self, valid_responses):
-        """Register a RPC request.
-
-        :param list valid_responses: List of possible Responses that
-                                     we should be waiting for.
-        :return:
+        """记录一次 RPC 请求
         """
         uuid = str(uuid4())
         self._response[uuid] = []
@@ -81,7 +78,7 @@ class Rpc(object):
             del self._response[uuid]
 
     def get_request(self, uuid, raw=False, multiple=False, connection_adapter=None):
-        """获取服务器返回的数据帧，每次信道发出 RPC 请求给服务器后，都会调用此方法等待并返回响应
+        """获取服务器返回的数据帧，每次信道向服务器发出 RPC 请求后，都会调用此方法等待并返回响应
         """
         if uuid not in self._response:
             return

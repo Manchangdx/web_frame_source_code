@@ -80,42 +80,24 @@ class Channel(BaseChannel):
     def tx(self):
         return self._tx
 
-    def build_inbound_messages(self, break_on_empty=False, to_tuple=False,
-                               auto_decode=True, message_impl=None):
-        """Build messages in the inbound queue.
+    def build_inbound_messages(self, break_on_empty=False, to_tuple=False, auto_decode=True, message_impl=None):
+        """根据服务器发来的数据帧构造【消息】
 
-        :param bool break_on_empty: Should we break the loop when there are
-                                    no more messages in our inbound queue.
-
-                                    This does not guarantee that the queue
-                                    is emptied before the loop is broken, as
-                                    messages may be consumed faster then
-                                    they are being delivered by RabbitMQ,
-                                    causing the loop to be broken prematurely.
-        :param bool to_tuple: Should incoming messages be converted to a
-                              tuple before delivery.
-        :param bool auto_decode: Auto-decode strings when possible.
-        :param class message_impl: Optional message class to use, derived from
-                                   BaseMessage, for created messages. Defaults
-                                   to Message.
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :rtype: :py:class:`generator`
+        Args:
+            break_on_empty: 没有消息时停止循环
+            to_tuple        : 返回【消息】的关键属性元组
+            auto_decode     : 返回解码后的消息体
+            message_impl    : 消息类，默认是 message.Message
         """
         self.check_for_errors()
         if message_impl:
             if not issubclass(message_impl, BaseMessage):
-                raise AMQPInvalidArgument(
-                    'message_impl must derive from BaseMessage'
-                )
+                raise AMQPInvalidArgument('message_impl must derive from BaseMessage')
         else:
             message_impl = Message
+
         while not self.is_closed:
-            message = self._build_message(auto_decode=auto_decode,
-                                          message_impl=message_impl)
+            message = self._build_message(auto_decode=auto_decode, message_impl=message_impl)
             if not message:
                 self.check_for_errors()
                 time.sleep(IDLE_WAIT)
@@ -215,12 +197,14 @@ class Channel(BaseChannel):
         if self.rpc.on_frame(frame_in):
             return
 
+        # 如果是 “队列消息” 数据帧
         if frame_in.name in CONTENT_FRAME:
             self._inbound.append(frame_in)
         elif frame_in.name == 'Basic.Cancel':
             self._basic_cancel(frame_in)
         elif frame_in.name == 'Basic.CancelOk':
             self.remove_consumer_tag(frame_in.consumer_tag)
+        # 绑定信道与消息队列请求的响应帧
         elif frame_in.name == 'Basic.ConsumeOk':
             self.add_consumer_tag(frame_in['consumer_tag'])
         elif frame_in.name == 'Basic.Return':
@@ -236,9 +220,7 @@ class Channel(BaseChannel):
             )
 
     def open(self):
-        """Open Channel.
-
-        :return:
+        """启动信道，给服务器发送一个 Channel.Open 数据帧知会一声
         """
         self._inbound = []
         self._exceptions = []
@@ -248,56 +230,49 @@ class Channel(BaseChannel):
         self.set_state(self.OPEN)
 
     def process_data_events(self, to_tuple=False, auto_decode=True):
-        """Consume inbound messages.
-
-        :param bool to_tuple: Should incoming messages be converted to a
-                              tuple before delivery.
-        :param bool auto_decode: Auto-decode strings when possible.
-
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :return:
+        """调用回调函数处理消息队列发来的【消息】
         """
+        # 调用 channel.basic.consume 方法绑定消息队列后，此属性必有值
         if not self._consumer_callbacks:
             raise AMQPChannelError('no consumer callback defined')
-        for message in self.build_inbound_messages(break_on_empty=True,
-                                                   auto_decode=auto_decode):
+        for message in self.build_inbound_messages(break_on_empty=True, auto_decode=auto_decode):
+            print(f'【amqpstorm.channel.Channel.process_data_events】回调函数处理消息: {message._body=}')
             consumer_tag = message._method.get('consumer_tag')
+            callback = self._consumer_callbacks[consumer_tag]
             if to_tuple:
-                # noinspection PyCallingNonCallable
-                self._consumer_callbacks[consumer_tag](*message.to_tuple())
-                continue
-            # noinspection PyCallingNonCallable
-            self._consumer_callbacks[consumer_tag](message)
+                callback(*message.to_tuple())
+            else:
+                callback(message)
 
     def rpc_request(self, frame_out, connection_adapter=None):
-        """给服务器发送一个 RPC 请求
+        """给服务器发送一个 RPC 请求，等待服务器响应结果并返回
+
+        RPC 请求的数据帧都是有特定作用的实例，相关类定义在 pamqp.specification 模块中
+        每次请求发出后，都会在 channel.rpc._requests 字典中记录 {frame_out.valid_responses: uuid}
 
         Args:
             frame_out: pamqp.specification.Frame 子类的实例
         """
+        current_thread = threading.current_thread()
         with self.rpc.lock:
+            print(
+                f'【amqpstorm.channel.Channel.rpc_request】发送 RPC 消息 channel_id={self.channel_id} {frame_out=} '
+                f'[{current_thread.name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
+            )
             # 发送消息给服务器
             self._connection.write_frame(self.channel_id, frame_out)
             # 把数据帧的名字记下，并随机生成唯一标识符
             uuid = self.rpc.register_request(frame_out.valid_responses)
             # 等待并返回 “服务器返回的响应”
-            return self.rpc.get_request(uuid, connection_adapter=connection_adapter)
+            result = self.rpc.get_request(uuid, connection_adapter=connection_adapter)
+            print(
+                f'【amqpstorm.channel.Channel.rpc_request】收到响应 {result=} '
+                f'[{current_thread.name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
+            )
+            return result
 
     def start_consuming(self, to_tuple=False, auto_decode=True):
-        """Start consuming messages.
-
-        :param bool to_tuple: Should incoming messages be converted to a
-                              tuple before delivery.
-        :param bool auto_decode: Auto-decode strings when possible.
-
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :return:
+        """将信道绑定到指定的消息队列上之后，调用此方法启动消费消息
         """
         while not self.is_closed:
             self.process_data_events(
@@ -326,21 +301,13 @@ class Channel(BaseChannel):
         self.remove_consumer_tag()
 
     def write_frame(self, frame_out):
-        """Write a pamqp frame from the current channel.
-
-        :param specification.Frame frame_out: A single pamqp frame.
-
-        :return:
+        """利用当前信道向服务器发送一个数据帧
         """
         self.check_for_errors()
         self._connection.write_frame(self.channel_id, frame_out)
 
     def write_frames(self, frames_out):
-        """Write multiple pamqp frames from the current channel.
-
-        :param list frames_out: A list of pamqp frames.
-
-        :return:
+        """利用当前信道向服务器发送多个数据帧
         """
         self.check_for_errors()
         self._connection.write_frames(self.channel_id, frames_out)
@@ -380,14 +347,10 @@ class Channel(BaseChannel):
         self.exceptions.append(exception)
 
     def _build_message(self, auto_decode, message_impl):
-        """Fetch and build a complete Message from the inbound queue.
-
-        :param bool auto_decode: Auto-decode strings when possible.
-        :param class message_impl: Message implementation from BaseMessage
-
-        :rtype: Message
+        """从信道的 channel._inbound 列表中读取数据帧并构造【消息】
         """
         with self.lock:
+            # 一条数据至少包含 specification.Basic.Deliver、header.ContentHeader 这两个数据帧
             if len(self._inbound) < 2:
                 return None
             headers = self._build_message_headers()
