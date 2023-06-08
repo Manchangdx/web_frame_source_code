@@ -288,21 +288,27 @@ class Connection(Stateful):
         这种情况下，下面的 while 循环就会循环多次，每次调用 self._handle_amqp_frame 处理 1 个排在最前面的数据帧
         直到最后一个数据帧处理完毕，data_in 就变成空字节序列 b'' 了
         """
-        while data_in:
-            data_in, channel_id, frame_in = self._handle_amqp_frame(data_in)
+        print('x'*88, f'{data_in=} [{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]')
+        with self.lock:
             print(
-                f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 {data_in=} {channel_id=} {frame_in=}'
-                f' [{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
+                f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 {data_in=} '
+                f'[{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
             )
 
-            if frame_in is None:
-                break
+            n = 0
+            while data_in:
+                data_in, channel_id, frame_in = self._handle_amqp_frame(data_in)
+                n += 1
+                print(f'\t第 {n} 次处理结果: {data_in=} {channel_id=} {frame_in=}')
 
-            self.heartbeat.register_read()
-            if channel_id == 0:
-                self._channel0.on_frame(frame_in)
-            elif channel_id in self._channels:
-                self._channels[channel_id].on_frame(frame_in)
+                if frame_in is None:
+                    break
+
+                self.heartbeat.register_read()
+                if channel_id == 0:
+                    self._channel0.on_frame(frame_in)
+                elif channel_id in self._channels:
+                    self._channels[channel_id].on_frame(frame_in)
 
         return data_in
 

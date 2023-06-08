@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Channel0(object):
-    """零号信道
+    """零号信道，专门处理与 Connection 相关的工作
 
     1. 建立连接
     2. 关闭连接

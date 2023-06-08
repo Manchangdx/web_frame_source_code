@@ -237,11 +237,7 @@ class IO(object):
                                    server_hostname=hostname)
 
     def _create_inbound_thread(self):
-        """创建一个子线程并启动
-
-        该子线程会维持一个无限循环，在循环中判断客户端套接字是否 “读就绪” 也就是是否收到了 RabbitMQ 的消息:
-            1. 如果收到就处理
-            2. 否则继续循环
+        """创建一个监听套接字读事件的子线程并启动
         """
         # 创建子线程
         inbound_thread = threading.Thread(target=self._process_incoming_data, name=__name__)

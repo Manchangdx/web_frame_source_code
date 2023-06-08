@@ -263,7 +263,7 @@ class Channel(BaseChannel):
             self._connection.write_frame(self.channel_id, frame_out)
             # 把数据帧的名字记下，并随机生成唯一标识符
             uuid = self.rpc.register_request(frame_out.valid_responses)
-            # 等待并返回 “服务器返回的响应”
+            # 等待并返回 “服务器返回的数据帧”
             result = self.rpc.get_request(uuid, connection_adapter=connection_adapter)
             print(
                 f'【amqpstorm.channel.Channel.rpc_request】收到响应 {result=} '

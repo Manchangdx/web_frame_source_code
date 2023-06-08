@@ -142,7 +142,7 @@ class Basic(Handler):
         elif arguments is not None and not isinstance(arguments, dict):
             raise AMQPInvalidArgument('arguments should be a dict or None')
 
-        # 发送 RPC 数据帧，阻塞等待响应
+        # 发送 Basic.Consume 数据帧，阻塞等待响应 Basic.ConsumeOk 数据帧
         consume_rpc_result = self._consume_rpc_request(arguments, consumer_tag, exclusive, no_ack, no_local, queue)
 
         tag = self._consume_add_and_get_tag(consume_rpc_result)
@@ -253,12 +253,8 @@ class Basic(Handler):
         self._channel.write_frame(reject_frame)
 
     def _consume_add_and_get_tag(self, consume_rpc_result):
-        """Add the tag to the channel and return it.
-
-        :param dict consume_rpc_result:
-
-        :rtype: str
-        """
+        # 参数 consume_rpc_result 是 Basic.Consume 数据帧
+        # 该数据帧携带了 consumer_tag 标识，该标识对应到处理消息的回调函数
         consumer_tag = consume_rpc_result['consumer_tag']
         self._channel.add_consumer_tag(consumer_tag)
         return consumer_tag
