@@ -38,6 +38,7 @@ class Connection(Stateful):
     def __init__(self, hostname, username, password, port=5672, **kwargs):
         super(Connection, self).__init__()
         self.lock = threading.RLock()
+        self.buffer_lock = threading.Lock()
         self.parameters = {
             'hostname': hostname,
             'username': username,
@@ -208,6 +209,10 @@ class Connection(Stateful):
     def write_frame(self, channel_id, frame_out):
         """将一条数据帧通过指定信道发送给 RabbitMQ 服务器
 
+        所有发向服务器的 TCP 消息都经过此方法（和下面的那个）
+        所有要发出去的消息都是 Frame 实例，俗成数据帧对象
+        除了建立 TCP 连接后发送的第一条握手消息
+
         Args:
             channel_id: 信道 ID
             frame_out: pamqp.specification.Frame 类的实例
@@ -288,11 +293,11 @@ class Connection(Stateful):
         这种情况下，下面的 while 循环就会循环多次，每次调用 self._handle_amqp_frame 处理 1 个排在最前面的数据帧
         直到最后一个数据帧处理完毕，data_in 就变成空字节序列 b'' 了
         """
-        print('x'*88, f'{data_in=} [{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]')
-        with self.lock:
+        with self.buffer_lock:
             print(
                 f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 {data_in=} '
-                f'[{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
+                f'[{threading.current_thread().name}] '
+                f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
             )
 
             n = 0
