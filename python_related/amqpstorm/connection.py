@@ -71,13 +71,7 @@ class Connection(Stateful):
 
     @property
     def channels(self):
-        """信道字典
-
-        return:
-            {
-                channel_id: Channel(),
-                ...
-            }
+        """信道字典 {channel_id: channel}
         """
         return self._channels
 
@@ -91,10 +85,7 @@ class Connection(Stateful):
 
     @property
     def is_blocked(self):
-        """Is the connection currently being blocked from publishing by
-        the remote server.
-
-        :rtype: bool
+        """连接是否处于被远程服务器阻塞的状态
         """
         return self._channel0.is_blocked
 
@@ -106,17 +97,13 @@ class Connection(Stateful):
 
     @property
     def max_frame_size(self):
-        """Returns the maximum allowed frame size for the connection.
-
-        :rtype: int
+        """数据帧的最大字节数，默认是 131072 Bytes
         """
         return self._channel0.max_frame_size
 
     @property
     def server_properties(self):
-        """Returns the RabbitMQ Server Properties.
-
-        :rtype: dict
+        """服务器属性字典
         """
         return self._channel0.server_properties
 
@@ -209,9 +196,8 @@ class Connection(Stateful):
     def write_frame(self, channel_id, frame_out):
         """将一条数据帧通过指定信道发送给 RabbitMQ 服务器
 
-        所有发向服务器的 TCP 消息都经过此方法（和下面的那个）
-        所有要发出去的消息都是 Frame 实例，俗成数据帧对象
-        除了建立 TCP 连接后发送的第一条握手消息
+        所有发向服务器的 TCP 消息（除了建立 TCP 连接后发送的第一条握手消息）都经过此方法或下面的那个
+        所有要发出去的消息都是 Frame 实例，即数据帧对象，数据帧会被转换成二进制数据，以 b'\xce' 结尾
 
         Args:
             channel_id: 信道 ID
@@ -241,9 +227,7 @@ class Connection(Stateful):
         self._io.write_to_socket(data_out)
 
     def _close_remaining_channels(self):
-        """Forcefully close all open channels.
-
-        :return:
+        """强制关闭全部处于开启状态的信道
         """
         for channel_id in list(self._channels):
             self._channels[channel_id].set_state(Channel.CLOSED)
@@ -269,7 +253,7 @@ class Connection(Stateful):
         raise AMQPConnectionError(f'reached the maximum number of channels {self.max_allowed_channels}')
 
     def _handle_amqp_frame(self, data_in):
-        """反序列化服务器发来的消息
+        """反序列化服务器发来的二进制数据，生成 Frame 对象
         """
         if not data_in:
             return data_in, None, None
@@ -290,7 +274,7 @@ class Connection(Stateful):
 
         当 select 多路复用机制监听到 TCP 套接字可读事件就绪时，就会调用此方法，此方法在 amqpstorm.io 线程中执行
         有时服务器发来的消息是多个数据帧连起来的二进制数据，每个数据帧以 b'\xce' 结尾
-        这种情况下，下面的 while 循环就会循环多次，每次调用 self._handle_amqp_frame 处理 1 个排在最前面的数据帧
+        这种情况下，下面的 while 循环就会循环多次，每次调用 self._handle_amqp_frame 处理 1 个排在最左边的数据帧
         直到最后一个数据帧处理完毕，data_in 就变成空字节序列 b'' 了
         """
         with self.buffer_lock:
@@ -318,11 +302,7 @@ class Connection(Stateful):
         return data_in
 
     def _cleanup_channel(self, channel_id):
-        """Remove the the channel from the list of available channels.
-
-        :param int channel_id: Channel id
-
-        :return:
+        """关闭全部信道
         """
         with self.lock:
             if channel_id not in self._channels:

@@ -73,8 +73,7 @@ class Heartbeat(object):
             return False
         if self._writes_since_check == 0:
             # 向 RabbitMQ 服务器发送心跳检查请求
-            # self.send_heartbeat_impl()
-            pass
+            self.send_heartbeat_impl()
         self._lock.acquire()
         try:
             if self._reads_since_check == 0:

@@ -284,9 +284,7 @@ class IO(object):
         return data_in
 
     def _read_from_socket(self):
-        """Read data from the socket.
-
-        :rtype: bytes
+        """从网卡缓冲区中读取数据并复制到用户空间
         """
         if not self.use_ssl:
             if not self.socket:

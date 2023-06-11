@@ -186,11 +186,11 @@ class Basic(Handler):
         # 消息的其它属性
         properties = specification.Basic.Properties(**properties)
 
-        # 方法数据帧
+        # 方法帧
         method_frame = specification.Basic.Publish(
             exchange=exchange, routing_key=routing_key, mandatory=mandatory, immediate=immediate
         )
-        # 头部数据帧
+        # 消息头帧，主要是消息体的字节数
         header_frame = pamqp_header.ContentHeader(
             body_size=len(body), properties=properties
         )
