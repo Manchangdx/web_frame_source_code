@@ -169,10 +169,10 @@ class Basic(Handler):
         return result
 
     def publish(self, body, routing_key, exchange='', properties=None, mandatory=False, immediate=False):
-        """向消息队列发送消息
+        """信道直接向交换机发送消息
 
         Args:
-            routing_key : 消息路由键，交换机据此判断将消息转发到哪些队列
+            routing_key : 路由键
             exchange    : 交换机
             properties  : 字典参数
             mandatory   : 服务器收到无法被转发到任何队列的消息时，是否返回一个 Basic.Return 数据帧
@@ -186,18 +186,18 @@ class Basic(Handler):
         # 消息的其它属性
         properties = specification.Basic.Properties(**properties)
 
-        # 方法帧
+        # 方法 Frame 对象
         method_frame = specification.Basic.Publish(
             exchange=exchange, routing_key=routing_key, mandatory=mandatory, immediate=immediate
         )
-        # 消息头帧，主要是消息体的字节数
+        # 消息头 Frame 对象
         header_frame = pamqp_header.ContentHeader(
             body_size=len(body), properties=properties
         )
 
         frames_out = [method_frame, header_frame]
 
-        # 根据 max_frame_size 切分消息体生成多个数据帧
+        # 根据 max_frame_size 切分消息体生成多个 Frame 对象
         for body_frame in self._create_content_body(body):
             frames_out.append(body_frame)
 

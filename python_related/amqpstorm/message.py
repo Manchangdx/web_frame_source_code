@@ -77,6 +77,7 @@ class Message(BaseMessage):
         """
         if not self._method:
             raise AMQPMessageError('Message.ack only available on incoming messages')
+        # 每次发送确认数据帧，都会带回来 1 条【消息】（至少 3 个数据帧）
         self._channel.basic.ack(delivery_tag=self.delivery_tag)
 
     def nack(self, requeue=True):
@@ -97,21 +98,14 @@ class Message(BaseMessage):
                                  requeue=requeue)
 
     def reject(self, requeue=True):
-        """Reject Message.
+        """拒收消息
 
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :param bool requeue: Re-queue the message
+        Args:
+            requeue: 是否重新放回队列，设为 “否” 时，消息就会变成死信
         """
         if not self._method:
-            raise AMQPMessageError(
-                'Message.reject only available on incoming messages'
-            )
-        self._channel.basic.reject(delivery_tag=self.delivery_tag,
-                                   requeue=requeue)
+            raise AMQPMessageError('Message.reject only available on incoming messages')
+        self._channel.basic.reject(delivery_tag=self.delivery_tag, requeue=requeue)
 
     def publish(self, routing_key, exchange='', mandatory=False, immediate=False):
         """向消息队列发送消息

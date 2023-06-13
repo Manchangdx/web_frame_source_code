@@ -81,7 +81,7 @@ class Channel(BaseChannel):
         return self._tx
 
     def build_inbound_messages(self, break_on_empty=False, to_tuple=False, auto_decode=True, message_impl=None):
-        """根据服务器发来的数据帧构造【消息】
+        """根据 self._inbound 列表中的 Frame 对象构造【消息】并弹出
 
         Args:
             break_on_empty : 没有消息时停止循环
@@ -110,17 +110,7 @@ class Channel(BaseChannel):
             yield message
 
     def close(self, reply_code=200, reply_text=''):
-        """Close Channel.
-
-        :param int reply_code: Close reply code (e.g. 200)
-        :param str reply_text: Close reply text
-
-        :raises AMQPInvalidArgument: Invalid Parameters
-        :raises AMQPChannelError: Raises if the channel encountered an error.
-        :raises AMQPConnectionError: Raises if the connection
-                                     encountered an error.
-
-        :return:
+        """关闭信道
         """
         if not compatibility.is_integer(reply_code):
             raise AMQPInvalidArgument('reply_code should be an integer')
@@ -194,17 +184,21 @@ class Channel(BaseChannel):
     def on_frame(self, frame_in):
         """处理服务器发来的消息
         """
+
+        # 有一些方法例如 channel.open 和 channel.basic.qos 等发送数据帧后，需要阻塞等待响应来确认是否成功
+        # 以 channel.open 方法为例，它发送的是 Channel.Open 数据帧，告知服务器要创建信道，此方法阻塞运行，直到服务器回复为止
+        # 下面这个方法就是用来处理上述情况中服务器回复的 Frame 对象，又叫做「即时响应 Frame 对象」
         if self.rpc.on_frame(frame_in):
             return
 
-        # 如果是 “队列消息” 数据帧
+        # 如果是 “队列消息” Frame 对象，包括 Basic.Deliver, ContentHeader, ContentBody
+        # 放到信道的「消息暂存列表」里面
         if frame_in.name in CONTENT_FRAME:
             self._inbound.append(frame_in)
         elif frame_in.name == 'Basic.Cancel':
             self._basic_cancel(frame_in)
         elif frame_in.name == 'Basic.CancelOk':
             self.remove_consumer_tag(frame_in.consumer_tag)
-        # 绑定信道与消息队列请求的响应帧
         elif frame_in.name == 'Basic.ConsumeOk':
             self.add_consumer_tag(frame_in['consumer_tag'])
         elif frame_in.name == 'Basic.Return':
@@ -214,10 +208,7 @@ class Channel(BaseChannel):
         elif frame_in.name == 'Channel.Flow':
             self.write_frame(specification.Channel.FlowOk(frame_in.active))
         else:
-            LOGGER.error(
-                '[Channel%d] Unhandled Frame: %s -- %s',
-                self.channel_id, frame_in.name, dict(frame_in)
-            )
+            LOGGER.error(f'[Channel {self.channel_id}] Unhandled Frame: {frame_in.name} -- {dict(frame_in)}')
 
     def open(self):
         """启动信道，给服务器发送一个 Channel.Open 数据帧知会一声
@@ -347,7 +338,7 @@ class Channel(BaseChannel):
         self.exceptions.append(exception)
 
     def _build_message(self, auto_decode, message_impl):
-        """从信道的 channel._inbound 列表中读取数据帧并构造【消息】
+        """从信道的 channel._inbound 列表中读取 Frame 对象并构造【消息】
         """
         with self.lock:
             # 一条数据至少包含 specification.Basic.Deliver、header.ContentHeader 这两个数据帧
@@ -357,8 +348,10 @@ class Channel(BaseChannel):
             if not headers:
                 return None
             basic_deliver, content_header = headers
+            # 消息内容二进制值
             body = self._build_message_body(content_header.body_size)
 
+        # 默认 auto_decode=True, 消息体会被解码
         message = message_impl(channel=self,
                                body=body,
                                method=dict(basic_deliver),
@@ -367,9 +360,7 @@ class Channel(BaseChannel):
         return message
 
     def _build_message_headers(self):
-        """Fetch Message Headers (Deliver & Header Frames).
-
-        :rtype: tuple,None
+        """获取「投递 Frame 对象」和「消息头 Frame 对象」
         """
         basic_deliver = self._inbound.pop(0)
         if not isinstance(basic_deliver, specification.Basic.Deliver):
@@ -391,9 +382,7 @@ class Channel(BaseChannel):
         return basic_deliver, content_header
 
     def _build_message_body(self, body_size):
-        """Build the Message body from the inbound queue.
-
-        :rtype: str
+        """根据「消息头 Frame 对象」中存储的消息字节数获取消息本身（二进制）
         """
         body = bytes()
         while len(body) < body_size:
@@ -408,10 +397,7 @@ class Channel(BaseChannel):
         return body
 
     def _close_channel(self, frame_in):
-        """Close Channel.
-
-        :param specification.Channel.Close frame_in: Channel Close frame.
-        :return:
+        """告知服务器信道已关闭，并将当前信道设为已关闭状态
         """
         self.set_state(self.CLOSING)
         if not self._connection.is_closed:
