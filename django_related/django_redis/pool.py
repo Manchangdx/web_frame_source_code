@@ -4,24 +4,18 @@ from redis.connection import DefaultParser
 
 
 class ConnectionFactory:
-
-    # Store connection pool by cache backend options.
-    #
-    # _pools is a process-global, as otherwise _pools is cleared every time
-    # ConnectionFactory is instiated, as Django creates new cache client
-    # (DefaultClient) instance for every request.
+    """Redis 连接工厂
+    """
 
     _pools = {}
 
     def __init__(self, options):
-        #print('【django_redis.pool.ConnectionFactory.__init__】初始化连接池，options:', options)
-        pool_cls_path = options.get("CONNECTION_POOL_CLASS",
-                                    "redis.connection.ConnectionPool")
+        print(f'【django_redis.pool.ConnectionFactory.__init__】初始化 Redis 连接工厂 {options=}')
+        pool_cls_path = options.get("CONNECTION_POOL_CLASS", "redis.connection.ConnectionPool")
         self.pool_cls = import_string(pool_cls_path)
         self.pool_cls_kwargs = options.get("CONNECTION_POOL_KWARGS", {})
 
-        redis_client_cls_path = options.get("REDIS_CLIENT_CLASS",
-                                            "redis.client.StrictRedis")
+        redis_client_cls_path = options.get("REDIS_CLIENT_CLASS", "redis.client.StrictRedis")
         self.redis_client_cls = import_string(redis_client_cls_path)
         self.redis_client_cls_kwargs = options.get("REDIS_CLIENT_KWARGS", {})
 
@@ -57,11 +51,10 @@ class ConnectionFactory:
         return kwargs
 
     def connect(self, url):
-        """
-        Given a basic connection parameters,
-        return a new connection.
+        """创建 Redis 客户端并返回，参数 url 是 Redis 服务器连接串
         """
         params = self.make_connection_params(url)
+        print(f'【django_redis.pool.ConnectionFactory.connect】Redis 连接工厂创建连接 {params=}')
         connection = self.get_connection(params)
         return connection
 
@@ -83,12 +76,7 @@ class ConnectionFactory:
         return import_string(cls)
 
     def get_or_create_connection_pool(self, params):
-        """
-        Given a connection parameters and return a new
-        or cached connection pool for them.
-
-        Reimplement this method if you want distinct
-        connection pool instance caching behavior.
+        """根据 Redis 服务器连接串获取 Redis 连接池
         """
         key = params["url"]
         if key not in self._pools:
@@ -96,15 +84,14 @@ class ConnectionFactory:
         return self._pools[key]
 
     def get_connection_pool(self, params):
-        """
-        Given a connection parameters, return a new
-        connection pool for them.
+        """创建 Redis 连接池
 
-        Overwrite this method if you want a custom
-        behavior on creating connection pool.
+        给定连接参数，返回一个新的连接池。
+        如果您想要自定义创建连接池的行为，可以重写此方法。
         """
         cp_params = dict(params)
         cp_params.update(self.pool_cls_kwargs)
+        # self.pool_cls 是 redis.connection.ConnectionPool 类
         pool = self.pool_cls.from_url(**cp_params)
 
         if pool.connection_kwargs.get("password", None) is None:
@@ -116,8 +103,9 @@ class ConnectionFactory:
 
 def get_connection_factory(path=None, options=None):
     if path is None:
-        path = getattr(settings, "DJANGO_REDIS_CONNECTION_FACTORY",
-                       "django_redis.pool.ConnectionFactory")
+        path = getattr(settings, "DJANGO_REDIS_CONNECTION_FACTORY", "django_redis.pool.ConnectionFactory")
 
     cls = import_string(path)
+    print(f'【django_redis.pool.get_connection_factory】创建 Redis 连接工厂 {cls=} {options=}')
+    # django_redis.pool.ConnectionFactory（当前模块中）
     return cls(options or {})

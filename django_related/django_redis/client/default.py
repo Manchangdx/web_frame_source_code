@@ -31,11 +31,11 @@ class DefaultClient:
         """初始化 Redis 客户端对象
 
         Args:
-            :server: Redis 服务器的 IP 地址或连接串，也可能是它们的列表或由逗号隔开的字符串
-            :params: 配置项，在配置文件里定义的
+            :server : Redis 服务器连接串，也可能是它们的列表或由逗号隔开的字符串
+            :params : 配置项，在配置文件里定义的
             :backend: 缓存对象，其 client 属性值就是 self
         """
-        #print(f'【djang_redis.client.default.DefaultClient.__init__】创建 Redis 客户端对象 {server} {backend}')
+        print(f'【django_redis.client.default.DefaultClient.__init__】创建 Redis 客户端对象 {server} {backend}')
         self._backend = backend
         self._server = server
         self._params = params
@@ -87,12 +87,7 @@ class DefaultClient:
         return random.randint(1, len(self._server) - 1)
 
     def get_client(self, write=True, tried=(), show_index=False):
-        """
-        Method used for obtain a raw redis client.
-
-        This function is used by almost all cache backend
-        operations for obtain a native redis client/connection
-        instance.
+        """获取 Redis 客户端对象
         """
         index = self.get_next_client_index(write=write, tried=tried or [])
 
@@ -105,11 +100,9 @@ class DefaultClient:
             return self._clients[index]
 
     def connect(self, index=0):
+        """给定一个连接索引，返回一个新的原始的 Redis 客户端连接实例
         """
-        Given a connection index, returns a new raw redis client/connection
-        instance. Index is used for master/slave setups and indicates that
-        connection string should be used. In normal setups, index is 0.
-        """
+        # 参数是 Redis 服务器连接串
         return self.connection_factory.connect(self._server[index])
 
     def set(self, key, value, timeout=DEFAULT_TIMEOUT, version=None, client=None, nx=False, xx=False):

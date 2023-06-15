@@ -48,7 +48,7 @@ class RedisCache(BaseCache):
     """
 
     def __init__(self, server, params):
-        # 参数 server 是 Redis 服务器的 IP 地址或连接串
+        # 参数 server 是 Redis 服务器的连接串
         super().__init__(params)
         self._server = server
         self._params = params
@@ -60,7 +60,7 @@ class RedisCache(BaseCache):
 
         self._ignore_exceptions = options.get("IGNORE_EXCEPTIONS", DJANGO_REDIS_IGNORE_EXCEPTIONS)
         # 下面这行是为了分析源码写的，本不存在
-        self.client
+        #self.client
 
     @property
     def client(self):
