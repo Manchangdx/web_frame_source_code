@@ -19,6 +19,35 @@ NO_RECEIVERS = object()
 class Signal:
     """信号基类
 
+    功能说明:
+        Django 的信号机制采用了 Observer Pattern 观察者设计模式
+        该模式有三个概念：事件（信号对象）、被观察者（信号发送者）、观察者（信号接收者）
+        当被观察者发生事件变动时，观察者就会立刻做出反应
+
+        举例说明，创建 User 类实例后，需要执行计数器 +1 操作
+        常规做法:
+            1. 编写计数器方法
+            2. 在创建 User 实例的代码后面增加调用计数器方法的代码
+        使用信号机制:
+            1. 首先创建一个信号对象 create_obj（事件）
+            2. 然后将 User 作为被观察者（信号发送者）、计数器方法作为观察者（信号接收者）注册到 create_obj 上
+            3. 最后在创建 User 实例的逻辑中写入 create_obj.send(sender) 即可
+            4. 调用信号对象的 send 方法时，根据参数 sender 查询信号接收者列表并依次调用它们
+
+        有了信号对象作为事件，我们可以设置多组 [被观察者 - 事件 - 观察者] 的关联关系，例如:
+            Course - create_obj - 发送课程上线通知
+            Course - delete_obj - 设置用户学习课程数量 -1
+            Lab    - create_obj - 发送章节变更通知
+            Lab    - create_obj - 设置课程章节数量 +1
+
+        综上所述，[被观察者 - 事件 - 观察者] 这三个概念在「观察者模式」中是多对多的关系
+        而且互相解耦，修改其中任何一个都不会影响其它环节
+
+        使用信号机制的好处:
+            1. 可扩展，对于一个信号发送者（被观察者）而言，可以随时增减信号接收者（观察者）
+            2. 代码分离，信号接收者/回调函数（观察者）可以写到任意合理的位置
+            3. 低耦合，上述两点使得代码耦合度降低
+
     使用说明:
         1. 对当前类或其子类进行实例化，创建「信号对象」
            通常需要在配置文件的 INSTALLED_APPS 配置项中配置这个「信号对象」，也就是引用「信号对象」所在模块
@@ -82,7 +111,7 @@ class Signal:
         针对当前「信号对象」self 建立「信号发送者」与「信号接收者」之间的关联，简言之就是建立关联
         所谓 “建立关联” 其实就是把「信号接收者」和「信号发送者」的内存地址组成二元元组，设为 a
         然后「信号接收者」这个函数本身设为 b ，这样构成一个嵌套元组 (a, b) ，再把它放到 self.receivers 列表里备用
-        当 self.send 执行时，循环 self.receivers 列表，找到可用的回调函数 b 并调用之
+        当 self.send 执行时，循环 self.receivers 列表，根据 sender 找到可用的回调函数 b 并调用之
 
         Arguments:
             :receiver:「信号接收者」，必须是可调用对象，调用时必须可以接受关键字参数
@@ -106,15 +135,21 @@ class Signal:
         else:
             lookup_key = (_make_id(receiver), _make_id(sender))
 
+        # 如果使用弱引用，也就是在记录 signal.receiver 列表时，把「信号接收者」的弱引用对象记录进去
+        # 这种做法不会增加「信号接收者」的引用计数，从而避免阻碍垃圾回收器清理「信号接收者」
         if weak:
             ref = weakref.ref
+            #「信号接收者」所属对象
             receiver_object = receiver
-            # Check for bound methods
+            # 如果「信号接收者」是类内部定义的实例方法（也叫做 bound method 绑定方法）
             if hasattr(receiver, '__self__') and hasattr(receiver, '__func__'):
+                # 就需要专门的方法来创建弱引用对象了
                 ref = weakref.WeakMethod
                 receiver_object = receiver.__self__
+            #「信号接收者」的弱引用
             receiver = ref(receiver)
-            # 指定第一个参数对象被垃圾回收器清理时调用的回调函数为第二个参数
+            # 指定第一个参数对象被 Garbage Collector 垃圾回收器清理时调用的回调函数为第二个参数
+            # 也就是当「信号接收者」被 GC 回收时，将 signal.receiver 列表设为需要整理的状态
             weakref.finalize(receiver_object, self._remove_receiver)
 
         with self.lock:
@@ -234,7 +269,7 @@ class Signal:
         """
         receivers = None
 
-        # 如果信号对象使用了缓存功能并且不存在需要清除的 receiver ，就从缓存字典里找到 receiver 列表
+        # 如果信号对象使用了缓存功能并且不存在需要清除的 receiver，就从缓存字典里找到 receiver 列表
         if self.use_caching and not self._dead_receivers:
             receivers = self.sender_receivers_cache.get(sender)
             if receivers is NO_RECEIVERS:

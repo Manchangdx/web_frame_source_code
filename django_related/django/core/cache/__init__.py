@@ -51,11 +51,13 @@ def _create_cache(alias_backend, **kwargs):
         # 获取 Redis 缓存类
         backend_cls = import_string(backend)
     except ImportError as e:
-        raise InvalidCacheBackendError(
-            "Could not find backend '%s': %s" % (backend, e))
-    # 对 Redis 缓存类进行实例化生成「缓存对象」并返回
+        raise InvalidCacheBackendError("Could not find backend '%s': %s" % (backend, e))
+
     print(f'【django.core.cache.__init__._create_cache】创建「缓存对象」 {alias_backend:<8}{location}')
-    return backend_cls(location, params)
+    # 对 django_redis.cache.RedisCache 缓存类进行实例化生成「缓存对象」并返回
+    obj = backend_cls(location, params)
+
+    return obj
 
 
 class CacheHandler:
