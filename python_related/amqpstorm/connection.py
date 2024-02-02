@@ -21,7 +21,7 @@ from amqpstorm.heartbeat import Heartbeat
 from amqpstorm.io import EMPTY_BUFFER
 from amqpstorm.io import IO
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 DEFAULT_HEARTBEAT_INTERVAL = 60
 DEFAULT_SOCKET_TIMEOUT = 10
@@ -66,7 +66,7 @@ class Connection(Stateful):
     def __exit__(self, exception_type, exception_value, _):
         if exception_type:
             message = 'Closing connection due to an unhandled exception: %s'
-            LOGGER.warning(message, exception_value)
+            logger.warning(message, exception_value)
         self.close()
 
     @property
@@ -114,9 +114,6 @@ class Connection(Stateful):
     def channel(self, rpc_timeout=60, lazy=False):
         """创建一个信道
         """
-        current_thread = threading.current_thread()
-        print(f'【amqpstorm.connection.Connection.channel】新建一个信道 [{current_thread.name}]')
-        LOGGER.debug('Opening a new Channel')
         if not compatibility.is_integer(rpc_timeout):
             raise AMQPInvalidArgument('rpc_timeout should be an integer')
         elif self.is_closed:
@@ -124,11 +121,13 @@ class Connection(Stateful):
 
         with self.lock:
             channel_id = self._get_next_available_channel_id()
+            logger.info(f'[amqpstorm.connection.Connection.channel] 新建一个信道 {channel_id=}')
             channel = Channel(channel_id, self, rpc_timeout)
             self._channels[channel_id] = channel
             if not lazy:
                 channel.open()
-        LOGGER.debug('Channel #%d Opened', channel_id)
+
+        logger.info(f'[amqpstorm.connection.Connection.channel] 现有信道: {list(self._channels)}')
         return self._channels[channel_id]
 
     def check_for_errors(self):
@@ -150,7 +149,7 @@ class Connection(Stateful):
     def close(self):
         """断开与 RabbitMQ 服务器的 TCP 连接
         """
-        LOGGER.debug('Connection Closing')
+        logger.debug('Connection Closing')
         if not self.is_closed:
             self.set_state(self.CLOSING)
         self.heartbeat.stop()
@@ -164,15 +163,22 @@ class Connection(Stateful):
             self._close_remaining_channels()
             self._io.close()
             self.set_state(self.CLOSED)
-        LOGGER.debug('Connection Closed')
+        logger.debug('Connection Closed')
 
     def open(self):
-        """启动连接
-        """
-        LOGGER.debug('Connection Opening')
+        """启动 AMQP 连接
 
-        # 连接有四个状态：已关闭、正在关闭、已开启、正在开启
-        # 新建的连接处于 “已关闭” 状态
+        连接有四个状态（即 self._state 属性值）：已关闭、正在关闭、已开启、正在开启，新建的连接处于 “已关闭” 状态
+        当前方法的主要工作流程是：
+            1. 将连接状态即 self._state 属性设为 “正在开启”
+            2. 创建 TCP 客户端并与 RabbitMQ 服务器建立连接
+            3. 向 RabbitMQ 服务器发送 AMQP 握手请求，把所有准备工作做好，包括约定各种版本号、登录的账号密码、Vhost 等
+            4. 这个过程中客户端会收发一系列数据帧，直到最后收到 OpenOk 数据帧，然后将连接状态也就是 self._state 属性设为 “已开启”
+            6. 启动心跳检查
+            7. 返回 self，这样就可以使用 with 语句来保证连接处于 “已开启” 状态
+        """
+        logger.info('[amqpstorm.connection.Connection.open] 启动连接')
+
         # 将 self._state 设为 “正在开启” 状态
         self.set_state(self.OPENING)
 
@@ -180,45 +186,44 @@ class Connection(Stateful):
         self._channels = {}
         self._last_channel_id = None
 
-        # 创建 TCP 客户端套接字，与 RabbitMQ 服务器建立连接，等待接收服务端发来的消息
+        # 创建 TCP 客户端套接字，与 RabbitMQ 服务器建立 TCP 连接，等待接收服务端发来的消息
         self._io.open()
 
-        # 向 RabbitMQ 服务器发送握手请求，把所有准备工作做好
+        # 此时 TCP 连接已就绪，向 RabbitMQ 服务器发送握手请求，把所有准备工作做好
+        # 包括与服务器约定 AMQP 版本号、Python 版本号、登录的账号密码、心跳时间间隔、连接的 Vhost 等
         self._send_handshake()
         self._wait_for_connection_state(state=Stateful.OPEN)
 
         # 启动心跳检查
         self.heartbeat.start(self._exceptions)
 
-        print(f'【amqpstorm.connection.Connection.open】启动连接完毕 [{threading.current_thread().name}]')
-        LOGGER.debug('Connection Opened')
+        logger.info('[amqpstorm.connection.Connection.open] 连接成功')
 
     def write_frame(self, channel_id, frame_out):
         """将一条数据帧通过指定信道发送给 RabbitMQ 服务器
 
-        所有发向服务器的 TCP 消息（除了建立 TCP 连接后发送的第一条握手消息）都经过此方法或下面的那个
+        所有发向服务器的 TCP 消息（除了建立 TCP 连接后发送的第一条握手消息）都经过此方法或下面的方法发送
         所有要发出去的消息都是 Frame 实例，即数据帧对象，数据帧会被转换成二进制数据，以 b'\xce' 结尾
 
         Args:
             channel_id: 信道 ID
             frame_out: pamqp.specification.Frame 类的实例
         """
-        print(
-            f'【amqpstorm.connection.Connection.write_frame】利用信道给服务器发送消息 {channel_id=} {frame_out=} '
-            f'[{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
-        )
+        logger.info(f'[amqpstorm.connection.Connection.write_frame] 客户端利用信道发送消息 {channel_id=} {frame_out=}')
         frame_data = pamqp_frame.marshal(frame_out, channel_id)
         self.heartbeat.register_write()
         self._io.write_to_socket(frame_data)
 
     def write_frames(self, channel_id, frames_out):
         """将多条数据帧通过指定信道发送给 RabbitMQ 服务器
+
+        Args:
+            channel_id: 信道编号
+            frames_out: 要发送给服务器的数据帧对象列表
         """
         with self.lock:
-            print(
-                f'【amqpstorm.connection.Connection.write_frames】利用信道给服务器发送消息 {channel_id=} '
-                f'[{threading.current_thread().name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
-                f'\n\t{frames_out=}'
+            logger.info(
+                f'[amqpstorm.connection.Connection.write_frames] 利用信道给服务器发送消息 {channel_id=} {frames_out=}'
             )
         data_out = EMPTY_BUFFER
         for single_frame in frames_out:
@@ -254,6 +259,8 @@ class Connection(Stateful):
 
     def _handle_amqp_frame(self, data_in):
         """反序列化服务器发来的二进制数据，生成 Frame 对象
+
+        返回值: (消息体, 信道编号, Frame 对象)
         """
         if not data_in:
             return data_in, None, None
@@ -263,39 +270,40 @@ class Connection(Stateful):
         except pamqp_exception.UnmarshalingException:
             pass
         except specification.AMQPFrameError as why:
-            LOGGER.error('AMQPFrameError: %r', why, exc_info=True)
+            logger.error('AMQPFrameError: %r', why, exc_info=True)
         except ValueError as why:
-            LOGGER.error(why, exc_info=True)
+            logger.error(why, exc_info=True)
             self.exceptions.append(AMQPConnectionError(why))
         return data_in, None, None
 
     def _read_buffer(self, data_in):
         """处理服务器发来的消息
 
-        当 select 多路复用机制监听到 TCP 套接字可读事件就绪时，就会调用此方法，此方法在 amqpstorm.io 线程中执行
-        有时服务器发来的消息是多个数据帧连起来的二进制数据，每个数据帧以 b'\xce' 结尾
+        当 select 多路复用机制监听到 TCP 客户端套接字可读事件就绪时，就会调用此方法，此方法在 amqpstorm.io 线程中执行
+        有时服务器发来的消息是多个数据帧连起来的字节序列，每个数据帧对应的字节序列以 b'\xce' 结尾
         这种情况下，下面的 while 循环就会循环多次，每次调用 self._handle_amqp_frame 处理 1 个排在最左边的数据帧
         直到最后一个数据帧处理完毕，data_in 就变成空字节序列 b'' 了
         """
         with self.buffer_lock:
-            print(
-                f'【amqpstorm.connection.Connection._read_buffer】处理服务器发来的消息 {data_in=} '
-                f'[{threading.current_thread().name}] '
-                f'[{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
-            )
-
             n = 0
             while data_in:
                 data_in, channel_id, frame_in = self._handle_amqp_frame(data_in)
                 n += 1
-                print(f'\t第 {n} 次处理结果: {data_in=} {channel_id=} {frame_in=}')
+                logger.info(
+                    f'[amqpstorm.connection.Connection._read_buffer] 处理从服务器接收的消息，'
+                    f'第 {n} 次处理结果: {channel_id=} {frame_in=} {data_in=}'
+                )
 
                 if frame_in is None:
                     break
 
+                # 心跳控制器的[服务器读取消息次数] +1
                 self.heartbeat.register_read()
+
+                # 发给零号信道的消息专门处理
                 if channel_id == 0:
                     self._channel0.on_frame(frame_in)
+                # 发给其它信道的消息先存起来
                 elif channel_id in self._channels:
                     self._channels[channel_id].on_frame(frame_in)
 
@@ -313,20 +321,19 @@ class Connection(Stateful):
         """通过零号信道发送一个 AMQP 握手请求
 
         此请求是建立 TCP 连接后客户端发出的第一个请求，该请求引发的连锁反应如下：
-            1. 向服务器发送第一个握手请求，包含 AMQP 版本号
+            1. 客户端向服务器发送第一个握手请求，包含 AMQP 版本号
             2. 服务器返回 Start 数据帧
-            3. 向服务器发送 StartOk 数据帧，包括 Python 版本、AMQPStorm 版本、用户账号密码等信息
+            3. 客户端发送 StartOk 数据帧，包括 Python 版本、AMQPStorm 版本、用户账号密码等信息
             4. 服务器验证通过后返回 Tune 数据帧
-            5. 向服务器发送两个数据帧
+            5. 客户端发送两个数据帧
                   TuneOk 数据帧，包括信道数量上限、数据帧的字节数上限、心跳间隔时间等
                   Open 数据帧，包含要连接的 vhost 虚拟主机
-            6. 服务器返回 OpenOk 数据帧
-            7. 收到这个数据帧后将连接的状态设为 “已开启”
+            6. 服务器收到俩帧后返回 OpenOk 数据帧
+            7. 客户端收到这个数据帧后将连接的状态设为 “已开启”，意味着 AMQP 连接已建立
         """
         frame_data = pamqp_header.ProtocolHeader().marshal()
-        print(
-            f'【amqpstorm.connection.Connection._send_handshake】创建 TCP 连接后向服务器发送一个 AMQP 握手请求: '
-            f'{frame_data} [{threading.current_thread().name}]'
+        logger.info(
+            f'[amqpstorm.connection.Connection._send_handshake] 创建 TCP 连接后向服务器发送 AMQP 握手请求: {frame_data=}'
         )
         self._io.write_to_socket(frame_data)
 

@@ -24,7 +24,7 @@ from amqpstorm.queue import Queue
 from amqpstorm.rpc import Rpc
 from amqpstorm.tx import Tx
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 CONTENT_FRAME = ['Basic.Deliver', 'ContentHeader', 'ContentBody']
 
 
@@ -37,8 +37,7 @@ class Channel(BaseChannel):
     ]
 
     def __init__(self, channel_id, connection, rpc_timeout):
-        current_thread = threading.current_thread()
-        print(f'【amqpstorm.channel.Channel.__init__】信道初始化 {channel_id=} [{current_thread.name}]')
+        logger.info(f'[amqpstorm.channel.Channel.__init__] 信道初始化 {channel_id=}')
         super(Channel, self).__init__(channel_id)
         self.lock = threading.Lock()
         self.rpc = Rpc(self, timeout=rpc_timeout)
@@ -56,7 +55,7 @@ class Channel(BaseChannel):
 
     def __exit__(self, exception_type, exception_value, _):
         if exception_type:
-            LOGGER.warning(f'Closing channel due to an unhandled exception: {exception_value}')
+            logger.warning(f'Closing channel due to an unhandled exception: {exception_value}')
         if not self.is_open:
             return
         self.close()
@@ -119,10 +118,10 @@ class Channel(BaseChannel):
         try:
             if self._connection.is_closed or not self.is_open:
                 self.stop_consuming()
-                LOGGER.debug('Channel #%d forcefully Closed', self.channel_id)
+                logger.debug('Channel #%d forcefully Closed', self.channel_id)
                 return
             self.set_state(self.CLOSING)
-            LOGGER.debug('Channel #%d Closing', self.channel_id)
+            logger.debug('Channel #%d Closing', self.channel_id)
             try:
                 self.stop_consuming()
             except AMQPChannelError:
@@ -136,7 +135,7 @@ class Channel(BaseChannel):
             if self._inbound:
                 del self._inbound[:]
             self.set_state(self.CLOSED)
-        LOGGER.debug('Channel #%d Closed', self.channel_id)
+        logger.debug('Channel #%d Closed', self.channel_id)
 
     def check_for_errors(self,):
         """Check connection and channel for errors.
@@ -186,7 +185,7 @@ class Channel(BaseChannel):
         """
 
         # 有一些方法例如 channel.open 和 channel.basic.qos 等发送数据帧后，需要阻塞等待响应来确认是否成功
-        # 以 channel.open 方法为例，它发送的是 Channel.Open 数据帧，告知服务器要创建信道，此方法阻塞运行，直到服务器回复为止
+        # 以 channel.open 方法为例，它给服务器发送的是 Channel.Open 数据帧，告知服务器要创建信道，此方法阻塞运行，直到服务器回复
         # 下面这个方法就是用来处理上述情况中服务器回复的 Frame 对象，又叫做「即时响应 Frame 对象」
         if self.rpc.on_frame(frame_in):
             return
@@ -208,7 +207,7 @@ class Channel(BaseChannel):
         elif frame_in.name == 'Channel.Flow':
             self.write_frame(specification.Channel.FlowOk(frame_in.active))
         else:
-            LOGGER.error(f'[Channel {self.channel_id}] Unhandled Frame: {frame_in.name} -- {dict(frame_in)}')
+            logger.error(f'[Channel {self.channel_id}] Unhandled Frame: {frame_in.name} -- {dict(frame_in)}')
 
     def open(self):
         """启动信道，给服务器发送一个 Channel.Open 数据帧知会一声
@@ -244,22 +243,15 @@ class Channel(BaseChannel):
         Args:
             frame_out: pamqp.specification.Frame 子类的实例
         """
-        current_thread = threading.current_thread()
         with self.rpc.lock:
-            print(
-                f'【amqpstorm.channel.Channel.rpc_request】发送 RPC 消息 channel_id={self.channel_id} {frame_out=} '
-                f'[{current_thread.name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
-            )
-            # 发送消息给服务器
+            logger.info(f'[amqpstorm.channel.Channel.rpc_request] 信道发送消息 channel_id={self.channel_id} {frame_out=}')
+            # 利用信道所属连接发送消息给服务器
             self._connection.write_frame(self.channel_id, frame_out)
             # 把数据帧的名字记下，并随机生成唯一标识符
             uuid = self.rpc.register_request(frame_out.valid_responses)
             # 等待并返回 “服务器返回的数据帧”
             result = self.rpc.get_request(uuid, connection_adapter=connection_adapter)
-            print(
-                f'【amqpstorm.channel.Channel.rpc_request】收到响应 {result=} '
-                f'[{current_thread.name}] [{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}:{str(time.time()).split(".")[1]}]'
-            )
+            logger.info(f'[amqpstorm.channel.Channel.rpc_request] 信道收到响应 channel_id={self.channel_id} {result=}')
             return result
 
     def start_consuming(self, to_tuple=False, auto_decode=True):
@@ -310,7 +302,7 @@ class Channel(BaseChannel):
 
         :return:
         """
-        LOGGER.warning(
+        logger.warning(
             'Received Basic.Cancel on consumer_tag: %s',
             try_utf8_decode(frame_in.consumer_tag)
         )
@@ -364,7 +356,7 @@ class Channel(BaseChannel):
         """
         basic_deliver = self._inbound.pop(0)
         if not isinstance(basic_deliver, specification.Basic.Deliver):
-            LOGGER.warning(
+            logger.warning(
                 'Received an out-of-order frame: %s was '
                 'expecting a Basic.Deliver frame',
                 type(basic_deliver)
@@ -372,7 +364,7 @@ class Channel(BaseChannel):
             return None
         content_header = self._inbound.pop(0)
         if not isinstance(content_header, ContentHeader):
-            LOGGER.warning(
+            logger.warning(
                 'Received an out-of-order frame: %s was '
                 'expecting a ContentHeader frame',
                 type(content_header)

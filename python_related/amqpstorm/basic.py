@@ -172,6 +172,7 @@ class Basic(Handler):
         """信道直接向交换机发送消息
 
         Args:
+            body        : 消息体，str 或者 bytes
             routing_key : 路由键
             exchange    : 交换机
             properties  : 字典参数

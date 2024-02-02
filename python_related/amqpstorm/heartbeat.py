@@ -5,7 +5,7 @@ import threading
 
 from amqpstorm.exception import AMQPConnectionError
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Heartbeat(object):
@@ -13,6 +13,12 @@ class Heartbeat(object):
     """
 
     def __init__(self, interval, send_heartbeat_impl, timer=threading.Timer):
+        """初始化心跳控制器
+
+        Args:
+            interval: 心跳时间间隔
+            send_heartbeat_impl: 发送心跳帧的方法
+        """
         self.send_heartbeat_impl = send_heartbeat_impl
         self.timer_impl = timer
         self._lock = threading.Lock()
@@ -39,7 +45,7 @@ class Heartbeat(object):
         """
         if not self._interval:
             return False
-        print(f'【amqpstorm.heartbeat.Heartbeat.start】启动心跳检查 [{threading.current_thread().name}]')
+        logger.info('[amqpstorm.heartbeat.Heartbeat.start] 启动心跳检查')
         # 把自己的 “线程事件” 设为 “已设置” 状态
         self._running.set()
         with self._lock:
@@ -47,7 +53,7 @@ class Heartbeat(object):
             self._reads_since_check = 0
             self._writes_since_check = 0
         self._exceptions = exceptions
-        LOGGER.debug('Heartbeat Checker Started')
+        logger.debug('Heartbeat Checker Started')
         # 启动心跳检查
         return self._start_new_timer()
 
@@ -71,11 +77,16 @@ class Heartbeat(object):
         # 如果自身的 “线程事件” 处于 “未设置” 状态，直接返回
         if not self._running.is_set():
             return False
+
+        # 如果从上次检查心跳到现在一直没有向 RabbitMQ 服务器发送过数据
+        # 向 RabbitMQ 服务器发送一个心跳帧
         if self._writes_since_check == 0:
-            # 向 RabbitMQ 服务器发送心跳检查请求
             self.send_heartbeat_impl()
+
         self._lock.acquire()
         try:
+            # 如果从上次检查心跳到现在一直没收到 RabbitMQ 服务器发来的数据
+            # 记它一下，达到两下就给它抛异常
             if self._reads_since_check == 0:
                 self._threshold += 1
                 if self._threshold >= 2:

@@ -11,7 +11,7 @@ from amqpstorm.connection import DEFAULT_SOCKET_TIMEOUT
 from amqpstorm.connection import DEFAULT_VIRTUAL_HOST
 from amqpstorm.exception import AMQPConnectionError
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class UriConnection(Connection):
@@ -54,7 +54,7 @@ class UriConnection(Connection):
 
     def __init__(self, uri, ssl_options=None, client_properties=None,
                  lazy=False):
-        print(f'【amqpstorm.uri_connection.UriConnection.__init__】{uri=}')
+        logger.info(f'[amqpstorm.uri_connection.UriConnection.__init__] 创建连接 {uri=}')
         uri = compatibility.patch_uri(uri)
         parsed_uri = urlparse.urlparse(uri)
         use_ssl = parsed_uri.scheme == 'amqps' or parsed_uri.scheme == 'https'
@@ -107,7 +107,7 @@ class UriConnection(Connection):
         ssl_options = {}
         for key in ssl_kwargs:
             if key not in compatibility.SSL_OPTIONS:
-                LOGGER.warning('invalid option: %s', key)
+                logger.warning('invalid option: %s', key)
                 continue
             if 'ssl_version' in key:
                 value = self._get_ssl_version(ssl_kwargs[key][0])
@@ -157,5 +157,5 @@ class UriConnection(Connection):
             if not key.endswith(value.lower()):
                 continue
             return mapping[key]
-        LOGGER.warning(warning_message, value)
+        logger.warning(warning_message, value)
         return default_value

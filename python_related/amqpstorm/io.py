@@ -14,7 +14,7 @@ from amqpstorm.compatibility import ssl
 from amqpstorm.exception import AMQPConnectionError
 
 EMPTY_BUFFER = bytes()
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 POLL_TIMEOUT = 1.0
 
 
@@ -49,7 +49,8 @@ class Poller(object):
 
 
 class IO(object):
-    """Internal Input/Output handler."""
+    """AMQPStorm 内部使用的 I/O 控制器
+    """
 
     def __init__(self, parameters, exceptions=None, on_read_impl=None):
         self._exceptions = exceptions
@@ -93,20 +94,26 @@ class IO(object):
         3. 创建 poller 对象，其本质就是 select 多路复用对象，用于判断客户端套接字是否 “读就绪”，也就是有没有收到服务器发来的消息
         4. 创建一个子线程并启动运行，该子线程会维持一个无限循环，在循环中利用 poller 对象判断客户端套接字是否 “读就绪”
         """
+        # 获得写锁和读锁
         self._wr_lock.acquire()
         self._rd_lock.acquire()
+
         try:
             self.data_in = EMPTY_BUFFER
-            current_thread = threading.current_thread()
-            print(f'【amqpstorm.io.IO.open】将 “线程事件” 设为 “已设置” 状态 [{current_thread.name}]')
+            logger.info('[amqpstorm.io.IO.open] 将 “线程事件” 设为 “已设置” 状态')
             self._running.set()
-            print('【amqpstorm.io.IO.open】创建 TCP 套接字，并与 RabbitMQ 服务器建立连接')
+
             sock_addresses = self._get_socket_addresses()
-            self.socket = self._find_address_and_connect(sock_addresses)
-            print('【amqpstorm.io.IO.open】创建 poller 对象，即 select 多路复用对象')
+            logger.info(f'[amqpstorm.io.IO.open] 创建 TCP 客户端套接字，并与 RabbitMQ 服务器 {sock_addresses[0][4]} 建立连接')
+            self.socket = self._find_address_and_connect(sock_addresses)  # 客户端套接字
+
+            logger.info('[amqpstorm.io.IO.open] 创建 poller 对象，即 select 多路复用对象')
             self.poller = Poller(self.socket.fileno(), self._exceptions, timeout=self._parameters['timeout'])
-            print('【amqpstorm.io.IO.open】创建一个子线程并启动运行，该子线程会维持一个无限循环，在循环中利用 poller 对象判断客户端套接字是否 “读就绪”')
+
+            logger.info('[amqpstorm.io.IO.open] 创建一个子线程并启动运行，利用 poller 对象轮询客户端套接字是否 “读就绪”')
             self._inbound_thread = self._create_inbound_thread()
+
+        # 释放写锁和读锁
         finally:
             self._wr_lock.release()
             self._rd_lock.release()
@@ -116,13 +123,14 @@ class IO(object):
 
         Python 套接字的 send 方法可以发送任意字节数的数据，此方法只是把数据从用户空间拷贝到内核空间的网络缓冲区。
         操作系统一次只能发送一个 TCP 报文，并且报文段有字节量限制，即 MTU 最大传输单元，通常为 1500 字节（不包括 IP 和 TCP 头部）。
-        所以调用一次 socket.send 方法发送 2000 字节，操作系统只会发送 1500 ，剩下那 500 会被舍弃。
-        最后 socket.send 方法返回发送成功的字节数 1500。
+        如果调用一次 socket.send 方法发送 2000 字节，操作系统只会发送 1500 ，剩下那 500 会被舍弃，
+        最后 socket.send 方法返回发送成功的字节数 1500，利用这个返回的字节数，再次调用 socket.send 方法发送剩下的部分就行了。
         """
         self._wr_lock.acquire()
         try:
             total_bytes_written = 0
             bytes_to_send = len(frame_data)
+            # 每次发送 1500 字节
             while total_bytes_written < bytes_to_send:
                 try:
                     if not self.socket:
@@ -182,7 +190,6 @@ class IO(object):
         for address in addresses:
             sock = self._create_socket(socket_family=address[0])
             try:
-                print(f'【amqpstorm.io.IO._find_address_and_connect】RabbitMQ 客户端套接字连接服务器，服务器 IP 地址和端口号: {address[4]}')
                 sock.connect(address[4])
             except (IOError, OSError) as why:
                 error_message = why.strerror
@@ -240,7 +247,7 @@ class IO(object):
         """创建一个监听套接字读事件的子线程并启动
         """
         # 创建子线程
-        inbound_thread = threading.Thread(target=self._process_incoming_data, name=__name__)
+        inbound_thread = threading.Thread(target=self._process_incoming_data, name='amqp-receiver')
         # 将子线程设为守护线程，目的是跟随主线程一起停止运行
         inbound_thread.daemon = True
         # 启动子线程
@@ -250,14 +257,12 @@ class IO(object):
     def _process_incoming_data(self):
         """处理 RabbitMQ 服务器发来的消息
         """
-        with self._rd_lock:
-            current_thread = threading.current_thread()
-            print(f'【amqpstorm.io.IO._process_incoming_data】启动监听服务器发来的消息 [{current_thread.name}]')
+        logger.info('[amqpstorm.io.IO._process_incoming_data] 启动监听服务器发来的消息')
         # 如果 “线程事件” 处于 “已设置” 状态
         while self._running.is_set():
             # 如果 RabbitMQ 服务器发来了消息
             if self.poller.is_ready:
-                # 从套接字的 recv 方法读取收到的二进制数据
+                # 调用套接字的 recv 方法读取收到的二进制数据
                 self.data_in += self._receive()
                 # 根据 AMQP 解析二进制数据，得到 channel 编号和消息内容，再利用 channel.on_frame 方法解析消息内容
                 self.data_in = self._on_read_impl(self.data_in)
@@ -279,7 +284,7 @@ class IO(object):
             if why.args[0] not in (EWOULDBLOCK, EAGAIN):
                 self._exceptions.append(AMQPConnectionError(why))
                 if self._running.is_set():
-                    LOGGER.warning("Stopping inbound thread due to %s", why, exc_info=True)
+                    logger.warning("Stopping inbound thread due to %s", why, exc_info=True)
                     self._running.clear()
         return data_in
 
