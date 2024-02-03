@@ -27,7 +27,7 @@ class Rpc(object):
         return self._lock
 
     def on_frame(self, frame_in):
-        """处理服务器发给信道的消息
+        """处理服务器发给信道的消息，参数 frame_in 是数据帧
         """
         # 只有 RPC 请求才会记录在 self._request 中
         if frame_in.name not in self._request:

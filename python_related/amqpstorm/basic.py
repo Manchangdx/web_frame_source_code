@@ -126,7 +126,7 @@ class Basic(Handler):
             queue:          当前信道要接收消息的消息队列
             consumer_tag:   消费者标签
             exclusive:      是否独占该消息队列
-            no_ack:         是否手动确认消息
+            no_ack:         是否自动确认消息
             no_local:       是否允许消费者接收自身发出的消息
         """
         if not compatibility.is_string(queue):

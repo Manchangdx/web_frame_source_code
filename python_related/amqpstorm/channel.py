@@ -186,14 +186,15 @@ class Channel(BaseChannel):
 
         # 有一些方法例如 channel.open 和 channel.basic.qos 等发送数据帧后，需要阻塞等待响应来确认是否成功
         # 以 channel.open 方法为例，它给服务器发送的是 Channel.Open 数据帧，告知服务器要创建信道，此方法阻塞运行，直到服务器回复
-        # 下面这个方法就是用来处理上述情况中服务器回复的 Frame 对象，又叫做「即时响应 Frame 对象」
+        # 下面这个方法就是用来处理上述情况中服务器回复的数据帧，又叫做「即时响应数据帧」
         if self.rpc.on_frame(frame_in):
             return
 
-        # 如果是 “队列消息” Frame 对象，包括 Basic.Deliver, ContentHeader, ContentBody
+        # 如果是 “队列消息” 数据帧，包括 Basic.Deliver, ContentHeader, ContentBody
         # 放到信道的「消息暂存列表」里面
         if frame_in.name in CONTENT_FRAME:
             self._inbound.append(frame_in)
+        # 下面这些都是方法帧，分别单独处理
         elif frame_in.name == 'Basic.Cancel':
             self._basic_cancel(frame_in)
         elif frame_in.name == 'Basic.CancelOk':
