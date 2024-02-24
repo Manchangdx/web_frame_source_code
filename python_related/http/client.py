@@ -72,10 +72,13 @@ import email.parser
 import email.message
 import http
 import io
+import logging
 import re
 import socket
 import collections.abc
 from urllib.parse import urlsplit
+
+logger = logging.getLogger(__name__)
 
 # HTTPMessage, parse_headers(), and the HTTP status code constants are
 # intentionally omitted for simplicity
@@ -202,7 +205,7 @@ class HTTPMessage(email.message.Message):
         return lst
 
 def parse_headers(fp, _class=HTTPMessage):
-    """解析 HTTP 请求头
+    """解析 HTTP 响应头
     """
     headers = []
     while True:
@@ -216,10 +219,11 @@ def parse_headers(fp, _class=HTTPMessage):
             break
     hstring = b''.join(headers).decode('iso-8859-1')
 
-    print('【http.client.parse_headers】「请求处理对象」处理请求头')
+    logstr = '[http.client.parse_headers] 解析响应头'
     for h in headers:
         if h := h.decode().strip():
-            print(f'\t{h}')
+            logstr += f'\n\t{h}'
+    logger.info(logstr)
 
     return email.parser.Parser(_class=_class).parsestr(hstring)
 
@@ -1250,7 +1254,12 @@ class HTTPConnection:
 
     def request(self, method, url, body=None, headers={}, *,
                 encode_chunked=False):
-        """Send a complete request to the server."""
+        """发送一个完整的网络请求
+        """
+        logger.debug(
+            f'[http.client.HTTPConnection.request] 发送网络请求 '
+            f'\n\t{url=} \n\t{method=} \n\t{body=} \n\t{headers=}'
+        )
         self._send_request(method, url, body, headers, encode_chunked)
 
     def _send_request(self, method, url, body, headers, encode_chunked):
@@ -1300,18 +1309,9 @@ class HTTPConnection:
         self.endheaders(body, encode_chunked=encode_chunked)
 
     def getresponse(self):
-        """Get the response from the server.
-
-        If the HTTPConnection is in the correct state, returns an
-        instance of HTTPResponse or of whatever object is returned by
-        the response_class variable.
-
-        If a request has not been sent or if a previous response has
-        not be handled, ResponseNotReady is raised.  If the HTTP
-        response indicates that the connection should be closed, then
-        it will be closed before the response is returned.  When the
-        connection is closed, the underlying socket is closed.
+        """获取服务器响应
         """
+        logger.debug('[http.client.HTTPConnection.getresponse] 构造响应对象')
 
         # if a prior response has been completed, then forget about it.
         if self.__response and self.__response.isclosed():

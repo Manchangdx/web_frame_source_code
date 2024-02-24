@@ -93,6 +93,7 @@ import email.utils
 import html
 import http.client
 import io
+import logging
 import mimetypes
 import os
 import posixpath
@@ -107,6 +108,8 @@ import contextlib
 from functools import partial
 
 from http import HTTPStatus
+
+logger = logging.getLogger(__name__)
 
 
 # Default error message template
