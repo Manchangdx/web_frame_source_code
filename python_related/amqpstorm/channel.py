@@ -238,11 +238,11 @@ class Channel(BaseChannel):
     def rpc_request(self, frame_out, connection_adapter=None):
         """给服务器发送一个 RPC 请求，等待服务器响应结果并返回
 
-        RPC 请求的数据帧都是有特定作用的实例，相关类定义在 pamqp.specification 模块中
+        RPC 请求的数据帧都是有特定作用的，相关类定义在 pamqp.specification 模块中
         每次请求发出后，都会在 channel.rpc._requests 字典中记录 {frame_out.valid_responses: uuid}
 
         Args:
-            frame_out: pamqp.specification.Frame 子类的实例
+            frame_out: 数据帧，全都是方法帧
         """
         with self.rpc.lock:
             logger.info(f'[amqpstorm.channel.Channel.rpc_request] 信道发送消息 channel_id={self.channel_id} {frame_out=}')

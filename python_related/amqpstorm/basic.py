@@ -198,7 +198,7 @@ class Basic(Handler):
 
         frames_out = [method_frame, header_frame]
 
-        # 根据 max_frame_size 切分消息体生成多个 Frame 对象
+        # 根据 max_frame_size 切分消息体生成多个数据帧
         for body_frame in self._create_content_body(body):
             frames_out.append(body_frame)
 
@@ -328,7 +328,7 @@ class Basic(Handler):
                             auto_decode=auto_decode)
 
     def _publish_confirm(self, frames_out, mandatory):
-        """发送 “设置了确认机制的消息”
+        """发送设置了 “发送确认机制” 的消息
 
         此方法发送消息后，会阻塞当前信道，直到收到服务器返回的数据帧
         并且根据数据帧判断消息是否发送成功

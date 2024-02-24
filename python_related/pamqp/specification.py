@@ -129,11 +129,6 @@ class Frame(object):
 
     @classmethod
     def type(cls, attr):
-        """Return the data type for an attribute.
-
-        :rtype: str
-
-        """
         return getattr(cls, '_' + attr)
 
     def marshal(self):
@@ -161,7 +156,6 @@ class Frame(object):
                 byte = 0
                 offset = 0
                 processing_bitset = True
-
 
             # 如果上次或这次循环要处理 bit 类型的属性
             if processing_bitset:
@@ -191,7 +185,7 @@ class Frame(object):
             # 如果当前处理的属性类型不是 bit ，按类型处理就行
             #   bytes     : 不变
             #   bytearray : 这是可变字节码对象，用 struct.pack('>I') 将字节数量转换一下，再加上原值
-            #   str       : 按 UTF8 编码
+            #   str       : 按 UTF8 编码，用 struct.pack 将字节数量转换成二进制，再加上编码后的值
             #   double    : 用 struct.pack('>d') 转换
             #   int       : 用 struct.pack('B') 转换
             #   table     : 其实就是 Python 字典，对 key & value 分别处理
@@ -1026,10 +1020,9 @@ class Channel(object):
     index = 0x00140000
 
     class Open(Frame):
-        """Open a channel for use
+        """开启信道的数据帧
 
-        This method opens a channel to the server.
-
+        将此数据帧发送给 RabbitMQ 服务器，告诉它当前 TCP 连接新建了一个信道
         """
         # AMQP Method Number and Mapping Index
         frame_id = 10
