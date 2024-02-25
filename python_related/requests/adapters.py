@@ -332,13 +332,14 @@ class HTTPAdapter(BaseAdapter):
         return response
 
     def get_connection(self, url, proxies=None):
-        """Returns a urllib3 connection for the given URL. This should not be
-        called from user code, and is only exposed for use when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        """根据 url 和 proxies 构造并返回一个 urllib3.ConnectionPool 对象
 
-        :param url: The URL to connect to.
-        :param proxies: (optional) A Requests-style dictionary of proxies used on this request.
-        :rtype: urllib3.ConnectionPool
+        Args:
+            url (str): 完整的 URL 地址
+            proxies (dict): 代理信息字典 {'http': 'http://127.0.0.0:7890'}
+
+        Return:
+            连接对象 urllib3.ConnectionPool
         """
         proxy = select_proxy(url, proxies)
 
@@ -350,7 +351,9 @@ class HTTPAdapter(BaseAdapter):
                     "Please check proxy URL. It is malformed "
                     "and could be missing the host."
                 )
+            # proxy_manager 是 urllib3.poolmanager.ProxyManager 类的实例
             proxy_manager = self.proxy_manager_for(proxy)
+            # conn 是 urllib3.connectionpool.HTTPSConnectionPool 类的实例
             conn = proxy_manager.connection_from_url(url)
         else:
             # Only scheme should be lower case
@@ -437,23 +440,12 @@ class HTTPAdapter(BaseAdapter):
     def send(
         self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None
     ):
-        """Sends PreparedRequest object. Returns Response object.
-
-        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
-        :param stream: (optional) Whether to stream the request content.
-        :param timeout: (optional) How long to wait for the server to send
-            data before giving up, as a float, or a :ref:`(connect timeout,
-            read timeout) <timeouts>` tuple.
-        :type timeout: float or tuple or urllib3 Timeout object
-        :param verify: (optional) Either a boolean, in which case it controls whether
-            we verify the server's TLS certificate, or a string, in which case it
-            must be a path to a CA bundle to use
-        :param cert: (optional) Any user-provided SSL certificate to be trusted.
-        :param proxies: (optional) The proxies dictionary to apply to the request.
-        :rtype: requests.Response
+        """发送 PreparedRequest 对象，返回 Response 对象
         """
 
+        # 获取连接对象
         try:
+            logger.info('[requests.adapters.HTTPAdapter.send] 适配器寻找连接池')
             # 此处 conn 是 urllib3.PoolManager.connection_from_url 方法返回的一个对象
             # 该对象是 urllib3.connectionpool.HTTPSConnectionPool 类的实例，此实例实现了 urlopen 方法
             conn = self.get_connection(request.url, proxies)
@@ -461,7 +453,7 @@ class HTTPAdapter(BaseAdapter):
             raise InvalidURL(e, request=request)
 
         self.cert_verify(conn, request.url, verify, cert)
-        url = self.request_url(request, proxies)
+        url = self.request_url(request, proxies)  # URL 中的路径部分
         self.add_headers(
             request,
             stream=stream,
@@ -488,7 +480,9 @@ class HTTPAdapter(BaseAdapter):
             timeout = TimeoutSauce(connect=timeout, read=timeout)
 
         try:
-            logger.info(f'[requests.adapters.HTTPAdapter.send] 适配器发送请求 path={url}')
+            logger.info('[requests.adapters.HTTPAdapter.send] 适配器调用连接池的 urlopen 发送网络请求')
+            # urlopen 方法是 urllib3.connectionpool.HTTPSConnectionPool 类的实例方法
+            # resp 是 urllib3.response.HTTPResponse 类的实例
             resp = conn.urlopen(
                 method=request.method,
                 url=url,

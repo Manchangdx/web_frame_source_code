@@ -222,7 +222,7 @@ def parse_headers(fp, _class=HTTPMessage):
     logstr = '[http.client.parse_headers] 解析响应头'
     for h in headers:
         if h := h.decode().strip():
-            logstr += f'\n\t{h}'
+            logstr += f'\n\t    {h}'
     logger.info(logstr)
 
     return email.parser.Parser(_class=_class).parsestr(hstring)
@@ -920,7 +920,7 @@ class HTTPConnection:
                 print('header:', line.decode())
 
     def connect(self):
-        """Connect to the host and port specified in __init__."""
+        logger.info(f'[http.client.HTTPConnection.connect] 创建客户端套接字，连接到 {self.host}:{self.port}')
         self.sock = self._create_connection(
             (self.host,self.port), self.timeout, self.source_address)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -1103,11 +1103,11 @@ class HTTPConnection:
         self._validate_path(url)
 
         request = '%s %s %s' % (method, url, self._http_vsn_str)
+        request_b = self._encode_request(request)
 
-        self._output(self._encode_request(request))
+        self._output(request_b)
 
         if self._http_vsn == 11:
-            # Issue some standard headers for better HTTP/1.1 compliance
 
             if not skip_host:
                 # this header is issued *only* for HTTP/1.1
@@ -1159,27 +1159,10 @@ class HTTPConnection:
                         host_enc = host_enc.decode("ascii")
                         self.putheader('Host', "%s:%s" % (host_enc, port))
 
-            # note: we are assuming that clients will not attempt to set these
-            #       headers since *this* library must deal with the
-            #       consequences. this also means that when the supporting
-            #       libraries are updated to recognize other forms, then this
-            #       code should be changed (removed or updated).
-
-            # we only want a Content-Encoding of "identity" since we don't
-            # support encodings such as x-gzip or x-deflate.
             if not skip_accept_encoding:
                 self.putheader('Accept-Encoding', 'identity')
 
-            # we can accept "chunked" Transfer-Encodings, but no others
-            # NOTE: no TE header implies *only* "chunked"
-            #self.putheader('TE', 'chunked')
-
-            # if TE is supplied in the header, then it must appear in a
-            # Connection header.
-            #self.putheader('Connection', 'TE')
-
         else:
-            # For HTTP/1.0, the server will assume "not chunked"
             pass
 
     def _encode_request(self, request):
@@ -1256,14 +1239,14 @@ class HTTPConnection:
                 encode_chunked=False):
         """发送一个完整的网络请求
         """
-        logger.debug(
-            f'[http.client.HTTPConnection.request] 发送网络请求 '
-            f'\n\t{url=} \n\t{method=} \n\t{body=} \n\t{headers=}'
+        logger.info(
+            f'[http.client.HTTPConnection.request] 连接对象发送网络请求'
+            f'\n\t    host={self.host}\n\t    port={self.port}\n\t    sock={self.sock}'
+            f'\n\t    {url=} \n\t    {method=} \n\t    {body=} \n\t    {headers=}'
         )
         self._send_request(method, url, body, headers, encode_chunked)
 
     def _send_request(self, method, url, body, headers, encode_chunked):
-        # Honor explicitly requested Host: and Accept-Encoding: headers.
         header_names = frozenset(k.lower() for k in headers)
         skips = {}
         if 'host' in header_names:
@@ -1271,22 +1254,13 @@ class HTTPConnection:
         if 'accept-encoding' in header_names:
             skips['skip_accept_encoding'] = 1
 
+        # 准备【请求行】
+        # 如果是隧道连接，会把 {Host: 真实域名} 放到请求头里面
+        # 代理服务器会根据请求头的 Host 把请求转发到真实的服务器
         self.putrequest(method, url, **skips)
 
-        # chunked encoding will happen if HTTP/1.1 is used and either
-        # the caller passes encode_chunked=True or the following
-        # conditions hold:
-        # 1. content-length has not been explicitly set
-        # 2. the body is a file or iterable, but not a str or bytes-like
-        # 3. Transfer-Encoding has NOT been explicitly set by the caller
-
         if 'content-length' not in header_names:
-            # only chunk body if not explicitly set for backwards
-            # compatibility, assuming the client code is already handling the
-            # chunking
             if 'transfer-encoding' not in header_names:
-                # if content-length cannot be automatically determined, fall
-                # back to chunked encoding
                 encode_chunked = False
                 content_length = self._get_content_length(body, method)
                 if content_length is None:
@@ -1300,18 +1274,19 @@ class HTTPConnection:
         else:
             encode_chunked = False
 
+        # 准备【请求头】
         for hdr, value in headers.items():
             self.putheader(hdr, value)
+
+        # 准备【请求体】
         if isinstance(body, str):
-            # RFC 2616 Section 3.7.1 says that text default has a
-            # default charset of iso-8859-1.
             body = _encode(body, 'body')
         self.endheaders(body, encode_chunked=encode_chunked)
 
     def getresponse(self):
         """获取服务器响应
         """
-        logger.debug('[http.client.HTTPConnection.getresponse] 构造响应对象')
+        logger.info('[http.client.HTTPConnection.getresponse] 构造响应对象')
 
         # if a prior response has been completed, then forget about it.
         if self.__response and self.__response.isclosed():

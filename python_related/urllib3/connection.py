@@ -51,7 +51,7 @@ from .util import connection
 
 from ._collections import HTTPHeaderDict
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 port_by_scheme = {"http": 80, "https": 443}
 
@@ -305,7 +305,7 @@ class HTTPSConnection(HTTPConnection):
         self.ca_cert_data = ca_cert_data
 
     def connect(self):
-        # Add certificate verification
+        logger.info(f'[urllib3.connection.HTTPSConnection.connect] 连接对象创建客户端套接字并连接到 {self._dns_host}:{self.port}')
         conn = self._new_conn()
         hostname = self.host
 
@@ -406,7 +406,7 @@ def _match_hostname(cert, asserted_hostname):
     try:
         match_hostname(cert, asserted_hostname)
     except CertificateError as e:
-        log.warning(
+        logger.warning(
             "Certificate did not match expected hostname: %s. Certificate: %s",
             asserted_hostname,
             cert,

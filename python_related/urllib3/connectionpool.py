@@ -183,6 +183,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         _proxy_headers=None,
         **conn_kw
     ):
+        logger.info(f'[urllib3.connectionpool.HTTPConnectionPoll.__init__] 初始化连接池 {host}:{port}  代理: {_proxy}')
         ConnectionPool.__init__(self, host, port)
         RequestMethods.__init__(self, headers)
 
@@ -223,7 +224,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         Return a fresh :class:`HTTPConnection`.
         """
         self.num_connections += 1
-        logger.debug(
+        logger.info(
             "[urllib3.connectionpool.HTTPConnectionPoll._new_conn] Starting new HTTP connection (%d): %s:%s",
             self.num_connections,
             self.host,
@@ -374,7 +375,12 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         if chunked:
             conn.request_chunked(method, url, **httplib_request_kw)
         else:
-            # 此 request 方法定义在 http.client.HTTPConnection 类中
+            logger.info(
+                '[urllib3.connectionpool.HTTPConnectionPoll._make_request] 连接池调用连接对象的 request 方法发送网络请求'
+            )
+            # self 是连接池
+            # conn 是连接对象，urllib3.connection.HTTPConnection 类的实例
+            # conn.request 方法定义在 http.client.HTTPConnection 类中
             conn.request(method, url, **httplib_request_kw)
 
         read_timeout = timeout_obj.read_timeout
@@ -406,7 +412,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             raise
 
         http_version = getattr(conn, "_http_vsn_str", "HTTP/?")
-        logger.debug(
+        logger.info(
             '[urllib3.connectionpool.HTTPConnectionPoll._make_request] 获取服务器响应: %s://%s:%s "%s %s %s" %s %s',
             self.scheme,
             self.host,
@@ -488,95 +494,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         body_pos=None,
         **response_kw
     ):
-        """
-        Get a connection from the pool and perform an HTTP request. This is the
-        lowest level call for making a request, so you'll need to specify all
-        the raw details.
-
-        .. note::
-
-           More commonly, it's appropriate to use a convenience method provided
-           by :class:`.RequestMethods`, such as :meth:`request`.
-
-        .. note::
-
-           `release_conn` will only behave as expected if
-           `preload_content=False` because we want to make
-           `preload_content=False` the default behaviour someday soon without
-           breaking backwards compatibility.
-
-        :param method:
-            HTTP request method (such as GET, POST, PUT, etc.)
-
-        :param body:
-            Data to send in the request body (useful for creating
-            POST requests, see HTTPConnectionPool.post_url for
-            more convenience).
-
-        :param headers:
-            Dictionary of custom headers to send, such as User-Agent,
-            If-None-Match, etc. If None, pool headers are used. If provided,
-            these headers completely replace any pool-specific headers.
-
-        :param retries:
-            Configure the number of retries to allow before raising a
-            :class:`~urllib3.exceptions.MaxRetryError` exception.
-
-            Pass ``None`` to retry until you receive a response. Pass a
-            :class:`~urllib3.util.retry.Retry` object for fine-grained control
-            over different types of retries.
-            Pass an integer number to retry connection errors that many times,
-            but no other types of errors. Pass zero to never retry.
-
-            If ``False``, then retries are disabled and any exception is raised
-            immediately. Also, instead of raising a MaxRetryError on redirects,
-            the redirect response will be returned.
-
-        :type retries: :class:`~urllib3.util.retry.Retry`, False, or an int.
-
-        :param redirect:
-            If True, automatically handle redirects (status codes 301, 302,
-            303, 307, 308). Each redirect counts as a retry. Disabling retries
-            will disable redirect, too.
-
-        :param assert_same_host:
-            If ``True``, will make sure that the host of the pool requests is
-            consistent else will raise HostChangedError. When False, you can
-            use the pool on an HTTP proxy and request foreign hosts.
-
-        :param timeout:
-            If specified, overrides the default timeout for this one
-            request. It may be a float (in seconds) or an instance of
-            :class:`urllib3.util.Timeout`.
-
-        :param pool_timeout:
-            If set and the pool is set to block=True, then this method will
-            block for ``pool_timeout`` seconds and raise EmptyPoolError if no
-            connection is available within the time period.
-
-        :param release_conn:
-            If False, then the urlopen call will not release the connection
-            back into the pool once a response is received (but will release if
-            you read the entire contents of the response such as when
-            `preload_content=True`). This is useful if you're not preloading
-            the response's content immediately. You will need to call
-            ``r.release_conn()`` on the response ``r`` to return the connection
-            back into the pool. If None, it takes the value of
-            ``response_kw.get('preload_content', True)``.
-
-        :param chunked:
-            If True, urllib3 will send the body using chunked transfer
-            encoding. Otherwise, urllib3 will send the body using the standard
-            content-length form. Defaults to False.
-
-        :param int body_pos:
-            Position to seek to in file-like body in the event of a retry or
-            redirect. Typically this won't need to be set because urllib3 will
-            auto-populate the value when needed.
-
-        :param \\**response_kw:
-            Additional parameters are passed to
-            :meth:`urllib3.response.HTTPResponse.from_httplib`
+        """从连接池中获取连接对象，发送网络请求，获取响应并返回
         """
         if headers is None:
             headers = self.headers
@@ -587,11 +505,9 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         if release_conn is None:
             release_conn = response_kw.get("preload_content", True)
 
-        # Check host
         if assert_same_host and not self.is_same_host(url):
             raise HostChangedError(self, url, retries)
 
-        # Ensure that the URL we're connecting to is properly encoded
         if url.startswith("/"):
             url = six.ensure_str(_encode_target(url))
         else:
@@ -599,51 +515,47 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
 
         conn = None
 
-        # Track whether `conn` needs to be released before
-        # returning/raising/recursing. Update this variable if necessary, and
-        # leave `release_conn` constant throughout the function. That way, if
-        # the function recurses, the original value of `release_conn` will be
-        # passed down into the recursive call, and its value will be respected.
-        #
-        # See issue #651 [1] for details.
-        #
-        # [1] <https://github.com/urllib3/urllib3/issues/651>
         release_this_conn = release_conn
 
-        # Merge the proxy headers. Only do this in HTTP. We have to copy the
-        # headers dict so we can safely change it without those changes being
-        # reflected in anyone else's copy.
         if self.scheme == "http":
             headers = headers.copy()
             headers.update(self.proxy_headers)
 
-        # Must keep the exception bound to a separate variable or else Python 3
-        # complains about UnboundLocalError.
         err = None
 
-        # Keep track of whether we cleanly exited the except block. This
-        # ensures we do proper cleanup in finally.
         clean_exit = False
 
-        # Rewind body position, if needed. Record current position
-        # for future rewinds in the event of a redirect/retry.
         body_pos = set_file_position(body, body_pos)
 
         try:
-            # Request a connection from the queue.
             timeout_obj = self._get_timeout(timeout)
+
+            host = self.host
+            port = self.port
+            logger.info(
+                f'[urllib3.connectionpool.HTTPConnectionPoll.urlopen] 连接池创建连接对象，真实服务器的地址: {host}:{port}'
+            )
+
+            # self 是连接池
+            # conn 是连接对象，urllib3.connection.HTTPSConnection 类的实例
+            #      其核心就是根据目标 IP & PORT 创建一个客户端套接字
+            #      如果有代理，客户端套接字的目标 IP & PORT 就是代理的
             conn = self._get_conn(timeout=pool_timeout)
-            logger.info(f'[urllib3.connectionpool.HTTPConnectionPoll.urlopen] 找到连接对象 {conn}')
 
             conn.timeout = timeout_obj.connect_timeout
 
-            is_new_proxy_conn = self.proxy is not None and not getattr(
-                conn, "sock", None
-            )
+            is_new_proxy_conn = self.proxy is not None and not getattr(conn, "sock", None)
             if is_new_proxy_conn:
+                logger.info(
+                    f'[urllib3.connectionpool.HTTPConnectionPoll.urlopen] 将连接对象设为代理连接，'
+                    f'代理服务器的地址: {self.proxy.host}:{self.proxy.port}'
+                )
+                # 此处的作用是给 conn 设置 _tunnel_host 和 _tunnel_port 属性
+                # conn.host 和 conn.port 是代理本地服务器的域名和端口
+                # conn._tunnel_host 和 conn._tunnel_port 是真实目标服务器的域名和端口
                 self._prepare_proxy(conn)
 
-            # Make the request on the httplib connection object.
+            # 发送网络请求
             httplib_response = self._make_request(
                 conn,
                 method,
@@ -654,10 +566,6 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                 chunked=chunked,
             )
 
-            # If we're going to release the connection in ``finally:``, then
-            # the response doesn't need to know about the connection. Otherwise
-            # it will also try to release it and we'll have a double-release
-            # mess.
             response_conn = conn if not release_conn else None
 
             # Pass method to Response for length checking
@@ -672,7 +580,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                 **response_kw
             )
 
-            logger.debug(f'[urllib3.connectionpool.HTTPConnectionPoll.urlopen] 返回响应对象 {response}')
+            logger.info(f'[urllib3.connectionpool.HTTPConnectionPoll.urlopen] 返回响应对象 {response}')
 
             # Everything went great!
             clean_exit = True
@@ -903,9 +811,7 @@ class HTTPSConnectionPool(HTTPConnectionPool):
         return conn
 
     def _prepare_proxy(self, conn):
-        """
-        Establish tunnel connection early, because otherwise httplib
-        would improperly set Host: header to proxy's IP:port.
+        """为代理设置隧道连接
         """
         conn.set_tunnel(self._proxy_host, self.port, self.proxy_headers)
         conn.connect()
@@ -915,12 +821,12 @@ class HTTPSConnectionPool(HTTPConnectionPool):
         Return a fresh :class:`httplib.HTTPSConnection`.
         """
         self.num_connections += 1
-        logger.debug(
-            "[urllib3.connectionpool.HTTPConnectionPoll._new_conn] Starting new HTTPS connection (%d): %s:%s",
-            self.num_connections,
-            self.host,
-            self.port or "443",
-        )
+        # logger.info(
+        #     "[urllib3.connectionpool.HTTPConnectionPoll._new_conn] Starting new HTTPS connection (%d): %s:%s",
+        #     self.num_connections,
+        #     self.host,
+        #     self.port or "443",
+        # )
 
         if not self.ConnectionCls or self.ConnectionCls is DummyConnection:
             raise SSLError(

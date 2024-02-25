@@ -589,9 +589,7 @@ class Session(SessionRedirectMixin):
             "allow_redirects": allow_redirects,
         }
         send_kwargs.update(settings)
-        logger.info(f'[requests.sessions.Session.request] 会话对象发送请求 {prep}')
         resp = self.send(prep, **send_kwargs)
-        logger.info(f'[requests.sessions.Session.request] 会话对象收到响应 {resp}')
 
         return resp
 
@@ -693,10 +691,10 @@ class Session(SessionRedirectMixin):
         if "proxies" not in kwargs:
             kwargs["proxies"] = resolve_proxies(request, self.proxies, self.trust_env)
 
-        logstr = '[requests.sessions.Session.send] kwargs:'
-        for k, v in kwargs.items():
-            logstr += f'\n\t{k:<16}: {v}'
-        logger.info(logstr)
+        logger.info(
+            f'[requests.sessions.Session.send] 会话对象发送请求 \n\t    {request.method} {request.url}'
+            f'\n\t    代理设置: {kwargs["proxies"]}'
+        )
 
         allow_redirects = kwargs.pop("allow_redirects", True)
         stream = kwargs.get("stream")
@@ -707,9 +705,9 @@ class Session(SessionRedirectMixin):
         # 开始计时
         start = preferred_clock()
         # 适配器发送请求
-        logger.info(f'[requests.sessions.Session.send] 调用 HTTPAdapter 对象的 send 方法发送请求 {request}')
+        logger.info(f'[requests.sessions.Session.send] 会话调用适配器对象 HTTPAdapter 的 send 方法发送网络请求 {request}')
         r = adapter.send(request, **kwargs)
-        logger.info(f'[requests.sessions.Session.send] 收到响应 {r}')
+        logger.info(f'[requests.sessions.Session.send] 会话收到响应 {r}')
         # 计算耗时
         elapsed = preferred_clock() - start
         r.elapsed = timedelta(seconds=elapsed)
@@ -794,9 +792,9 @@ class Session(SessionRedirectMixin):
         :rtype: requests.adapters.BaseAdapter
         """
         for (prefix, adapter) in self.adapters.items():
-            logger.info(f'[requests.sessions.Session.get_adapter] 适配器信息: {prefix=} {adapter=}')
 
             if url.lower().startswith(prefix.lower()):
+                logger.info(f'[requests.sessions.Session.get_adapter] 会话根据目标 URL 的协议找到匹配的适配器对象: {adapter}')
                 return adapter
 
         # Nothing matches :-/

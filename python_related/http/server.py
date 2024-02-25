@@ -286,8 +286,11 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
         # 这一行数据大概是这样 'GET /a/b/c HTTP/1.1\r\n'
         # 默认情况下，HTTP 协议遵循的是 iso-8859-1 编码规则
         requestline = str(self.raw_requestline, 'iso-8859-1')
-        print('【http.server.BaseHTTPRequestHandler.parse_request】「请求处理对象」解析请求行: ')
-        print(f'\t{str(self.raw_requestline)}')
+
+        logstr = '[http.server.BaseHTTPRequestHandler.parse_request]「请求处理对象」解析请求行: '
+        logstr += f'\n\t    {str(self.raw_requestline)}'
+        logger.info(logstr)
+
         requestline = requestline.rstrip('\r\n')
         self.requestline = requestline
         words = requestline.split()
