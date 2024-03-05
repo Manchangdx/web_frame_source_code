@@ -366,6 +366,7 @@ class APIView(View):
             # 限流频率定义在配置文件中的 DEFAULT_THROTTLE_RATES 字典中
             if not throttle.allow_request(request, self):
                 throttle_durations.append(throttle.wait())
+        print(f'\t【rest_framework.views.APIView.check_throttles】限流检查 {throttle_durations=}')
 
         if throttle_durations:
             print(f'【rest_framework.views.APIView.check_throttles】{throttle_durations}')
@@ -483,7 +484,7 @@ class APIView(View):
                 exc.status_code = status.HTTP_403_FORBIDDEN
 
         exception_handler = self.get_exception_handler()
-        #print('【rest_framework.views.APIView.handle_exception】exception_handler:', exception_handler)
+        print('【rest_framework.views.APIView.handle_exception】exception_handler:', exception_handler)
 
         context = self.get_exception_handler_context()
         response = exception_handler(exc, context)

@@ -136,6 +136,12 @@ class APIException(Exception):
 # raise serializers.ValidationError('Value was invalid')
 
 class ValidationError(APIException):
+    """验证过程中抛出异常时使用的异常类
+
+    使用此类的关键就是初始化的第一个参数 detail ，它通常是一个字符串
+    当视图函数在运行过程中抛出异常，rest_framework.views.APIView.dispatch 方法中会捕获异常对象并处理
+    处理结果是返回 400 响应，响应体是 {"code": "invalidation_error", "message": detail}
+    """
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = _('Invalid input.')
     default_code = 'invalid'

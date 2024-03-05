@@ -579,7 +579,7 @@ class Serializer(BaseSerializer, metaclass=SerializerMetaclass):
 
         for field in fields:
             ######################################################################################
-            #print('>'*88, field.field_name)
+            # print('\t' + '>'*88, field.field_name)
             ######################################################################################
             try:
                 attribute = field.get_attribute(instance)
