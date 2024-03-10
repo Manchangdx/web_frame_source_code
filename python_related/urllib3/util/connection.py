@@ -1,7 +1,10 @@
 from __future__ import absolute_import
+import logging
 import socket
 from .wait import NoWayToWaitForSocketError, wait_for_read
 from ..contrib import _appengine_environ
+
+logger = logging.getLogger(__name__)
 
 
 def is_connection_dropped(conn):  # Platform-specific
@@ -60,6 +63,7 @@ def create_connection(
 
     for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
         af, socktype, proto, canonname, sa = res
+        logger.info(f'[urllib3.util.connection.create_connection] 域名解析 {host} → {sa}')
         sock = None
         try:
             sock = socket.socket(af, socktype, proto)
