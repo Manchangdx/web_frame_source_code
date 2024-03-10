@@ -1,4 +1,5 @@
 import functools
+import logging
 import os
 import pkgutil
 import sys
@@ -16,6 +17,8 @@ from django.core.management.base import (
 )
 from django.core.management.color import color_style
 from django.utils import autoreload
+
+logger = logging.getLogger('django.core.management.__init__')
 
 
 def find_commands(management_dir):
@@ -414,6 +417,6 @@ class ManagementUtility:
 def execute_from_command_line(argv=None):
     """创建「应用程序管理器」并调用其 execute 方法
     """
-    print('【djaong.core.management.__init__.execute_from_command_line】argv:', argv)
+    logger.info(f'[djaong.core.management.__init__.execute_from_command_line] {argv=}')
     utility = ManagementUtility(argv)
     utility.execute()

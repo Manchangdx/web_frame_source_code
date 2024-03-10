@@ -12,6 +12,7 @@ object.
 
 See docs/topics/cache.txt for information on the public API.
 """
+import logging
 from threading import local
 
 from django.conf import settings
@@ -20,6 +21,9 @@ from django.core.cache.backends.base import (
     BaseCache, CacheKeyWarning, InvalidCacheBackendError,
 )
 from django.utils.module_loading import import_string
+
+logger = logging.getLogger(__name__)
+
 
 __all__ = [
     'cache', 'caches', 'DEFAULT_CACHE_ALIAS', 'InvalidCacheBackendError',
@@ -53,7 +57,7 @@ def _create_cache(alias_backend, **kwargs):
     except ImportError as e:
         raise InvalidCacheBackendError("Could not find backend '%s': %s" % (backend, e))
 
-    print(f'【django.core.cache.__init__._create_cache】创建「缓存对象」 {alias_backend:<8}{location}')
+    logger.info(f'[django.core.cache.__init__._create_cache] 创建「缓存对象」 {alias_backend:<8}{location}')
     # 对 django_redis.cache.RedisCache 缓存类进行实例化生成「缓存对象」并返回
     obj = backend_cls(location, params)
 

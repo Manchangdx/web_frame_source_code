@@ -21,7 +21,7 @@ from django.utils.module_loading import import_string
 
 __all__ = ('WSGIServer', 'WSGIRequestHandler')
 
-logger = logging.getLogger('django.server')
+logger = logging.getLogger(__name__)
 
 
 def get_internal_wsgi_application():
@@ -207,14 +207,11 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         self.raw_requestline = self.rfile.readline(65537)
 
         if self.raw_requestline:
-            ct = threading.current_thread()
-            x = '应用主线程' if ct.name == 'django-main-thread' else '请求子线程'
-            print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】当前线程（{x}）: {ct.name} {ct.ident} ,「请求处理对象」开始处理请求')
-            # print(f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】「请求处理对象」解析请求行: {self.raw_requestline}')
+            logger.info('[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request]「请求处理对象」开始处理请求')
 
         # 如果一行的长度超过这个数，就判定它超出了服务器允许的长度范围，返回 414 状态码
         if len(self.raw_requestline) > 65536:
-            print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】414')
+            logger.error('[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request] 414')
             self.handle_one_request()
             self.requestline = ''
             self.request_version = ''
@@ -226,7 +223,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         if not self.parse_request():
             return
 
-        print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】「请求处理对象」创建「响应处理对象」')
+        logger.info('[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request]「请求处理对象」创建「响应处理对象」')
         # print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求头信息:')
         # for k, v in self.headers.items():
         #     print(f'\t\t{k:<22}{v}')
@@ -264,11 +261,8 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # 之前的操作是处理请求，下面这步操作就是处理响应以及返回数据给客户端
         handler.run(self.server.get_app())
         if self.raw_requestline:
-            ct = threading.current_thread()
-            x = '应用主线程' if ct.name == 'django-main-thread' else '请求子线程'
-            print(
-                f'【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】当前线程（{x}）: '
-                f'{ct.name} {ct.ident} 请求处理完毕，等待下一次请求...\n\n'
+            logger.info(
+                '[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request] 请求处理完毕，等待下一次请求...\n\n'
             )
 
 
@@ -283,9 +277,9 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
     # MCDXSIGN 单线程启动服务
     # threading = False
-    import threading as t
-    ct = t.current_thread()
-    print('【django.core.servers.basehttp.run】当前线程（应用主线程）:', ct.name, ct.ident, '，WSGI 服务器初始化')
+
+    logger.info('[django.core.servers.basehttp.run] WSGI 服务器初始化...\n\n')
+
     server_address = (addr, port)
     # 通常 threading 的值是 True ，这里调用 type 函数创建一个类
     if threading:

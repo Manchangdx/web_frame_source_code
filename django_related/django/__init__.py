@@ -1,4 +1,8 @@
+import logging
+
 from django.utils.version import get_version
+
+logger = logging.getLogger(__name__)
 
 VERSION = (3, 0, 3, 'final', 0)
 
@@ -11,15 +15,14 @@ def setup(set_prefix=True):
     first setting), configure logging and populate the app registry.
     Set the thread-local urlresolvers script prefix if `set_prefix` is True.
     """
-    import threading
-    ct = threading.current_thread()
-    print('【django.__init__.setup】当前线程（主线程）:', ct.name, ct.ident, '，启动或重启应用')
     from django.apps import apps
     from django.conf import settings
     from django.urls import set_script_prefix
     from django.utils.log import configure_logging
 
     configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
+    logger.info('[django.__init__.setup] 启动/重启应用')
+
     if set_prefix:
         set_script_prefix(
             '/' if settings.FORCE_SCRIPT_NAME is None else settings.FORCE_SCRIPT_NAME

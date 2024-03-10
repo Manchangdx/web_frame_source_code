@@ -11,7 +11,7 @@ from django.utils.module_loading import import_string
 
 from .exception import convert_exception_to_response
 
-logger = logging.getLogger('django.request')
+logger = logging.getLogger(__name__)
 
 
 class BaseHandler:
@@ -26,7 +26,6 @@ class BaseHandler:
         """应用对象加载中间件
         """
         # self 是「应用对象」，初始化时会调用当前方法
-        print('【django.core.handlers.base.BaseHandler.load_middleware】「应用对象」加载中间件')
 
         # 下面这个列表里面是各中间件实例的 process_view 方法
         # 这些方法在 self._get_response 中会被循环调用
@@ -52,7 +51,7 @@ class BaseHandler:
         for middleware_path in reversed(settings.MIDDLEWARE):
             # 此方法用于获取中间件类，Django 内置的中间件通常在 django.contrib 包下面
             middleware = import_string(middleware_path)
-            print(f'\t【django.core.handlers.base.BaseHandler.load_middleware】{middleware=}')
+            logger.info(f'[django.core.handlers.base.BaseHandler.load_middleware]「应用对象」加载中间件 {middleware=}')
             try:
                 # middleware 是中间件，它通常是一个类，这里把 handler 函数作为参数获取其实例
                 # 实例初始化时，会把参数 handler 赋值给实例自身的 get_response 属性
@@ -108,8 +107,8 @@ class BaseHandler:
         request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
         """
 
-        print('【django.core.handlers.base.BaseHandler.get_response】「应用对象」根据「请求对象」创建「响应对象」')
-        print('【django.core.handlers.base.BaseHandler.get_response】依次调用中间件对象的 process_request 方法')
+        logger.info('[django.core.handlers.base.BaseHandler.get_response]「应用对象」根据「请求对象」创建「响应对象」')
+        logger.info('[django.core.handlers.base.BaseHandler.get_response] 依次调用中间件对象的 process_request 方法')
         set_urlconf(settings.ROOT_URLCONF)
 
         # self._middleware_chain 就是第一个中间件类的实例
@@ -130,7 +129,7 @@ class BaseHandler:
         response._closable_objects.append(request)
         if response.status_code >= 400:
             message = f'{response.reason_phrase}: {request.path}'
-            print(f'【django.core.handlers.base.BaseHandler.get_response】响应异常: {message}')
+            logger.error(f'[django.core.handlers.base.BaseHandler.get_response] 响应异常: {message}')
         return response
 
     def _get_response(self, request):
@@ -149,8 +148,8 @@ class BaseHandler:
         # 这块儿 callback 就是视图类的 as_view 方法的调用
         # 它实际是 django.views.generic.base.View.as_view.view 方法，可以把它当成视图函数
         callback, callback_args, callback_kwargs = resolver_match
-        print(
-            f'【django.core.handlers.base.BaseHandler._get_response】根据「请求对象」中的路径信息找到对应的视图类: '
+        logger.info(
+            f'[django.core.handlers.base.BaseHandler._get_response] 根据「请求对象」中的路径信息找到对应的视图类: '
             f'{callback.__name__}'
         )
 

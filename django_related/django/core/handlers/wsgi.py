@@ -1,3 +1,4 @@
+import logging
 import re
 from io import BytesIO
 
@@ -8,6 +9,8 @@ from django.http import HttpRequest, QueryDict, parse_cookie
 from django.urls import set_script_prefix
 from django.utils.encoding import repercent_broken_unicode
 from django.utils.functional import cached_property
+
+logger = logging.getLogger(__name__)
 
 _slashes_re = re.compile(br'/+')
 
@@ -67,7 +70,7 @@ class WSGIRequest(HttpRequest):
     def __init__(self, environ):
         script_name = get_script_name(environ)
         path_info = get_path_info(environ) or '/'
-        print(f'【django.core.handlers.wsgi.WSGIRequest.__init__】初始化「请求对象」, {path_info=}')
+        logger.info(f'[django.core.handlers.wsgi.WSGIRequest.__init__] 初始化「请求对象」, {path_info=}')
         self.environ = environ
         # 请求的相对路径
         self.path_info = path_info
@@ -133,7 +136,7 @@ class WSGIHandler(base.BaseHandler):
         """初始化「应用对象」，此方法在启动服务时就会执行
         """
         super().__init__(*args, **kwargs)
-        print(f'【django.core.handlers.wsgi.WSGIHandler.__init__】「应用对象」初始化: {args=}; {kwargs=}')
+        logger.info(f'[django.core.handlers.wsgi.WSGIHandler.__init__]「应用对象」初始化: {args=}; {kwargs=}')
         # 填充中间件，此方法定义在 django.core.handlers.base.BaseHandler 类中
         self.load_middleware()
 
@@ -150,12 +153,10 @@ class WSGIHandler(base.BaseHandler):
             2. 利用「请求对象」生成「响应对象」
             3. 返回「响应对象」
         """
-        print(
-            '【django.core.handlers.wsgi.WSGIHandler.__call__】调用「应用对象」的 __call__ 方法，'
+        logger.info(
+            '[django.core.handlers.wsgi.WSGIHandler.__call__] 调用「应用对象」的 __call__ 方法，'
             '这是符合 WSGI 标准的 HTTP 函数，从这里开始进入到 Web 应用处理请求的阶段'
         )
-        # for k, v in environ.items():
-        #    print(f'\t\t{k:<33}{v}')
 
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
@@ -169,7 +170,7 @@ class WSGIHandler(base.BaseHandler):
         # 后者是 django.http.response.HttpResponse 类的实例
         response = self.get_response(request)
 
-        print(f'【django.core.handlers.wsgi.WSGIHandler.__call__】获得「响应对象」: {response}')
+        logger.info(f'[django.core.handlers.wsgi.WSGIHandler.__call__] 获得「响应对象」: {response}')
 
         response._handler_class = self.__class__
 

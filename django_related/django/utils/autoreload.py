@@ -25,7 +25,7 @@ file_changed = Signal(providing_args=['file_path', 'kind'])
 
 DJANGO_AUTORELOAD_ENV = 'RUN_MAIN'
 
-logger = logging.getLogger('django.utils.autoreload')
+logger = logging.getLogger(__name__)
 
 # If an error is raised while importing a file, it's not placed in sys.modules.
 # This means that any future modifications aren't caught. Keep a list of these
@@ -219,8 +219,7 @@ def get_child_arguments():
 
 
 def trigger_reload(filename):
-    print(f'【django.utils.autoreload.trigger_reload】重载变更文件:', filename)
-    #logger.info('%s changed, reloading.', filename)
+    logger.info(f'[django.utils.autoreload.trigger_reload] 重载变更文件: {filename}')
     sys.exit(3)
 
 
@@ -577,8 +576,7 @@ def get_reloader():
 def start_django(reloader, main_func, *args, **kwargs):
     ensure_echo_on()
 
-    ct = threading.current_thread()
-    print('【django.utils.autoreload.start_django】当前线程（主线程）:', ct.name, ct.ident, '，创建应用主线程并启动')
+    logger.info('[django.utils.autoreload.start_django] 创建应用主线程 django-main-thread 并启动')
 
     main_func = check_errors(main_func)
     django_main_thread = threading.Thread(target=main_func, args=args, kwargs=kwargs, name='django-main-thread')

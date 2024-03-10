@@ -49,17 +49,17 @@ DEFAULT_LOGGING = {
             'class': 'django.utils.log.AdminEmailHandler'
         }
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'mail_admins'],
-            'level': 'INFO',
-        },
-        'django.server': {
-            'handlers': ['django.server'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    }
+    # 'loggers': {
+    #     'django': {
+    #         'handlers': ['console', 'mail_admins'],
+    #         'level': 'INFO',
+    #     },
+    #     'django.server': {
+    #         'handlers': ['django.server'],
+    #         'level': 'INFO',
+    #         'propagate': False,
+    #     },
+    # }
 }
 
 
