@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 
 from bson import ObjectId, SON
@@ -9,6 +10,8 @@ from six import iteritems
 from mongoengine.base import UPDATE_OPERATORS
 from mongoengine.common import _import_class
 from mongoengine.errors import InvalidQueryError
+
+logger = logging.getLogger(__name__)
 
 __all__ = ("query", "update")
 
@@ -221,7 +224,7 @@ def query(_doc_cls=None, **kwargs):
             else:
                 mongo_query["$and"] = value
 
-    print(f'【mongoengine.queryset.transform.query】{mongo_query}')
+    logger.info(f'[mongoengine.queryset.transform.query] {mongo_query=}')
 
     return mongo_query
 

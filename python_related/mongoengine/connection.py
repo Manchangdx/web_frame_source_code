@@ -1,6 +1,10 @@
+import logging
+
 from pymongo import MongoClient, ReadPreference, uri_parser
 from pymongo.database import _check_name
 import six
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "DEFAULT_CONNECTION_NAME",
@@ -205,7 +209,7 @@ def register_connection(
 
     .. versionchanged:: 0.10.6 - added mongomock support
     """
-    print(f'【mongoengine.connection.register_connection】{db=} {name=} {host=} {port=}')
+    logger.info(f'[mongoengine.connection.register_connection] {db=} {name=} {host=} {port=}')
     conn_settings = _get_connection_settings(
         db=db,
         name=name,

@@ -1,3 +1,4 @@
+import logging
 import random
 import re
 import socket
@@ -13,6 +14,8 @@ from redis.exceptions import ConnectionError, ResponseError, TimeoutError
 from .. import pool
 from ..exceptions import CompressorError, ConnectionInterrupted
 from ..util import CacheKey
+
+logger = logging.getLogger(__name__)
 
 _main_exceptions = (TimeoutError, ResponseError, ConnectionError, socket.timeout)
 
@@ -35,7 +38,7 @@ class DefaultClient:
             :params : 配置项，在配置文件里定义的
             :backend: 缓存对象，其 client 属性值就是 self
         """
-        print(f'【django_redis.client.default.DefaultClient.__init__】创建 Redis 客户端对象 {server} {backend}')
+        logger.info(f'[django_redis.client.default.DefaultClient.__init__] 创建 Redis 客户端对象 {server} {backend}')
         self._backend = backend
         self._server = server
         self._params = params

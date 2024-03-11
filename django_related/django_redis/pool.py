@@ -1,6 +1,10 @@
+import logging
+
 from django.conf import settings
 from django.utils.module_loading import import_string
 from redis.connection import DefaultParser
+
+logger = logging.getLogger(__name__)
 
 
 class ConnectionFactory:
@@ -10,7 +14,7 @@ class ConnectionFactory:
     _pools = {}
 
     def __init__(self, options):
-        print(f'【django_redis.pool.ConnectionFactory.__init__】初始化 Redis 连接工厂 {options=}')
+        logger.info(f'[django_redis.pool.ConnectionFactory.__init__] 初始化 Redis 连接工厂 {options=}')
         pool_cls_path = options.get("CONNECTION_POOL_CLASS", "redis.connection.ConnectionPool")
         self.pool_cls = import_string(pool_cls_path)
         self.pool_cls_kwargs = options.get("CONNECTION_POOL_KWARGS", {})
@@ -54,7 +58,7 @@ class ConnectionFactory:
         """创建 Redis 客户端并返回，参数 url 是 Redis 服务器连接串
         """
         params = self.make_connection_params(url)
-        print(f'【django_redis.pool.ConnectionFactory.connect】Redis 连接工厂创建连接 {params=}')
+        logger.info(f'[django_redis.pool.ConnectionFactory.connect] Redis 连接工厂创建连接 {params=}')
         connection = self.get_connection(params)
         return connection
 
@@ -106,6 +110,6 @@ def get_connection_factory(path=None, options=None):
         path = getattr(settings, "DJANGO_REDIS_CONNECTION_FACTORY", "django_redis.pool.ConnectionFactory")
 
     cls = import_string(path)
-    print(f'【django_redis.pool.get_connection_factory】创建 Redis 连接工厂 {cls=} {options=}')
+    logger.info(f'[django_redis.pool.get_connection_factory] 创建 Redis 连接工厂 {cls=}')
     # django_redis.pool.ConnectionFactory（当前模块中）
     return cls(options or {})
