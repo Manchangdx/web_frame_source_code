@@ -417,6 +417,6 @@ class ManagementUtility:
 def execute_from_command_line(argv=None):
     """创建「应用程序管理器」并调用其 execute 方法
     """
-    logger.info(f'[djaong.core.management.__init__.execute_from_command_line] {argv=}')
+    logger.info(f'{argv=}')
     utility = ManagementUtility(argv)
     utility.execute()

@@ -1,6 +1,8 @@
 """
 Provides an APIView class that is the base of all views in REST framework.
 """
+import logging
+
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.db import connection, models, transaction
@@ -17,6 +19,8 @@ from rest_framework.response import Response
 from rest_framework.schemas import DefaultSchema
 from rest_framework.settings import api_settings
 from rest_framework.utils import formatting
+
+logger = logging.getLogger(__name__)
 
 
 def get_view_name(view):
@@ -330,7 +334,7 @@ class APIView(View):
         will instead be performed lazily, the first time either
         `request.user` or `request.auth` is accessed.
         """
-        print('\t【rest_framework.views.APIView.perform_authentication】认证信息检查')
+        print('\t[rest_framework.views.APIView.perform_authentication] 认证信息检查')
         request.user
 
     def check_permissions(self, request):
@@ -338,7 +342,7 @@ class APIView(View):
         Check if the request should be permitted.
         Raises an appropriate exception if the request is not permitted.
         """
-        print('\t【rest_framework.views.APIView.check_permissions】权限检查')
+        print('\t[rest_framework.views.APIView.check_permissions] 权限检查')
         for permission in self.get_permissions():
             if not permission.has_permission(request, self):
                 self.permission_denied(
@@ -357,7 +361,6 @@ class APIView(View):
     def check_throttles(self, request):
         """使用「限流对象」对请求进行检查
         """
-        print('\t【rest_framework.views.APIView.check_throttles】限流检查')
         throttle_durations = []
         # 循环「限流对象」列表
         for throttle in self.get_throttles():
@@ -366,12 +369,9 @@ class APIView(View):
             # 限流频率定义在配置文件中的 DEFAULT_THROTTLE_RATES 字典中
             if not throttle.allow_request(request, self):
                 throttle_durations.append(throttle.wait())
-        print(f'\t【rest_framework.views.APIView.check_throttles】限流检查 {throttle_durations=}')
+        print('\t[rest_framework.views.APIView.check_throttles] 限流检查')
 
         if throttle_durations:
-            print(f'【rest_framework.views.APIView.check_throttles】{throttle_durations}')
-            # Filter out `None` values which may happen in case of config / rate
-            # changes, see #1438
             durations = [
                 duration for duration in throttle_durations
                 if duration is not None
@@ -423,12 +423,12 @@ class APIView(View):
         #for i in self.throttle_classes:
         #    print(f'\t\t{i}')
 
-        print('【rest_framework.views.APIView.initial】开始检测用户权限 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        logger.info('开始检测用户权限 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
         # Ensure that the incoming request is permitted
         self.perform_authentication(request)    # 检查用户是否是匿名用户
         self.check_permissions(request)         # 检查用户权限
         self.check_throttles(request)           # 检查请求是否受到频率限制
-        print('【rest_framework.views.APIView.initial】检测用户权限完成 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<') 
+        logger.info('检测用户权限完成 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<') 
 
     def finalize_response(self, request, response, *args, **kwargs):
         """返回最终的响应对象
@@ -512,11 +512,11 @@ class APIView(View):
 
         # 此方法定义在当前类中，用于创建一个 rest_framework 的「请求对象」并返回
         request = self.initialize_request(request, *args, **kwargs)
-        print('【rest_framework.views.APIView.dispatch】在视图类中继续接收套接字数据，解析请求体，重新包装一个「请求对象」:', request)
+        logger.info(f'在视图类中继续接收套接字数据，解析请求体，重新包装一个「请求对象」: {request}')
         if self.kwargs:
-            print('【rest_framework.views.APIView.dispatch】路径参数:', self.kwargs)
+            print('\t路径参数:', self.kwargs)
         if query := dict(request.query_params):
-            print('【rest_framework.views.APIView.dispatch】查询参数:', query)
+            print('\t查询参数:', query)
         self.request = request
         self.headers = self.default_response_headers  # deprecate?
 
@@ -533,14 +533,14 @@ class APIView(View):
             else:
                 handler = self.http_method_not_allowed
             if handler != self.http_method_not_allowed:
-                print('【rest_framework.views.APIView.dispatch】找到并调用视图函数:', handler)
+                logger.info(f'找到并调用视图函数: {handler}')
 
             # 调用视图函数
             response = handler(request, *args, **kwargs)
 
         # 异常处理
         except Exception as exc:
-            print('【rest_framework.views.APIView.dispatch】出现异常了:', exc)
+            logger.error(f'出现异常了: {exc}')
             response = self.handle_exception(exc)
 
         self.response = self.finalize_response(request, response, *args, **kwargs)

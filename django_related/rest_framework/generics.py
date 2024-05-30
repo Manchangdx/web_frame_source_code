@@ -1,6 +1,8 @@
 """
 Generic views that provide commonly needed behaviour.
 """
+import logging
+
 from django.core.exceptions import ValidationError
 from django.db.models.query import QuerySet
 from django.http import Http404
@@ -8,6 +10,8 @@ from django.shortcuts import get_object_or_404 as _get_object_or_404
 
 from rest_framework import mixins, views
 from rest_framework.settings import api_settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_object_or_404(queryset, *filter_args, **filter_kwargs):
@@ -113,7 +117,7 @@ class GenericAPIView(views.APIView):
         """创建「序列化对象」并返回
         """
         serializer_class = self.get_serializer_class()
-        print('【rest_framework.generics.GenericAPIView.get_serializer】序列化类:', serializer_class)
+        logger.info(f'序列化类: {serializer_class}')
         # 上下文字段的值是字典对象，里面有两个重要的字段：request 请求对象；view 视图类实例
         kwargs['context'] = self.get_serializer_context()
         return serializer_class(*args, **kwargs)
@@ -155,7 +159,7 @@ class GenericAPIView(views.APIView):
         method if you want to apply the configured filtering backend to the
         default queryset.
         """
-        #print('【rest_framework.generics.GenericAPIView.filter_queryset】self.filter_backends:', self.filter_backends)
+        # logger.info(f'self.filter_backends: {self.filter_backends}')
         for backend in list(self.filter_backends):
             queryset = backend().filter_queryset(self.request, queryset, self)
         return queryset
@@ -180,7 +184,7 @@ class GenericAPIView(views.APIView):
         # 如果用分页，就有这个属性值
         if self.paginator is None:
             return None
-        print('【rest_framework.generics.GenericAPIView.paginate_queryset】调用分页类的实例的 paginate_queryset 方法处理分页')
+        logger.info('调用分页类的实例的 paginate_queryset 方法处理分页')
         # 此 paginate_queryset 方法大概率定义在 rest_framework.pagination.PageNumberPagination 类中
         # 返回值是列表，列表里面是映射类实例
         return self.paginator.paginate_queryset(queryset, self.request, view=self)

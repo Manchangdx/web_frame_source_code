@@ -60,7 +60,7 @@ class RedisCache(BaseCache):
 
         self._ignore_exceptions = options.get("IGNORE_EXCEPTIONS", DJANGO_REDIS_IGNORE_EXCEPTIONS)
         # 下面这行是为了分析源码写的，本不存在
-        #self.client
+        # self.client
 
     @property
     def client(self):

@@ -3,6 +3,7 @@ import datetime
 import decimal
 import functools
 import inspect
+import logging
 import re
 import uuid
 import warnings
@@ -36,6 +37,8 @@ from rest_framework.exceptions import ErrorDetail, ValidationError
 from rest_framework.settings import api_settings
 from rest_framework.utils import html, humanize_datetime, json, representation
 from rest_framework.utils.formatting import lazy_format
+
+logger = logging.getLogger(__name__)
 
 
 class empty:
@@ -554,7 +557,7 @@ class Field:
         """
         此方法由「序列化对象」的 to_internal_value 方法调用
         """
-        #print(f'【rest_framework.fields.Field.run_validation】验证请求体字段: {self.field_name}, {data}')
+        # logger.info(f'验证请求体字段: {self.field_name}, {data}')
 
         # 此方法定义在当前类中，空值验证：如果 data 不是 empty 且不是 None ，就会通过验证
         (is_empty_value, data) = self.validate_empty_values(data)

@@ -51,7 +51,7 @@ class BaseHandler:
         for middleware_path in reversed(settings.MIDDLEWARE):
             # 此方法用于获取中间件类，Django 内置的中间件通常在 django.contrib 包下面
             middleware = import_string(middleware_path)
-            logger.info(f'[django.core.handlers.base.BaseHandler.load_middleware]「应用对象」加载中间件 {middleware=}')
+            logger.info(f'「应用对象」加载中间件 {middleware=}')
             try:
                 # middleware 是中间件，它通常是一个类，这里把 handler 函数作为参数获取其实例
                 # 实例初始化时，会把参数 handler 赋值给实例自身的 get_response 属性
@@ -107,8 +107,8 @@ class BaseHandler:
         request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
         """
 
-        logger.info('[django.core.handlers.base.BaseHandler.get_response]「应用对象」根据「请求对象」创建「响应对象」')
-        logger.info('[django.core.handlers.base.BaseHandler.get_response] 依次调用中间件对象的 process_request 方法')
+        logger.info('「应用对象」根据「请求对象」创建「响应对象」')
+        logger.info('依次调用中间件对象的 process_request 方法')
         set_urlconf(settings.ROOT_URLCONF)
 
         # self._middleware_chain 就是第一个中间件类的实例
@@ -148,10 +148,7 @@ class BaseHandler:
         # 这块儿 callback 就是视图类的 as_view 方法的调用
         # 它实际是 django.views.generic.base.View.as_view.view 方法，可以把它当成视图函数
         callback, callback_args, callback_kwargs = resolver_match
-        logger.info(
-            f'[django.core.handlers.base.BaseHandler._get_response] 根据「请求对象」中的路径信息找到对应的视图类: '
-            f'{callback.__name__}'
-        )
+        logger.info(f'根据「请求对象」中的路径信息找到对应的视图类: {callback.__name__}')
 
         request.resolver_match = resolver_match
 
@@ -165,8 +162,9 @@ class BaseHandler:
             # 这里保证视图函数中数据库相关的操作具有原子性，返回值仍是视图函数
             wrapped_callback = self.make_view_atomic(callback)
             try:
-                # 下面的 wrapped_back 是 django.views.generic.base.View.as_view 方法中的内嵌函数 view
+                # 等号右边的 wrapped_callback 是 django.views.generic.base.View.as_view 方法中的内嵌函数 view
                 # 调用该函数找到视图函数，调用视图函数创建并返回「响应对象」，即 django.http.response.HttpResponse 类的实例
+                # 等号左边的 response 是「响应对象」
                 response = wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)

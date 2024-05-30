@@ -38,7 +38,7 @@ class DefaultClient:
             :params : 配置项，在配置文件里定义的
             :backend: 缓存对象，其 client 属性值就是 self
         """
-        logger.info(f'[django_redis.client.default.DefaultClient.__init__] 创建 Redis 客户端对象 {server} {backend}')
+        logger.info(f'创建 Redis 客户端对象 {server} {backend}')
         self._backend = backend
         self._server = server
         self._params = params

@@ -207,11 +207,11 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         self.raw_requestline = self.rfile.readline(65537)
 
         if self.raw_requestline:
-            logger.info('[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request]「请求处理对象」开始处理请求')
+            logger.info('「请求处理对象」开始处理请求')
 
         # 如果一行的长度超过这个数，就判定它超出了服务器允许的长度范围，返回 414 状态码
         if len(self.raw_requestline) > 65536:
-            logger.error('[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request] 414')
+            logger.error('414')
             self.handle_one_request()
             self.requestline = ''
             self.request_version = ''
@@ -223,7 +223,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         if not self.parse_request():
             return
 
-        logger.info('[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request]「请求处理对象」创建「响应处理对象」')
+        logger.info('「请求处理对象」创建「响应处理对象」')
         # print('【django.core.servers.basehttp.WSGIRequestHandler.handle_one_request】请求头信息:')
         # for k, v in self.headers.items():
         #     print(f'\t\t{k:<22}{v}')
@@ -261,9 +261,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
         # 之前的操作是处理请求，下面这步操作就是处理响应以及返回数据给客户端
         handler.run(self.server.get_app())
         if self.raw_requestline:
-            logger.info(
-                '[django.core.servers.basehttp.WSGIRequestHandler.handle_one_request] 请求处理完毕，等待下一次请求...\n\n'
-            )
+            logger.info('请求处理完毕，等待下一次请求...\n\n')
 
 
 # 启动项目时，这个方法是核心
@@ -278,7 +276,7 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     # MCDXSIGN 单线程启动服务
     # threading = False
 
-    logger.info('[django.core.servers.basehttp.run] WSGI 服务器初始化...\n\n')
+    logger.info('WSGI 服务器初始化...\n\n')
 
     server_address = (addr, port)
     # 通常 threading 的值是 True ，这里调用 type 函数创建一个类

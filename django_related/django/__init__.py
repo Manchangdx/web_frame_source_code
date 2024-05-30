@@ -21,7 +21,7 @@ def setup(set_prefix=True):
     from django.utils.log import configure_logging
 
     configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
-    logger.info('[django.__init__.setup] 启动/重启应用')
+    logger.info('启动/重启应用')
 
     if set_prefix:
         set_script_prefix(

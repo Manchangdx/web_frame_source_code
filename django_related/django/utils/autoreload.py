@@ -219,7 +219,7 @@ def get_child_arguments():
 
 
 def trigger_reload(filename):
-    logger.info(f'[django.utils.autoreload.trigger_reload] 重载变更文件: {filename}')
+    logger.info(f'重载变更文件: {filename}')
     sys.exit(3)
 
 
@@ -576,7 +576,7 @@ def get_reloader():
 def start_django(reloader, main_func, *args, **kwargs):
     ensure_echo_on()
 
-    logger.info('[django.utils.autoreload.start_django] 创建应用主线程 django-main-thread 并启动')
+    logger.info('创建应用主线程 django-main-thread 并启动')
 
     main_func = check_errors(main_func)
     django_main_thread = threading.Thread(target=main_func, args=args, kwargs=kwargs, name='django-main-thread')
@@ -591,7 +591,7 @@ def start_django(reloader, main_func, *args, **kwargs):
             # becomes unavailable. In that case, use the StatReloader.
             reloader = StatReloader()
             logger.error('Error connecting to Watchman: %s', ex)
-            logger.info(f'【django.utils.autoreload.start_django】等待变更文件的重载')
+            logger.info('等待变更文件的重载')
 
 
 def run_with_reloader(main_func, *args, **kwargs):
