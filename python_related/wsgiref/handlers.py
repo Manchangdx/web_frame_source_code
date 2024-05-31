@@ -130,7 +130,7 @@ class BaseHandler:
 
     def run(self, application):
         # self 是「响应处理对象」
-        logger.info('[wsgiref.handlers.BaseHandler.run]「响应处理对象」调用「应用对象」')
+        logger.info('「响应处理对象」调用「应用对象」')
 
         try:
             # 处理请求信息将其整理成字典对象赋值给 self.environ 属性
@@ -179,7 +179,7 @@ class BaseHandler:
         """根据「响应对象」提供的信息构成响应头和响应体并将完整数据返回给客户端
         """
         # self 是「响应处理对象」
-        logger.info('[wsgiref.handlers.BaseHandler.finish_response] 继续处理「响应对象」，向客户端返回数据')
+        logger.info('继续处理「响应对象」，向客户端返回数据')
         try:
             if not self.result_is_file() or not self.sendfile():
                 # self.result 是「响应对象」，其 _container 属性值是列表，里面是二进制响应体
@@ -473,7 +473,7 @@ class SimpleHandler(BaseHandler):
         self.wsgi_multithread = multithread
         self.wsgi_multiprocess = multiprocess
 
-        logger.info('[wsgiref.handlers.SimpleHandler.__init__]「响应处理对象」初始化')
+        logger.info('「响应处理对象」初始化')
         #print('【wsgiref.handlers.SimpleHandler.__init__】environ:')
         #for k, v in environ.items():
         #    print(f'\t{k:<20s} {v}')

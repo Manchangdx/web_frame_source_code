@@ -123,6 +123,7 @@ BaseServer:
 __version__ = "0.4"
 
 
+import logging
 import socket
 import selectors
 import os
@@ -130,6 +131,8 @@ import sys
 import threading
 from io import BufferedIOBase
 from time import monotonic as time
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["BaseServer", "TCPServer", "UDPServer",
            "ThreadingUDPServer", "ThreadingTCPServer",
@@ -204,7 +207,7 @@ class BaseServer:
             server_address: 服务器要监听的地址和端口元组
             RequestHandlerClass: 请求处理类
         """
-        print('【socketserver.BaseServer.__init__】初始化「服务器对象」')
+        logger.info(f'初始化「服务器对象」{server_address=}, {RequestHandlerClass=}')
         self.server_address = server_address
         self.RequestHandlerClass = RequestHandlerClass
         self.__is_shut_down = threading.Event()
@@ -222,9 +225,7 @@ class BaseServer:
         """每次处理 1 个请求
         """
         # self 是「服务器对象」
-        ct = threading.current_thread()
-        print('【socketserver.BaseServer.serve_forever】当前线程（应用主线程）:', ct.name, ct.ident)
-        print('【socketserver.BaseServer.serve_forever】等待客户端发送请求 ...\n\n')
+        logger.info('等待客户端发送请求 ...\n\n')
         self.__is_shut_down.clear()
         try:
             # 原注释：
@@ -308,9 +309,7 @@ class BaseServer:
         except OSError:
             return
 
-        ct = threading.current_thread()
-        print('【socketserver.BaseServer._handle_request_noblock】请求进入:', client_address)
-        print('【socketserver.BaseServer._handle_request_noblock】当前线程（应用主线程）:', ct.name, ct.ident)
+        logger.info(f'请求进入: {client_address}')
 
         # 下面这个方法默认情况下什么也不做，只返回 True
         if self.verify_request(request, client_address):
@@ -346,7 +345,7 @@ class BaseServer:
 
         当前方法可能被 ForkingMixIn or ThreadingMixIn 类重写
         """
-        print('【socketserver.BaseServer.process_request】当前线程（应用主线程），单线程的，请求进来后不新建线程')
+        logger.info('当前线程（应用主线程），单线程的，请求进来后不新建线程')
         self.finish_request(request, client_address)
         self.shutdown_request(request)
 
@@ -470,7 +469,7 @@ class TCPServer(BaseServer):
     def server_bind(self):
         """给套接字对象绑定监听地址，此方法可以被重写
         """
-        print(f'【socketserver.TCPServer.server_bind】给服务器套接字绑定监听地址: {self.server_address}')
+        logger.info(f'给服务器套接字绑定监听地址: {self.server_address}')
         if self.allow_reuse_address:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(self.server_address)
@@ -479,7 +478,7 @@ class TCPServer(BaseServer):
     def server_activate(self):
         """套接字对象启动监听，此方法可以被重写
         """
-        print('【socketserver.TCPServer.server_bind】服务器套接字开启监听')
+        logger.info('服务器套接字开启监听')
         # 参数是套接字对象允许的最大连接数
         self.socket.listen(self.request_queue_size)
 
@@ -652,8 +651,6 @@ class ThreadingMixIn:
     def process_request_thread(self, request, client_address):
         """此方法在子线程内执行，用于处理请求，请求中的任何异常都会被此方法处理
         """
-        ct = threading.current_thread()
-        print('【socketserver.ThreadingMixIn.process_request_thread】当前线程（请求子线程）:', ct.name, ct.ident)
         try:
             # 此方法定义在当前模块中的 BaseServer 类中
             self.finish_request(request, client_address)
@@ -666,7 +663,7 @@ class ThreadingMixIn:
         """服务器收到连接请求后，调用此函数处理请求
         """
         # self 是服务器对象，self.socket 是套接字对象
-        print('【socketserver.ThreadingMixIn.process_request】当前线程（应用主线程），创建子线程并启动，继续处理请求')
+        logger.info('当前线程（应用主线程），创建子线程并启动，继续处理请求')
         # 此处创建一个子线程，子线程内部调用当前类中定义的 process_request_thread 方法
         t = threading.Thread(target = self.process_request_thread,
                              args = (request, client_address))
@@ -713,9 +710,7 @@ class BaseRequestHandler:
 
     def __init__(self, request, client_address, server):
         # self 我们称之为「请求处理对象」
-        ct = threading.current_thread()
-        x = '应用主线程' if ct.name == 'django-main-thread' else '请求子线程'
-        print(f'【socketserver.BaseRequestHandler.__init__】当前线程（{x}）: {ct.name} {ct.ident} ，「请求处理对象」初始化')
+        logger.info('初始化「请求处理对象」')
         self.request = request                  # 临时套接字
         self.client_address = client_address    # 客户端地址元组
         self.server = server                    # 服务器对象

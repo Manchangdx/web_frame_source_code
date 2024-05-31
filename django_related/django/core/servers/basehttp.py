@@ -276,7 +276,7 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGISe
     # MCDXSIGN 单线程启动服务
     # threading = False
 
-    logger.info('WSGI 服务器初始化...\n\n')
+    logger.info('WSGI 服务器初始化...')
 
     server_address = (addr, port)
     # 通常 threading 的值是 True ，这里调用 type 函数创建一个类
