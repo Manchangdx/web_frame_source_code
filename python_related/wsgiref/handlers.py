@@ -137,7 +137,7 @@ class BaseHandler:
             self.setup_environ()
             # application 是 django.core.handlers.wsgi.WSGIHandler 类的实例，叫做「应用对象」
             # 调用「应用对象」处理请求，也就是调用其 __call__ 方法，这里把请求信息 self.environ 传入
-            # 剩下的事情就是「应用对象」来做了：处理请求，返回响应对象赋值给 self.result 属性
+            # 剩下的事情就是「应用对象」来做了：处理请求，返回「响应对象」并赋值给 self.result 属性
             self.result = application(self.environ, self.start_response)
             # 构建并返回给客户端响应信息
             self.finish_response()
