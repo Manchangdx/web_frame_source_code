@@ -131,8 +131,6 @@ class LazySettings(LazyObject):
 
 class Settings:
     def __init__(self, settings_module):
-        # update this dict from global settings (but only for ALL_CAPS settings)
-        # print(f'【django.conf.__init__.Settings.__init__】{settings_module=}')
         # 这块儿就是把 Django 框架自带的配置文件里的配置项都赋值给当前实例的属性
         for setting in dir(global_settings):
             if setting.isupper():

@@ -107,12 +107,11 @@ class BaseHandler:
         request 是「请求对象」，它是 django.core.handlers.wsgi.WSGIRequest 类的实例
         """
 
-        logger.info('「应用对象」根据「请求对象」创建「响应对象」')
         logger.info('依次调用中间件对象的 process_request 方法')
         set_urlconf(settings.ROOT_URLCONF)
 
         # self._middleware_chain 就是第一个中间件类的实例
-        # 假设 settings.MIDDLEWARE 列表的顺序是 a b c
+        # 假设 settings.MIDDLEWARE 列表中的中间件顺序是 a b c
         # 此处按照同样的顺序调用中间件对象，也就是调用中间件对象的 __call__ 方法
         # 大部分中间件对象的 __call__ 方法都是 django.utils.deprecation.MiddlewareMixin.__call__
         # 1. 首先调用中间件对象的 process_request 做点事，参数是「请求对象」
@@ -133,6 +132,12 @@ class BaseHandler:
         return response
 
     def _get_response(self, request):
+        """根据「请求对象」创建「响应对象」并返回
+
+        Args:
+            self   :「应用对象」，是 django.core.handlers.wsgi.WSGIHandler 类的实例
+            request:「请求对象」，是 django.core.handlers.wsgi.WSGIRequest 类的实例
+        """
         response = None
 
         if hasattr(request, 'urlconf'):
@@ -165,6 +170,10 @@ class BaseHandler:
                 # 等号右边的 wrapped_callback 是 django.views.generic.base.View.as_view 方法中的内嵌函数 view
                 # 调用该函数找到视图函数，调用视图函数创建并返回「响应对象」，即 django.http.response.HttpResponse 类的实例
                 # 等号左边的 response 是「响应对象」
+                # 三个参数：
+                # 1. request 是「请求对象」
+                # 2. *callback_args 是视图函数的位置参数
+                # 3. **callback_kwargs 是视图函数的关键字参数
                 response = wrapped_callback(request, *callback_args, **callback_kwargs)
             except Exception as e:
                 response = self.process_exception_by_middleware(e, request)

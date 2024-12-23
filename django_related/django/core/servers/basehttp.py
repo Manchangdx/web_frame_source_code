@@ -169,7 +169,8 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
                 del self.headers[k]
 
         # 父类的方法定义在 wsgiref.simple_server.WSGIRequestHandler 类中
-        return super().get_environ()
+        env = super().get_environ()
+        return env
 
     # 此方法在父类 socketserver.BaseRequestHandler 的 __init__ 方法中被调用
     # 服务器套接字收到连接请求，创建一个当前类的实例，叫做「请求处理对象」
@@ -265,7 +266,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler):
 
 
 # 启动项目时，这个方法是核心
-# 参数 handler 是 django.core.handlers.wsgi.WSGIHandler 类的实例，相当于 Flask 中的 app 应用对象
+# 参数 wsgi_handler 是 django.core.handlers.wsgi.WSGIHandler 类的实例，相当于 Flask 中的 app 应用对象
 # 参数 server_cls 是当前模块中定义的 WSGIServer 类，其父类递归如下
 # WSGIServer →
 # wsgiref.simple_server.WSGIServer →

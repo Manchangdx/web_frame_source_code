@@ -70,7 +70,6 @@ class WSGIRequest(HttpRequest):
     def __init__(self, environ):
         script_name = get_script_name(environ)
         path_info = get_path_info(environ) or '/'
-        logger.info(f'初始化「请求对象」, {path_info=}')
         self.environ = environ
         # 请求的相对路径
         self.path_info = path_info
@@ -80,6 +79,7 @@ class WSGIRequest(HttpRequest):
         self.META['PATH_INFO'] = path_info
         self.META['SCRIPT_NAME'] = script_name
         self.method = environ['REQUEST_METHOD'].upper()
+        logger.info(f'初始化「请求对象」, {self.path=}')
         self._set_content_type_params(environ)
         try:
             content_length = int(environ.get('CONTENT_LENGTH'))
@@ -162,9 +162,11 @@ class WSGIHandler(base.BaseHandler):
         # 此处对其进行实例化并赋值给 request 变量，我们称之为「请求对象」
         request = self.request_class(environ)
 
+        logger.info('「应用对象」根据「请求对象」创建「响应对象」')
+
         # 此 get_response 方法定义在 django.core.handlers.base.BaseHandler 类中
         # 把「请求对象」作为参数调用此方法，返回「响应对象」
-        # 后者是 django.http.response.HttpResponse 类的实例
+        # 等号左边的 response 就是「响应对象」，是 django.http.response.HttpResponse 类的实例
         response = self.get_response(request)
 
         logger.info(f'获得「响应对象」: {response}')
